@@ -1,0 +1,30 @@
+name: USSY TrendFoll — Daily Watchlist
+
+on:
+  schedule:
+    # 21:30 UTC = 21:30 - jam market close NYSE (16:00 ET / 20:00 UTC saat EST,
+    # 21:00 UTC saat EDT) + buffer 1.5 jam untuk data yfinance settle.
+    - cron: "30 21 * * 1-5"
+  workflow_dispatch: {}  # bisa trigger manual dari tab Actions
+
+jobs:
+  run-pipeline:
+    runs-on: ubuntu-latest
+    timeout-minutes: 60
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Install dependencies
+        run: pip install -r requirements.txt
+
+      - name: Run daily pipeline
+        env:
+          SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
+          SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
+          TELEGRAM_BOT_TOKEN: ${{ secrets.TELEGRAM_BOT_TOKEN }}
+          TELEGRAM_CHAT_ID: ${{ secrets.TELEGRAM_CHAT_ID }}
+        run: python main.py
