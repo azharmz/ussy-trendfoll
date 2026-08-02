@@ -20,6 +20,7 @@ from decision_layer import compute_decision_layer, explain_candidate
 from sector_cache import get_sector_map
 import database
 import notify
+import positions
 
 
 def main():
@@ -46,9 +47,15 @@ def main():
 
     explanations = {row["symbol"]: explain_candidate(row) for _, row in candidates.iterrows()}
 
-    print("=== [6/6] Simpan ke Supabase + kirim Telegram ===")
+    print("=== [6/7] Simpan ke Supabase + kirim Telegram (watchlist) ===")
     database.upsert_watchlist(client, candidates, explanations)
     notify.send_watchlist_summary(candidates, as_of_date)
+
+    print("=== [7/7] Position tracking: cek exit posisi aktif, registrasi entry baru ===")
+    all_trading_dates = decided["date"].unique()
+    exits = positions.check_exits(client, latest, as_of_date, all_trading_dates)
+    notify.send_exit_alerts(exits)
+    positions.register_new_positions(client, candidates, as_of_date)
 
     print("Selesai.")
 

@@ -1,9 +1,5 @@
 <!DOCTYPE html>
 <html lang="id">
-<!--
-  changelog:
-  v1.0 - 2026-08-01 - Rilis awal: watchlist harian, stats, modal explainability per ticker
--->
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
@@ -168,6 +164,15 @@
   .badge.pass { background: rgba(62, 207, 142, 0.12); color: var(--pass); }
   .badge.near { background: rgba(232, 179, 57, 0.12); color: var(--near); }
   .badge.fail { background: rgba(232, 84, 107, 0.12); color: var(--fail); }
+  .badge.active { background: rgba(79, 140, 255, 0.12); color: var(--accent); }
+  .badge.stop_loss { background: rgba(232, 84, 107, 0.12); color: var(--fail); }
+  .badge.trend_exit { background: rgba(232, 179, 57, 0.12); color: var(--near); }
+  .badge.max_holding { background: rgba(79, 140, 255, 0.12); color: var(--accent); }
+
+  .pnl-pos { color: var(--pass); font-family: var(--font-mono); }
+  .pnl-neg { color: var(--fail); font-family: var(--font-mono); }
+
+  .section-gap { margin-top: 44px; }
 
   .badge-dot {
     width: 5px; height: 5px;
@@ -295,7 +300,41 @@
     Tidak ada kandidat investability ≥ NEAR_PASS di tanggal terbaru.
   </div>
 
-  <footer>USSY TrendFoll — riset internal, bukan rekomendasi finansial</footer>
+  <div class="section-title section-gap">Posisi Aktif</div>
+  <table>
+    <thead>
+      <tr>
+        <th>Symbol</th>
+        <th>Tanggal Entry</th>
+        <th>Harga Entry</th>
+        <th>Stop</th>
+        <th>Hari Berjalan</th>
+      </tr>
+    </thead>
+    <tbody id="positionsTbody"></tbody>
+  </table>
+  <div class="empty-state" id="positionsEmpty" style="display:none; padding:24px 20px;">
+    Tidak ada posisi aktif saat ini.
+  </div>
+
+  <div class="section-title section-gap">Riwayat Exit</div>
+  <table>
+    <thead>
+      <tr>
+        <th>Symbol</th>
+        <th>Entry → Exit</th>
+        <th>PnL</th>
+        <th>Alasan</th>
+        <th>Hari Ditahan</th>
+      </tr>
+    </thead>
+    <tbody id="historyTbody"></tbody>
+  </table>
+  <div class="empty-state" id="historyEmpty" style="display:none; padding:24px 20px;">
+    Belum ada posisi yang exit.
+  </div>
+
+  <footer style="margin-top:40px;">USSY TrendFoll — riset internal, bukan rekomendasi finansial</footer>
 </div>
 
 <div class="modal-backdrop" id="modalBackdrop">
@@ -385,6 +424,49 @@
   });
   document.addEventListener("keydown", (e) => { if (e.key === "Escape") closeModal(); });
 
+  function renderPositions(rows) {
+    const tbody = document.getElementById("positionsTbody");
+    const empty = document.getElementById("positionsEmpty");
+    tbody.innerHTML = "";
+    if (rows.length === 0) { empty.style.display = "block"; return; }
+    empty.style.display = "none";
+
+    for (const p of rows) {
+      const daysElapsed = Math.floor((Date.now() - new Date(p.entry_date)) / 86400000);
+      const tr = document.createElement("tr");
+      tr.innerHTML = `
+        <td class="symbol">${p.symbol}</td>
+        <td class="price">${p.entry_date}</td>
+        <td class="price">$${Number(p.entry_price).toFixed(2)}</td>
+        <td class="price">$${Number(p.stop_price).toFixed(2)}</td>
+        <td class="price">${daysElapsed} hari</td>
+      `;
+      tbody.appendChild(tr);
+    }
+  }
+
+  function renderHistory(rows) {
+    const tbody = document.getElementById("historyTbody");
+    const empty = document.getElementById("historyEmpty");
+    tbody.innerHTML = "";
+    if (rows.length === 0) { empty.style.display = "block"; return; }
+    empty.style.display = "none";
+
+    for (const p of rows) {
+      const pnl = (p.exit_price - p.entry_price) / p.entry_price * 100;
+      const pnlClass = pnl >= 0 ? "pnl-pos" : "pnl-neg";
+      const tr = document.createElement("tr");
+      tr.innerHTML = `
+        <td class="symbol">${p.symbol}</td>
+        <td class="price">$${Number(p.entry_price).toFixed(2)} → $${Number(p.exit_price).toFixed(2)}</td>
+        <td class="${pnlClass}">${pnl >= 0 ? "+" : ""}${pnl.toFixed(1)}%</td>
+        <td><span class="badge ${p.status}">${p.status}</span></td>
+        <td class="price">${p.days_held ?? "—"} hari</td>
+      `;
+      tbody.appendChild(tr);
+    }
+  }
+
   async function load() {
     try {
       const latestDateRows = await sb("watchlist?select=date&order=date.desc&limit=1");
@@ -392,14 +474,19 @@
         document.getElementById("asOfDate").textContent = "belum ada data";
         renderTable([]);
         renderStats([]);
-        return;
+      } else {
+        const asOfDate = latestDateRows[0].date;
+        document.getElementById("asOfDate").textContent = asOfDate;
+        const rows = await sb(`watchlist?select=*&date=eq.${asOfDate}`);
+        renderStats(rows);
+        renderTable(rows);
       }
-      const asOfDate = latestDateRows[0].date;
-      document.getElementById("asOfDate").textContent = asOfDate;
 
-      const rows = await sb(`watchlist?select=*&date=eq.${asOfDate}`);
-      renderStats(rows);
-      renderTable(rows);
+      const activePositions = await sb("positions?select=*&status=eq.active&order=entry_date.desc");
+      renderPositions(activePositions);
+
+      const history = await sb("positions?select=*&status=neq.active&order=exit_date.desc&limit=20");
+      renderHistory(history);
     } catch (err) {
       document.getElementById("asOfDate").textContent = "gagal memuat";
       console.error(err);
@@ -411,3 +498,8 @@
 
 </body>
 </html>
+<!--
+  changelog:
+  v1.1 - 2026-08-01 - Tambah section Posisi Aktif & Riwayat Exit (dari tabel positions)
+  v1.0 - 2026-08-01 - Rilis awal: watchlist harian, stats, modal explainability per ticker
+-->

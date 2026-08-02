@@ -26,6 +26,33 @@ def send_watchlist_summary(decision_df: pd.DataFrame, as_of_date):
         _send(token, chat_id, chunk)
 
 
+def send_exit_alerts(exits: list):
+    """exits: list dict dari positions.check_exits() — kirim 1 pesan per exit,
+    supaya jelas beda dari ringkasan watchlist harian."""
+    token = os.environ.get("TELEGRAM_BOT_TOKEN")
+    chat_id = os.environ.get("TELEGRAM_CHAT_ID")
+    if not token or not chat_id or not exits:
+        return
+
+    reason_label = {
+        "stop_loss": "🔴 STOP LOSS",
+        "trend_exit": "🟠 TREND PATAH",
+        "max_holding": "🔵 MAX HOLDING (45 hari)",
+    }
+
+    for e in exits:
+        label = reason_label.get(e["exit_reason"], e["exit_reason"])
+        text = (
+            f"{label} — {e['symbol']}\n\n"
+            f"Entry: ${e['entry_price']:.2f}\n"
+            f"Exit: ${e['exit_price']:.2f}\n"
+            f"PnL: {e['pnl_pct']:+.1f}%\n"
+            f"Hari ditahan: {e['days_held']} hari bursa\n\n"
+            f"Saatnya keluar dari posisi ini."
+        )
+        _send(token, chat_id, text)
+
+
 def _build_message(decision_df: pd.DataFrame, as_of_date) -> str:
     date_str = pd.Timestamp(as_of_date).date().isoformat()
 
