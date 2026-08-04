@@ -55,7 +55,7 @@ def main():
     all_trading_dates = decided["date"].unique()
     exits = positions.check_exits(client, latest, as_of_date, all_trading_dates)
     notify.send_exit_alerts(exits)
-    positions.register_new_positions(client, candidates, as_of_date)
+    positions.register_new_positions(client, latest, as_of_date)
 
     print("Selesai.")
 

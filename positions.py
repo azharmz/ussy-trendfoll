@@ -1,10 +1,29 @@
 """
 USSY TrendFoll — Position & Exit Tracking
 =============================================
-Posisi dicatat OTOMATIS begitu tradability_status == "PASS" (sesuai keputusan:
-setiap sinyal PASS penuh dianggap entry). Tiap hari, posisi yang masih "active"
-dicek terhadap 3 kondisi exit — PERSIS parameter final Sprint 3, bukan aturan
-baru:
+Posisi dicatat OTOMATIS begitu kondisi entry PERSIS SAMA dengan yang dipakai
+di backtest (portfolio_backtest()) yang sudah divalidasi Sprint 3 — supaya
+forward-test ini apple-to-apple dengan backtest, bukan strategi yang beda:
+
+  - hard_filter_status == "PASS"   (5 kriteria: trend+liquidity+rs+price+REGIME,
+                                     non-compensatory — BUKAN cuma investability,
+                                     yang sengaja TIDAK termasuk regime)
+  - has_breakout == True
+  - has_volume_confirmation == True
+  (has_tight_structure TIDAK disyaratkan — terverifikasi dari data trade
+  historis, has_tight_structure bervariasi True/False di 1302 trade backtest,
+  jadi bukan syarat keras masuk backtest, cuma pembeda tier tradability
+  PASS vs NEAR_PASS di decision_layer, bukan gate entry).
+
+Koreksi dari versi sebelumnya: sempat pakai `tradability_status == "PASS"`
+tanpa cek investability/regime sama sekali — itu SALAH, karena investability
+dan tradability dihitung independen (bisa ada ticker investability FAIL tapi
+tradability PASS), dan regime_status tidak pernah dicek. Diverifikasi ulang:
+di 1302 trade backtest historis, regime_status SELALU PASS (0 trade lain) —
+mengkonfirmasi backtest memang mensyaratkan hard_filter_status PASS penuh.
+
+Tiap hari, posisi yang masih "active" dicek terhadap 3 kondisi exit — PERSIS
+parameter final Sprint 3, bukan aturan baru:
   1. stop_loss   : close_raw <= stop_price (entry_price - 2*ATR14 saat entry)
   2. trend_exit  : trend patah (ema_stack_aligned False, atau stage bukan Stage2)
   3. max_holding : 45 hari bursa sejak entry_date
@@ -20,20 +39,29 @@ ATR_STOP_MULTIPLIER = 2.0    # final Sprint 3, jangan diubah tanpa alasan
 MAX_HOLDING_DAYS = 45        # final Sprint 3
 
 
-def register_new_positions(client, candidates: pd.DataFrame, as_of_date):
+def register_new_positions(client, latest: pd.DataFrame, as_of_date):
     """
-    candidates: baris hari ini dengan tradability_status == 'PASS'.
-    Insert posisi baru untuk symbol yang BELUM punya posisi 'active'
-    (unique index di SQL bakal reject percobaan insert duplikat juga,
-    tapi kita cek dulu di sini supaya tidak spam error ke log).
+    latest: baris hari ini untuk SELURUH universe (bukan cuma watchlist
+    candidates) — hasil decision_layer.compute_decision_layer() yang
+    dibangun dari hard_filter.compute_hard_filter(), jadi punya kolom
+    hard_filter_status, has_breakout, has_volume_confirmation.
+
+    Insert posisi baru untuk symbol yang match kondisi entry backtest DAN
+    belum punya posisi 'active' (unique index di SQL bakal reject percobaan
+    insert duplikat juga, tapi kita cek dulu di sini supaya tidak spam
+    error ke log).
     """
-    pass_full = candidates[candidates["tradability_status"] == "PASS"]
-    if pass_full.empty:
+    entry_ready = latest[
+        (latest["hard_filter_status"] == "PASS")
+        & (latest["has_breakout"] == True)
+        & (latest["has_volume_confirmation"] == True)
+    ]
+    if entry_ready.empty:
         return []
 
     existing_active = _get_active_symbols(client)
     new_rows = []
-    for _, r in pass_full.iterrows():
+    for _, r in entry_ready.iterrows():
         if r["symbol"] in existing_active:
             continue  # sudah ada posisi aktif untuk symbol ini, skip
         entry_price = float(r["close_raw"])
