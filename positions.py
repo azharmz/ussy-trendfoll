@@ -23,10 +23,21 @@ di 1302 trade backtest historis, regime_status SELALU PASS (0 trade lain) —
 mengkonfirmasi backtest memang mensyaratkan hard_filter_status PASS penuh.
 
 Tiap hari, posisi yang masih "active" dicek terhadap 3 kondisi exit — PERSIS
-parameter final Sprint 3, bukan aturan baru:
-  1. stop_loss   : close_raw <= stop_price (entry_price - 2*ATR14 saat entry)
-  2. trend_exit  : trend patah (ema_stack_aligned False, atau stage bukan Stage2)
-  3. max_holding : 45 hari bursa sejak entry_date
+logika di portfolio_backtest.py (parameter final Sprint 3), diverifikasi
+baris-per-baris terhadap kode aslinya:
+  1. stop_loss   : low_raw <= stop_price (intraday LOW, BUKAN close) —
+                   exit_price diasumsikan terisi PERSIS di stop_price, bukan
+                   di close hari itu (asumsi fill konservatif dari backtest)
+  2. max_holding : 45 hari bursa sejak entry_date, exit_price = close_raw
+  3. trend_exit  : close_raw < ema20 (BUKAN ema_stack_aligned/stage — itu
+                   kriteria Investability yang beda tujuan) — exit_price = close_raw
+
+Koreksi dari versi sebelumnya: sempat pakai close_raw untuk cek stop_loss
+(harusnya low_raw) dan ema_stack_aligned+stage untuk trend_exit (harusnya
+close_raw<ema20, kriteria yang jauh lebih sederhana). Ditemukan dari audit
+line-by-line terhadap ussy_swing_portfolio_backtest.py yang baru diupload —
+sebelumnya saya belum pernah lihat file itu, jadi exit logic ditulis
+berdasarkan asumsi, bukan verifikasi langsung ke kode aslinya.
 
 Satu symbol cuma boleh punya 1 posisi "active" (unique index parsial di SQL) —
 kalau simbol yang sudah exit breakout lagi nanti, itu jadi posisi baru terpisah.
@@ -113,32 +124,33 @@ def check_exits(client, latest_features: pd.DataFrame, as_of_date, all_trading_d
 
         row = feat_by_symbol.loc[symbol]
         close_raw = float(row["close_raw"])
+        low_raw = float(row["low_raw"])
         entry_date = pd.Timestamp(pos["entry_date"])
         days_held = _trading_days_between(entry_date, pd.Timestamp(as_of_date), trading_dates)
 
-        exit_reason = None
-        if close_raw <= float(pos["stop_price"]):
-            exit_reason = "stop_loss"
+        exit_reason = exit_price = None
+        if low_raw <= float(pos["stop_price"]):
+            exit_reason, exit_price = "stop_loss", float(pos["stop_price"])
         elif days_held >= MAX_HOLDING_DAYS:
-            exit_reason = "max_holding"
-        elif not _trend_still_intact(row):
-            exit_reason = "trend_exit"
+            exit_reason, exit_price = "max_holding", close_raw
+        elif pd.notna(row.get("ema20")) and close_raw < float(row["ema20"]):
+            exit_reason, exit_price = "trend_exit", close_raw
 
         if exit_reason:
             client.table("positions").update({
                 "status": exit_reason,
                 "exit_date": pd.Timestamp(as_of_date).date().isoformat(),
-                "exit_price": close_raw,
+                "exit_price": exit_price,
                 "days_held": int(days_held),
                 "updated_at": pd.Timestamp.utcnow().isoformat(),
             }).eq("id", pos["id"]).execute()
 
-            pnl_pct = (close_raw - float(pos["entry_price"])) / float(pos["entry_price"]) * 100
+            pnl_pct = (exit_price - float(pos["entry_price"])) / float(pos["entry_price"]) * 100
             exits.append({
                 "symbol": symbol,
                 "exit_reason": exit_reason,
                 "entry_price": float(pos["entry_price"]),
-                "exit_price": close_raw,
+                "exit_price": exit_price,
                 "pnl_pct": pnl_pct,
                 "days_held": int(days_held),
             })
@@ -147,12 +159,6 @@ def check_exits(client, latest_features: pd.DataFrame, as_of_date, all_trading_d
         print(f"[positions] {len(exits)} posisi exit hari ini: "
               f"{', '.join(e['symbol'] for e in exits)}")
     return exits
-
-
-def _trend_still_intact(row) -> bool:
-    aligned = row.get("ema_stack_aligned")
-    stage = row.get("stage")
-    return bool(aligned) and stage == "Stage2"
 
 
 def _trading_days_between(entry_date, as_of_date, trading_dates: pd.DatetimeIndex) -> int:
