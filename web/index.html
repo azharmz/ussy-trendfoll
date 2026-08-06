@@ -301,12 +301,19 @@
   </div>
 
   <div class="section-title section-gap">Posisi Aktif</div>
+  <div style="font-size:12px; color:var(--text-faint); margin-bottom:10px;">
+    Floating PnL berbasis Entry Realistis (open H+1). Tanda * = Entry Realistis
+    belum terisi, sementara pakai Harga Entry (close hari sinyal).
+  </div>
   <table>
     <thead>
       <tr>
         <th>Symbol</th>
         <th>Tanggal Entry</th>
         <th>Harga Entry</th>
+        <th>Entry Realistis</th>
+        <th>Mark</th>
+        <th>Floating PnL</th>
         <th>Stop</th>
         <th>Hari Berjalan</th>
       </tr>
@@ -424,22 +431,45 @@
   });
   document.addEventListener("keydown", (e) => { if (e.key === "Escape") closeModal(); });
 
-  function renderPositions(rows) {
+  function renderPositions(rows, asOfDate) {
     const tbody = document.getElementById("positionsTbody");
     const empty = document.getElementById("positionsEmpty");
     tbody.innerHTML = "";
     if (rows.length === 0) { empty.style.display = "block"; return; }
     empty.style.display = "none";
 
+    const refDate = asOfDate ? new Date(asOfDate) : new Date();
+
     for (const p of rows) {
-      const daysElapsed = Math.floor((Date.now() - new Date(p.entry_date)) / 86400000);
+      // Kalender kasar dari entry_date ke tanggal pipeline TERAKHIR (bukan
+      // waktu real-time saat halaman dibuka) — hari bursa asli yang jadi
+      // dasar keputusan max_holding dihitung di backend, bisa beda dari
+      // angka ini (kalender vs bursa, dan weekend/libur tidak dikurangi).
+      const daysElapsed = Math.floor((refDate - new Date(p.entry_date)) / 86400000);
+      const realisticPrice = p.realistic_entry_price != null
+        ? `$${Number(p.realistic_entry_price).toFixed(2)}`
+        : `<span style="color:var(--text-faint)">menunggu...</span>`;
+      const markPrice = p.mark_price != null
+        ? `$${Number(p.mark_price).toFixed(2)}`
+        : `<span style="color:var(--text-faint)">—</span>`;
+      let floatingPnl = `<span style="color:var(--text-faint)">—</span>`;
+      if (p.mark_price != null) {
+        const basisPrice = p.realistic_entry_price ?? p.entry_price;
+        const basisLabel = p.realistic_entry_price != null ? "" : "*";
+        const pnl = (p.mark_price - basisPrice) / basisPrice * 100;
+        const cls = pnl >= 0 ? "pnl-pos" : "pnl-neg";
+        floatingPnl = `<span class="${cls}">${pnl >= 0 ? "+" : ""}${pnl.toFixed(1)}%${basisLabel}</span>`;
+      }
       const tr = document.createElement("tr");
       tr.innerHTML = `
         <td class="symbol">${p.symbol}</td>
         <td class="price">${p.entry_date}</td>
         <td class="price">$${Number(p.entry_price).toFixed(2)}</td>
+        <td class="price">${realisticPrice}</td>
+        <td class="price">${markPrice}</td>
+        <td>${floatingPnl}</td>
         <td class="price">$${Number(p.stop_price).toFixed(2)}</td>
-        <td class="price">${daysElapsed} hari</td>
+        <td class="price">~${daysElapsed} hari kalender</td>
       `;
       tbody.appendChild(tr);
     }
@@ -470,12 +500,13 @@
   async function load() {
     try {
       const latestDateRows = await sb("watchlist?select=date&order=date.desc&limit=1");
+      let asOfDate = null;
       if (latestDateRows.length === 0) {
         document.getElementById("asOfDate").textContent = "belum ada data";
         renderTable([]);
         renderStats([]);
       } else {
-        const asOfDate = latestDateRows[0].date;
+        asOfDate = latestDateRows[0].date;
         document.getElementById("asOfDate").textContent = asOfDate;
         const rows = await sb(`watchlist?select=*&date=eq.${asOfDate}`);
         renderStats(rows);
@@ -483,7 +514,7 @@
       }
 
       const activePositions = await sb("positions?select=*&status=eq.active&order=entry_date.desc");
-      renderPositions(activePositions);
+      renderPositions(activePositions, asOfDate);
 
       const history = await sb("positions?select=*&status=neq.active&order=exit_date.desc&limit=20");
       renderHistory(history);
@@ -500,6 +531,10 @@
 </html>
 <!--
   changelog:
+  v1.5 - 2026-08-01 - Floating PnL utamakan Entry Realistis (fallback ke Harga Entry, ditandai * kalau masih fallback)
+  v1.4 - 2026-08-01 - Tambah kolom Mark (harga terkini) & Floating PnL di Posisi Aktif, di-update tiap run
+  v1.3 - 2026-08-01 - Perbaiki "Hari Berjalan": acuan tanggal pipeline terakhir (bukan real-time saat dibuka), label diperjelas jadi kalender kasar
+  v1.2 - 2026-08-01 - Tambah kolom Entry Realistis (open H+1, dari realistic_entry_price)
   v1.1 - 2026-08-01 - Tambah section Posisi Aktif & Riwayat Exit (dari tabel positions)
   v1.0 - 2026-08-01 - Rilis awal: watchlist harian, stats, modal explainability per ticker
 -->

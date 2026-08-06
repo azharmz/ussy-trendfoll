@@ -11,7 +11,8 @@ Push folder ini ke repo baru (public atau private, keduanya bisa pakai GitHub
 Actions gratis untuk repo kecil seperti ini).
 
 ### 2. Jalankan SQL schema
-Buka Supabase project → SQL Editor → jalankan isi `sql/schema.sql`.
+Buka Supabase project → SQL Editor → jalankan isi `sql/schema.sql`, lalu
+`sql/schema_positions.sql` (tabel exit tracking).
 
 ### 3. Set GitHub Actions secrets
 Repo → Settings → Secrets and variables → Actions → New repository secret:
@@ -43,7 +44,27 @@ expression itu kalau timing-nya kurang pas.
 - `database.py` — upsert hasil ke tabel `watchlist`
 - `notify.py` — kirim ringkasan ke Telegram (skip diam-diam kalau
   token/chat ID belum di-set)
+- `positions.py` — exit tracking: registrasi posisi baru otomatis saat
+  tradability=PASS, cek harian 3 kondisi exit (stop_loss/trend_exit/
+  max_holding), kirim alert Telegram terpisah dari watchlist harian
 - `main.py` — orkestrator, dipanggil GitHub Actions
+
+## Exit tracking (posisi otomatis)
+
+Setiap ticker dengan `tradability_status == "PASS"` otomatis dicatat sebagai
+posisi "active" (satu posisi aktif per symbol). Tiap hari, posisi aktif dicek
+terhadap parameter final Sprint 3:
+
+- **stop_loss**: harga close ≤ entry_price − 2×ATR14 (saat entry)
+- **trend_exit**: trend patah (EMA stack tidak lagi aligned, atau stage bukan Stage2)
+- **max_holding**: sudah 45 hari BURSA sejak entry (bukan hari kalender)
+
+Begitu salah satu kondisi terpenuhi, posisi ditutup dan alert Telegram
+terpisah dikirim (beda dari ringkasan watchlist harian) — supaya jelas mana
+"kandidat baru" vs "saatnya keluar dari posisi lama". Histori lengkap
+tersimpan di tabel `positions` (tidak overwrite), jadi bisa dipakai untuk
+evaluasi performa live vs ekspektasi backtest nanti.
+
 
 ## Catatan penting
 

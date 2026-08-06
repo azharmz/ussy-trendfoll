@@ -50,6 +50,48 @@ ATR_STOP_MULTIPLIER = 2.0    # final Sprint 3, jangan diubah tanpa alasan
 MAX_HOLDING_DAYS = 45        # final Sprint 3
 
 
+def fill_realistic_entry_prices(client, latest: pd.DataFrame, as_of_date, all_trading_dates):
+    """
+    entry_price (close hari sinyal) match backtest, tapi TIDAK realistis
+    dieksekusi manusia (notifikasi Telegram baru masuk setelah market tutup).
+    realistic_entry_price = open_raw di HARI BURSA BERIKUTNYA setelah
+    entry_date — baru bisa diisi 1 hari setelah posisi diregistrasi (begitu
+    data open besok tersedia di run berikutnya), makanya fungsi ini jalan
+    tiap hari dan cuma ngisi yang masih kosong DAN entry_date-nya persis
+    kemarin (1 hari bursa sebelum as_of_date).
+    """
+    pending = client.table("positions").select("id, symbol, entry_date") \
+        .is_("realistic_entry_price", "null").execute().data
+    if not pending:
+        return
+
+    trading_dates = pd.DatetimeIndex(sorted(pd.to_datetime(pd.Series(all_trading_dates)).unique()))
+    idx_asof = trading_dates.searchsorted(pd.Timestamp(as_of_date))
+    feat_by_symbol = latest.set_index("symbol")
+
+    filled = 0
+    for p in pending:
+        entry_date = pd.Timestamp(p["entry_date"])
+        idx_entry = trading_dates.searchsorted(entry_date)
+        if idx_asof - idx_entry != 1:
+            continue  # bukan "hari berikutnya" dari entry_date, skip (belum waktunya / sudah lewat & data hilang)
+
+        symbol = p["symbol"]
+        if symbol not in feat_by_symbol.index:
+            continue
+        open_price = feat_by_symbol.loc[symbol].get("open_raw")
+        if pd.isna(open_price):
+            continue
+
+        client.table("positions").update({
+            "realistic_entry_price": float(open_price),
+        }).eq("id", p["id"]).execute()
+        filled += 1
+
+    if filled:
+        print(f"[positions] {filled} realistic_entry_price terisi (open H+1).")
+
+
 def register_new_positions(client, latest: pd.DataFrame, as_of_date):
     """
     latest: baris hari ini untuk SELURUH universe (bukan cuma watchlist
@@ -141,6 +183,7 @@ def check_exits(client, latest_features: pd.DataFrame, as_of_date, all_trading_d
                 "status": exit_reason,
                 "exit_date": pd.Timestamp(as_of_date).date().isoformat(),
                 "exit_price": exit_price,
+                "mark_price": close_raw,
                 "days_held": int(days_held),
                 "updated_at": pd.Timestamp.utcnow().isoformat(),
             }).eq("id", pos["id"]).execute()
@@ -154,6 +197,13 @@ def check_exits(client, latest_features: pd.DataFrame, as_of_date, all_trading_d
                 "pnl_pct": pnl_pct,
                 "days_held": int(days_held),
             })
+        else:
+            # Masih active — tetap update mark_price supaya floating PnL
+            # kelihatan di dashboard, meski belum exit.
+            client.table("positions").update({
+                "mark_price": close_raw,
+                "updated_at": pd.Timestamp.utcnow().isoformat(),
+            }).eq("id", pos["id"]).execute()
 
     if exits:
         print(f"[positions] {len(exits)} posisi exit hari ini: "
