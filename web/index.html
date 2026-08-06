@@ -109,10 +109,14 @@
     margin-bottom: 12px;
   }
 
+  .table-scroll {
+    overflow-x: auto;
+    margin-bottom: 40px;
+  }
+
   table {
     width: 100%;
     border-collapse: collapse;
-    margin-bottom: 40px;
   }
 
   thead th {
@@ -259,12 +263,42 @@
 
   @media (max-width: 640px) {
     .stats-grid { grid-template-columns: repeat(2, 1fr); }
-    thead th:nth-child(2), tbody td:nth-child(2) { display: none; }
+    #watchlistTable thead th:nth-child(2), #watchlistTable tbody td:nth-child(2) { display: none; }
   }
 
   @media (prefers-reduced-motion: reduce) {
     * { animation: none !important; transition: none !important; }
   }
+
+  .tabs {
+    display: flex;
+    gap: 4px;
+    margin-bottom: 24px;
+    border-bottom: 1px solid var(--border);
+  }
+
+  .tab-btn {
+    background: none;
+    border: none;
+    color: var(--text-faint);
+    font-family: var(--font-body);
+    font-size: 14px;
+    font-weight: 500;
+    padding: 10px 16px;
+    cursor: pointer;
+    border-bottom: 2px solid transparent;
+    transition: color 0.12s ease, border-color 0.12s ease;
+  }
+
+  .tab-btn:hover { color: var(--text-dim); }
+
+  .tab-btn.active {
+    color: var(--text);
+    border-bottom-color: var(--accent);
+  }
+
+  .tab-content { display: none; }
+  .tab-content.active { display: block; }
 </style>
 </head>
 <body>
@@ -275,70 +309,85 @@
     <div class="as-of-date" id="asOfDate">memuat...</div>
   </header>
 
-  <div class="stats-grid" id="statsGrid">
-    <div class="stat"><div class="stat-num" id="statTotal">—</div><div class="stat-label">Kandidat</div></div>
-    <div class="stat"><div class="stat-num pass" id="statPassFull">—</div><div class="stat-label">PASS penuh</div></div>
-    <div class="stat"><div class="stat-num" id="statBreakout">—</div><div class="stat-label">Ada breakout</div></div>
-    <div class="stat"><div class="stat-num near" id="statNear">—</div><div class="stat-label">Investability NEAR_PASS</div></div>
+  <div class="tabs">
+    <button class="tab-btn" data-tab="watchlist">Watchlist</button>
+    <button class="tab-btn active" data-tab="posisi">Posisi Aktif</button>
+    <button class="tab-btn" data-tab="riwayat">Riwayat Exit</button>
   </div>
 
-  <div class="section-title">Watchlist</div>
-  <table id="watchlistTable">
-    <thead>
-      <tr>
-        <th>Symbol</th>
-        <th>Harga</th>
-        <th>Investability</th>
-        <th>Tradability</th>
-      </tr>
-    </thead>
-    <tbody id="tbody"></tbody>
-  </table>
+  <div class="tab-content" id="tab-watchlist">
+    <div class="stats-grid" id="statsGrid">
+      <div class="stat"><div class="stat-num" id="statTotal">—</div><div class="stat-label">Kandidat</div></div>
+      <div class="stat"><div class="stat-num pass" id="statPassFull">—</div><div class="stat-label">PASS penuh</div></div>
+      <div class="stat"><div class="stat-num" id="statBreakout">—</div><div class="stat-label">Ada breakout</div></div>
+      <div class="stat"><div class="stat-num near" id="statNear">—</div><div class="stat-label">Investability NEAR_PASS</div></div>
+    </div>
 
-  <div class="empty-state" id="emptyState" style="display:none">
-    <div class="glyph">∅</div>
-    Tidak ada kandidat investability ≥ NEAR_PASS di tanggal terbaru.
+    <div class="table-scroll">
+    <table id="watchlistTable">
+      <thead>
+        <tr>
+          <th>Symbol</th>
+          <th>Harga</th>
+          <th>Investability</th>
+          <th>Tradability</th>
+        </tr>
+      </thead>
+      <tbody id="tbody"></tbody>
+    </table>
+    </div>
+
+    <div class="empty-state" id="emptyState" style="display:none">
+      <div class="glyph">∅</div>
+      Tidak ada kandidat investability ≥ NEAR_PASS di tanggal terbaru.
+    </div>
   </div>
 
-  <div class="section-title section-gap">Posisi Aktif</div>
-  <div style="font-size:12px; color:var(--text-faint); margin-bottom:10px;">
-    Floating PnL berbasis Entry Realistis (open H+1). Tanda * = Entry Realistis
-    belum terisi, sementara pakai Harga Entry (close hari sinyal).
-  </div>
-  <table>
-    <thead>
-      <tr>
-        <th>Symbol</th>
-        <th>Tanggal Entry</th>
-        <th>Harga Entry</th>
-        <th>Entry Realistis</th>
-        <th>Mark</th>
-        <th>Floating PnL</th>
-        <th>Stop</th>
-        <th>Hari Berjalan</th>
-      </tr>
-    </thead>
-    <tbody id="positionsTbody"></tbody>
-  </table>
-  <div class="empty-state" id="positionsEmpty" style="display:none; padding:24px 20px;">
-    Tidak ada posisi aktif saat ini.
+  <div class="tab-content active" id="tab-posisi">
+    <div style="font-size:12px; color:var(--text-faint); margin-bottom:16px;">
+      Floating PnL berbasis Entry Realistis (open H+1). Tanda * = Entry Realistis
+      belum terisi, sementara pakai Harga Entry (close hari sinyal).
+    </div>
+    <div class="table-scroll">
+    <table>
+      <thead>
+        <tr>
+          <th>Symbol</th>
+          <th>Tanggal Entry</th>
+          <th>Harga Entry</th>
+          <th>Stop (SL)</th>
+          <th>Entry Realistis</th>
+          <th>Mark</th>
+          <th>Floating PnL</th>
+          <th>Hari Berjalan</th>
+        </tr>
+      </thead>
+      <tbody id="positionsTbody"></tbody>
+    </table>
+    </div>
+    <div class="empty-state" id="positionsEmpty" style="display:none; padding:24px 20px;">
+      Tidak ada posisi aktif saat ini.
+    </div>
   </div>
 
-  <div class="section-title section-gap">Riwayat Exit</div>
-  <table>
-    <thead>
-      <tr>
-        <th>Symbol</th>
-        <th>Entry → Exit</th>
-        <th>PnL</th>
-        <th>Alasan</th>
-        <th>Hari Ditahan</th>
-      </tr>
-    </thead>
-    <tbody id="historyTbody"></tbody>
-  </table>
-  <div class="empty-state" id="historyEmpty" style="display:none; padding:24px 20px;">
-    Belum ada posisi yang exit.
+  <div class="tab-content" id="tab-riwayat">
+    <div class="table-scroll">
+    <table>
+      <thead>
+        <tr>
+          <th>Symbol</th>
+          <th>Entry → Exit</th>
+          <th>PnL</th>
+          <th>Alasan</th>
+          <th>Hari Ditahan</th>
+        </tr>
+      </thead>
+      <tbody id="historyTbody"></tbody>
+    </table>
+    </div>
+    <div class="empty-state" id="historyEmpty" style="display:none; padding:24px 20px;">
+      Belum ada posisi yang exit.
+    </div>
   </div>
 
   <footer style="margin-top:40px;">USSY TrendFoll — riset internal, bukan rekomendasi finansial</footer>
@@ -465,10 +514,10 @@
         <td class="symbol">${p.symbol}</td>
         <td class="price">${p.entry_date}</td>
         <td class="price">$${Number(p.entry_price).toFixed(2)}</td>
+        <td class="price">$${Number(p.stop_price).toFixed(2)}</td>
         <td class="price">${realisticPrice}</td>
         <td class="price">${markPrice}</td>
         <td>${floatingPnl}</td>
-        <td class="price">$${Number(p.stop_price).toFixed(2)}</td>
         <td class="price">~${daysElapsed} hari kalender</td>
       `;
       tbody.appendChild(tr);
@@ -524,6 +573,15 @@
     }
   }
 
+  document.querySelectorAll(".tab-btn").forEach((btn) => {
+    btn.addEventListener("click", () => {
+      document.querySelectorAll(".tab-btn").forEach((b) => b.classList.remove("active"));
+      document.querySelectorAll(".tab-content").forEach((c) => c.classList.remove("active"));
+      btn.classList.add("active");
+      document.getElementById(`tab-${btn.dataset.tab}`).classList.add("active");
+    });
+  });
+
   load();
 </script>
 
@@ -531,6 +589,8 @@
 </html>
 <!--
   changelog:
+  v1.7 - 2026-08-01 - Posisi Aktif jadi tab default (bukan Watchlist)
+  v1.6 - 2026-08-01 - Restrukturisasi jadi tab (Watchlist/Posisi Aktif/Riwayat Exit), kolom Stop dipindah ke sebelah Harga Entry, tabel bisa di-scroll horizontal di mobile
   v1.5 - 2026-08-01 - Floating PnL utamakan Entry Realistis (fallback ke Harga Entry, ditandai * kalau masih fallback)
   v1.4 - 2026-08-01 - Tambah kolom Mark (harga terkini) & Floating PnL di Posisi Aktif, di-update tiap run
   v1.3 - 2026-08-01 - Perbaiki "Hari Berjalan": acuan tanggal pipeline terakhir (bukan real-time saat dibuka), label diperjelas jadi kalender kasar
