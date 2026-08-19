@@ -392,18 +392,18 @@
 
   <div class="tab-content active" id="tab-posisi">
     <div style="font-size:12px; color:var(--text-faint); margin-bottom:16px;">
-      Floating PnL berbasis Entry Realistis (open H+1). Tanda * = Entry Realistis
-      belum terisi, sementara pakai Harga Entry (close hari sinyal).
+      Floating PnL berbasis Entry (open H+1). Tanda * = Entry belum terisi,
+      sementara pakai Trigger (close hari sinyal).
     </div>
     <div class="table-scroll">
     <table>
       <thead>
         <tr>
+          <th>Tanggal</th>
           <th>Symbol</th>
-          <th>Tanggal Entry</th>
-          <th>Harga Entry</th>
+          <th>Trigger</th>
           <th>Stop (SL)</th>
-          <th>Entry Realistis</th>
+          <th>Entry</th>
           <th>Mark</th>
           <th>Floating PnL</th>
           <th>Hari Berjalan</th>
@@ -588,8 +588,8 @@
       }
       const tr = document.createElement("tr");
       tr.innerHTML = `
-        <td class="symbol">${p.symbol}</td>
         <td class="price">${p.entry_date}</td>
+        <td class="symbol">${p.symbol}</td>
         <td class="price">$${Number(p.entry_price).toFixed(2)}</td>
         <td class="price">$${Number(p.stop_price).toFixed(2)}</td>
         <td class="price">${realisticPrice}</td>
@@ -780,6 +780,7 @@
 </html>
 <!--
   changelog:
+  v1.9 - 2026-08-01 - Rename kolom Posisi Aktif: Tanggal Entry->Tanggal (pindah paling kiri), Harga Entry->Trigger, Entry Realistis->Entry
   v1.8 - 2026-08-01 - Tambah Equity Curve (simulasi, SVG chart) + Performance Breakdown per alasan exit di tab Riwayat, terinspirasi referensi USSY Swing Screener
   v1.7 - 2026-08-01 - Posisi Aktif jadi tab default (bukan Watchlist)
   v1.6 - 2026-08-01 - Restrukturisasi jadi tab (Watchlist/Posisi Aktif/Riwayat Exit), kolom Stop dipindah ke sebelah Harga Entry, tabel bisa di-scroll horizontal di mobile
