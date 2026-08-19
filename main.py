@@ -38,6 +38,8 @@ def main():
 
     print("=== [4/6] Decision layer ===")
     decided = compute_decision_layer(filtered)
+    decided = decided.sort_values(["symbol", "date"])
+    decided["prev_close"] = decided.groupby("symbol")["close_raw"].shift(1)  # untuk metrik T-1->T0 momentum
 
     print("=== [5/6] Ambil tanggal terbaru + filter investability >= NEAR_PASS ===")
     as_of_date = decided["date"].max()

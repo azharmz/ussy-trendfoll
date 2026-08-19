@@ -148,10 +148,14 @@ def register_new_positions(client, latest: pd.DataFrame, as_of_date):
             print(f"[positions] {r['symbol']}: atr14 kosong, skip registrasi posisi.")
             continue
         stop_price = entry_price - ATR_STOP_MULTIPLIER * atr14
+        prev_close = float(r.get("prev_close")) if pd.notna(r.get("prev_close")) else None
         new_rows.append({
             "symbol": r["symbol"],
             "entry_date": pd.Timestamp(as_of_date).date().isoformat(),
             "entry_price": entry_price,
+            "prev_close": prev_close,               # untuk metrik T-1->T0 momentum
+            "max_close_since_entry": entry_price,    # basis awal MFE, sebelum ada data hari berikutnya
+            "min_close_since_entry": entry_price,    # basis awal MAE
             "stop_price": stop_price,
             "status": "active",
         })
@@ -203,12 +207,21 @@ def check_exits(client, latest_features: pd.DataFrame, as_of_date, all_trading_d
         elif pd.notna(row.get("ema20")) and close_raw < float(row["ema20"]):
             exit_reason, exit_price = "trend_exit", close_raw
 
+        # MFE/MAE: basis close harian sejak entry, di-update terus selama
+        # posisi masih hidup (termasuk di hari yang sama dia exit).
+        prev_max = pos.get("max_close_since_entry")
+        prev_min = pos.get("min_close_since_entry")
+        new_max = max(float(prev_max), close_raw) if prev_max is not None else close_raw
+        new_min = min(float(prev_min), close_raw) if prev_min is not None else close_raw
+
         if exit_reason:
             client.table("positions").update({
                 "status": exit_reason,
                 "exit_date": pd.Timestamp(as_of_date).date().isoformat(),
                 "exit_price": exit_price,
                 "mark_price": close_raw,
+                "max_close_since_entry": new_max,
+                "min_close_since_entry": new_min,
                 "days_held": int(days_held),
                 "updated_at": pd.Timestamp.utcnow().isoformat(),
             }).eq("id", pos["id"]).execute()
@@ -223,10 +236,13 @@ def check_exits(client, latest_features: pd.DataFrame, as_of_date, all_trading_d
                 "days_held": int(days_held),
             })
         else:
-            # Masih active — tetap update mark_price supaya floating PnL
-            # kelihatan di dashboard, meski belum exit.
+            # Masih active — tetap update mark_price + MFE/MAE supaya
+            # floating PnL dan riwayat excursion kelihatan di dashboard,
+            # meski belum exit.
             client.table("positions").update({
                 "mark_price": close_raw,
+                "max_close_since_entry": new_max,
+                "min_close_since_entry": new_min,
                 "updated_at": pd.Timestamp.utcnow().isoformat(),
             }).eq("id", pos["id"]).execute()
 

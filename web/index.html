@@ -404,7 +404,10 @@
           <th>Trigger</th>
           <th>Stop (SL)</th>
           <th>Entry</th>
+          <th>Momentum T-1→T0</th>
+          <th>Gap Trigger→Entry</th>
           <th>Mark</th>
+          <th>MFE / MAE</th>
           <th>Floating PnL</th>
           <th>Hari Berjalan</th>
         </tr>
@@ -455,6 +458,7 @@
           <th>Symbol</th>
           <th>Entry → Exit</th>
           <th>PnL</th>
+          <th>MFE / MAE</th>
           <th>Alasan</th>
           <th>Hari Ditahan</th>
         </tr>
@@ -586,6 +590,25 @@
         const cls = pnl >= 0 ? "pnl-pos" : "pnl-neg";
         floatingPnl = `<span class="${cls}">${pnl >= 0 ? "+" : ""}${pnl.toFixed(1)}%${basisLabel}</span>`;
       }
+
+      const momentum = p.prev_close != null
+        ? formatSignedPct((p.entry_price - p.prev_close) / p.prev_close * 100)
+        : `<span style="color:var(--text-faint)">—</span>`;
+
+      const gapEntry = p.realistic_entry_price != null
+        ? formatSignedPct((p.realistic_entry_price - p.entry_price) / p.entry_price * 100)
+        : `<span style="color:var(--text-faint)">menunggu...</span>`;
+
+      const mfeMae = (() => {
+        if (p.max_close_since_entry == null || p.min_close_since_entry == null) {
+          return `<span style="color:var(--text-faint)">—</span>`;
+        }
+        const basisPrice = p.realistic_entry_price ?? p.entry_price;
+        const mfe = (p.max_close_since_entry - basisPrice) / basisPrice * 100;
+        const mae = (p.min_close_since_entry - basisPrice) / basisPrice * 100;
+        return `<span class="pnl-pos">+${mfe.toFixed(1)}%</span> / <span class="pnl-neg">${mae.toFixed(1)}%</span>`;
+      })();
+
       const tr = document.createElement("tr");
       tr.innerHTML = `
         <td class="price">${p.entry_date}</td>
@@ -593,7 +616,10 @@
         <td class="price">$${Number(p.entry_price).toFixed(2)}</td>
         <td class="price">$${Number(p.stop_price).toFixed(2)}</td>
         <td class="price">${realisticPrice}</td>
+        <td>${momentum}</td>
+        <td>${gapEntry}</td>
         <td class="price">${markPrice}</td>
+        <td>${mfeMae}</td>
         <td>${floatingPnl}</td>
         <td class="price">~${daysElapsed} hari kalender</td>
       `;
@@ -601,12 +627,18 @@
     }
   }
 
+  function formatSignedPct(v) {
+    const cls = v >= 0 ? "pnl-pos" : "pnl-neg";
+    return `<span class="${cls}">${v >= 0 ? "+" : ""}${v.toFixed(1)}%</span>`;
+  }
+
   function computePerfBreakdown(history) {
     const groups = {};
     for (const p of history) {
       const reason = p.status;
       if (!groups[reason]) groups[reason] = [];
-      const pnl = (p.exit_price - p.entry_price) / p.entry_price * 100;
+      const basisPrice = p.realistic_entry_price ?? p.entry_price;
+      const pnl = (p.exit_price - basisPrice) / basisPrice * 100;
       groups[reason].push(pnl);
     }
     const rows = [];
@@ -654,7 +686,8 @@
     let cumulative = 0;
     const curve = [{ date: null, value: 0 }];
     for (const p of sorted) {
-      const pnl = (p.exit_price - p.entry_price) / p.entry_price * 100;
+      const basisPrice = p.realistic_entry_price ?? p.entry_price;
+      const pnl = (p.exit_price - basisPrice) / basisPrice * 100;
       cumulative += pnl;
       curve.push({ date: p.exit_date, value: cumulative, symbol: p.symbol });
     }
@@ -719,13 +752,23 @@
     empty.style.display = "none";
 
     for (const p of rows) {
-      const pnl = (p.exit_price - p.entry_price) / p.entry_price * 100;
+      const basisPrice = p.realistic_entry_price ?? p.entry_price;
+      const basisLabel = p.realistic_entry_price != null ? "" : "*";
+      const pnl = (p.exit_price - basisPrice) / basisPrice * 100;
       const pnlClass = pnl >= 0 ? "pnl-pos" : "pnl-neg";
+      const mfeMae = (p.max_close_since_entry != null && p.min_close_since_entry != null)
+        ? (() => {
+            const mfe = (p.max_close_since_entry - basisPrice) / basisPrice * 100;
+            const mae = (p.min_close_since_entry - basisPrice) / basisPrice * 100;
+            return `<span class="pnl-pos">+${mfe.toFixed(1)}%</span> / <span class="pnl-neg">${mae.toFixed(1)}%</span>`;
+          })()
+        : `<span style="color:var(--text-faint)">—</span>`;
       const tr = document.createElement("tr");
       tr.innerHTML = `
         <td class="symbol">${p.symbol}</td>
-        <td class="price">$${Number(p.entry_price).toFixed(2)} → $${Number(p.exit_price).toFixed(2)}</td>
-        <td class="${pnlClass}">${pnl >= 0 ? "+" : ""}${pnl.toFixed(1)}%</td>
+        <td class="price">$${Number(basisPrice).toFixed(2)} → $${Number(p.exit_price).toFixed(2)}</td>
+        <td class="${pnlClass}">${pnl >= 0 ? "+" : ""}${pnl.toFixed(1)}%${basisLabel}</td>
+        <td>${mfeMae}</td>
         <td><span class="badge ${p.status}">${p.status}</span></td>
         <td class="price">${p.days_held ?? "—"} hari</td>
       `;
@@ -780,6 +823,8 @@
 </html>
 <!--
   changelog:
+  v2.1 - 2026-08-01 - Tambah metrik dari analisis ANET/CRSR: Momentum T-1->T0, Gap Trigger->Entry, MFE/MAE (Posisi Aktif & Riwayat Exit) — kolom baru di tabel positions: prev_close, max/min_close_since_entry
+  v2.0 - 2026-08-01 - Fix inkonsistensi basis PnL: Riwayat Exit, Performance Breakdown, Equity Curve sekarang pakai realistic_entry_price (Entry) sebagai basis, sama seperti Posisi Aktif — sebelumnya masih pakai entry_price (Trigger)
   v1.9 - 2026-08-01 - Rename kolom Posisi Aktif: Tanggal Entry->Tanggal (pindah paling kiri), Harga Entry->Trigger, Entry Realistis->Entry
   v1.8 - 2026-08-01 - Tambah Equity Curve (simulasi, SVG chart) + Performance Breakdown per alasan exit di tab Riwayat, terinspirasi referensi USSY Swing Screener
   v1.7 - 2026-08-01 - Posisi Aktif jadi tab default (bukan Watchlist)
