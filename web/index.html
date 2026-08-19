@@ -299,6 +299,53 @@
 
   .tab-content { display: none; }
   .tab-content.active { display: block; }
+
+  .subsection-title {
+    font-family: var(--font-mono);
+    font-size: 12px;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    color: var(--text-faint);
+    margin: 32px 0 12px;
+  }
+
+  .chart-note {
+    font-size: 12px;
+    color: var(--text-faint);
+    margin-bottom: 14px;
+    line-height: 1.5;
+  }
+
+  .equity-chart-wrap {
+    background: var(--bg-elevated);
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    padding: 16px;
+    margin-bottom: 12px;
+  }
+
+  .equity-stats-row {
+    display: flex;
+    gap: 24px;
+    flex-wrap: wrap;
+    margin-top: 12px;
+    padding-top: 12px;
+    border-top: 1px solid var(--border);
+  }
+
+  .equity-stat-label {
+    font-size: 11px;
+    color: var(--text-faint);
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+  }
+
+  .equity-stat-value {
+    font-family: var(--font-mono);
+    font-size: 15px;
+    font-weight: 600;
+    margin-top: 2px;
+  }
 </style>
 </head>
 <body>
@@ -371,6 +418,36 @@
   </div>
 
   <div class="tab-content" id="tab-riwayat">
+    <div class="subsection-title">Equity Curve (Simulasi)</div>
+    <div class="chart-note">
+      Kurva kumulatif dari PnL% tiap posisi yang sudah exit, diurutkan berdasarkan
+      tanggal exit — <strong>bukan</strong> simulasi portfolio dengan modal/cash
+      constraint seperti backtest (tabel <code>positions</code> memang sengaja
+      unlimited, tanpa cap modal). Anggap ini gambaran arah, bukan angka
+      equity presisi.
+    </div>
+    <div class="equity-chart-wrap">
+      <svg id="equityChart" viewBox="0 0 800 240" style="width:100%; height:auto; display:block;"></svg>
+      <div class="equity-stats-row" id="equityStatsRow"></div>
+    </div>
+
+    <div class="subsection-title">Performance Breakdown per Alasan Exit</div>
+    <div class="table-scroll">
+    <table>
+      <thead>
+        <tr>
+          <th>Alasan Exit</th>
+          <th>Jumlah</th>
+          <th>Win Rate</th>
+          <th>Avg PnL%</th>
+          <th>Total PnL%</th>
+        </tr>
+      </thead>
+      <tbody id="breakdownTbody"></tbody>
+    </table>
+    </div>
+
+    <div class="subsection-title">Riwayat Lengkap</div>
     <div class="table-scroll">
     <table>
       <thead>
@@ -524,6 +601,116 @@
     }
   }
 
+  function computePerfBreakdown(history) {
+    const groups = {};
+    for (const p of history) {
+      const reason = p.status;
+      if (!groups[reason]) groups[reason] = [];
+      const pnl = (p.exit_price - p.entry_price) / p.entry_price * 100;
+      groups[reason].push(pnl);
+    }
+    const rows = [];
+    for (const [reason, pnls] of Object.entries(groups)) {
+      const n = pnls.length;
+      const wins = pnls.filter((x) => x >= 0).length;
+      const total = pnls.reduce((a, b) => a + b, 0);
+      rows.push({
+        reason, n,
+        winRate: n ? (wins / n * 100) : 0,
+        avgPnl: n ? (total / n) : 0,
+        totalPnl: total,
+      });
+    }
+    return rows.sort((a, b) => b.n - a.n);
+  }
+
+  function renderPerfBreakdown(history) {
+    const tbody = document.getElementById("breakdownTbody");
+    tbody.innerHTML = "";
+    const rows = computePerfBreakdown(history);
+    if (rows.length === 0) {
+      tbody.innerHTML = `<tr><td colspan="5" style="padding:16px; color:var(--text-faint);">Belum ada data.</td></tr>`;
+      return;
+    }
+    for (const r of rows) {
+      const avgCls = r.avgPnl >= 0 ? "pnl-pos" : "pnl-neg";
+      const totalCls = r.totalPnl >= 0 ? "pnl-pos" : "pnl-neg";
+      const tr = document.createElement("tr");
+      tr.innerHTML = `
+        <td><span class="badge ${r.reason}">${r.reason}</span></td>
+        <td class="price">${r.n}</td>
+        <td class="price">${r.winRate.toFixed(1)}%</td>
+        <td class="${avgCls}">${r.avgPnl >= 0 ? "+" : ""}${r.avgPnl.toFixed(1)}%</td>
+        <td class="${totalCls}">${r.totalPnl >= 0 ? "+" : ""}${r.totalPnl.toFixed(1)}%</td>
+      `;
+      tbody.appendChild(tr);
+    }
+  }
+
+  function computeEquityCurve(history) {
+    const sorted = [...history]
+      .filter((p) => p.exit_date)
+      .sort((a, b) => new Date(a.exit_date) - new Date(b.exit_date));
+    let cumulative = 0;
+    const curve = [{ date: null, value: 0 }];
+    for (const p of sorted) {
+      const pnl = (p.exit_price - p.entry_price) / p.entry_price * 100;
+      cumulative += pnl;
+      curve.push({ date: p.exit_date, value: cumulative, symbol: p.symbol });
+    }
+    return curve;
+  }
+
+  function computeMaxDrawdown(curve) {
+    let peak = curve[0] ? curve[0].value : 0;
+    let maxDd = 0;
+    for (const point of curve) {
+      if (point.value > peak) peak = point.value;
+      const dd = point.value - peak;
+      if (dd < maxDd) maxDd = dd;
+    }
+    return maxDd;
+  }
+
+  function renderEquityChart(history) {
+    const svg = document.getElementById("equityChart");
+    const statsRow = document.getElementById("equityStatsRow");
+    const curve = computeEquityCurve(history);
+
+    if (curve.length <= 1) {
+      svg.innerHTML = `<text x="400" y="120" text-anchor="middle" fill="var(--text-faint)" font-size="13">Belum ada posisi yang exit.</text>`;
+      statsRow.innerHTML = "";
+      return;
+    }
+
+    const W = 800, H = 240, PAD = 24;
+    const values = curve.map((p) => p.value);
+    const minV = Math.min(0, ...values);
+    const maxV = Math.max(0, ...values);
+    const range = (maxV - minV) || 1;
+
+    const xStep = (W - PAD * 2) / (curve.length - 1);
+    const yFor = (v) => H - PAD - ((v - minV) / range) * (H - PAD * 2);
+    const xFor = (i) => PAD + i * xStep;
+
+    const zeroY = yFor(0);
+    const points = curve.map((p, i) => `${xFor(i)},${yFor(p.value)}`).join(" ");
+    const last = curve[curve.length - 1];
+    const lineColor = last.value >= 0 ? "var(--pass)" : "var(--fail)";
+
+    svg.innerHTML = `
+      <line x1="${PAD}" y1="${zeroY}" x2="${W - PAD}" y2="${zeroY}" stroke="var(--border)" stroke-width="1" stroke-dasharray="4 4" />
+      <polyline points="${points}" fill="none" stroke="${lineColor}" stroke-width="2" />
+    `;
+
+    const maxDd = computeMaxDrawdown(curve);
+    statsRow.innerHTML = `
+      <div><div class="equity-stat-label">Total PnL Kumulatif</div><div class="equity-stat-value" style="color:${last.value >= 0 ? "var(--pass)" : "var(--fail)"}">${last.value >= 0 ? "+" : ""}${last.value.toFixed(1)}%</div></div>
+      <div><div class="equity-stat-label">Max Drawdown</div><div class="equity-stat-value" style="color:var(--fail)">${maxDd.toFixed(1)}%</div></div>
+      <div><div class="equity-stat-label">Total Posisi Exit</div><div class="equity-stat-value">${curve.length - 1}</div></div>
+    `;
+  }
+
   function renderHistory(rows) {
     const tbody = document.getElementById("historyTbody");
     const empty = document.getElementById("historyEmpty");
@@ -567,6 +754,10 @@
 
       const history = await sb("positions?select=*&status=neq.active&order=exit_date.desc&limit=20");
       renderHistory(history);
+
+      const historyForCharts = await sb("positions?select=*&status=neq.active&order=exit_date.asc");
+      renderPerfBreakdown(historyForCharts);
+      renderEquityChart(historyForCharts);
     } catch (err) {
       document.getElementById("asOfDate").textContent = "gagal memuat";
       console.error(err);
@@ -589,6 +780,7 @@
 </html>
 <!--
   changelog:
+  v1.8 - 2026-08-01 - Tambah Equity Curve (simulasi, SVG chart) + Performance Breakdown per alasan exit di tab Riwayat, terinspirasi referensi USSY Swing Screener
   v1.7 - 2026-08-01 - Posisi Aktif jadi tab default (bukan Watchlist)
   v1.6 - 2026-08-01 - Restrukturisasi jadi tab (Watchlist/Posisi Aktif/Riwayat Exit), kolom Stop dipindah ke sebelah Harga Entry, tabel bisa di-scroll horizontal di mobile
   v1.5 - 2026-08-01 - Floating PnL utamakan Entry Realistis (fallback ke Harga Entry, ditandai * kalau masih fallback)
