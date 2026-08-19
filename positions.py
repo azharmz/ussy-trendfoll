@@ -59,6 +59,12 @@ def fill_realistic_entry_prices(client, latest: pd.DataFrame, as_of_date, all_tr
     data open besok tersedia di run berikutnya), makanya fungsi ini jalan
     tiap hari dan cuma ngisi yang masih kosong DAN entry_date-nya persis
     kemarin (1 hari bursa sebelum as_of_date).
+
+    DEFENSIVE CHECK: kalau `latest` punya baris duplikat untuk symbol yang
+    sama (harusnya tidak pernah terjadi, tapi pernah ditemukan kasus
+    realistic_entry_price ke-isi salah - misalnya kepilih High bukan Open),
+    fungsi ini sekarang detect & log eksplisit alih-alih diam-diam pakai
+    baris yang salah.
     """
     pending = client.table("positions").select("id, symbol, entry_date") \
         .is_("realistic_entry_price", "null").execute().data
@@ -67,7 +73,18 @@ def fill_realistic_entry_prices(client, latest: pd.DataFrame, as_of_date, all_tr
 
     trading_dates = pd.DatetimeIndex(sorted(pd.to_datetime(pd.Series(all_trading_dates)).unique()))
     idx_asof = trading_dates.searchsorted(pd.Timestamp(as_of_date))
-    feat_by_symbol = latest.set_index("symbol")
+
+    # Cek duplikat symbol di `latest` SEBELUM di-index -- kalau ada, log semua
+    # baris duplikatnya supaya ketahuan datanya seperti apa.
+    dup_symbols = latest["symbol"][latest["symbol"].duplicated(keep=False)].unique()
+    if len(dup_symbols) > 0:
+        print(f"[positions][WARN] Ditemukan {len(dup_symbols)} symbol duplikat di `latest` "
+              f"tanggal {pd.Timestamp(as_of_date).date()}: {list(dup_symbols)}")
+        for s in dup_symbols:
+            dup_rows = latest[latest["symbol"] == s][["symbol", "date", "open_raw", "high_raw", "close_raw"]]
+            print(f"[positions][WARN]   Baris duplikat untuk {s}:\n{dup_rows.to_string(index=False)}")
+
+    feat_by_symbol = latest.drop_duplicates(subset="symbol", keep="first").set_index("symbol")
 
     filled = 0
     for p in pending:
@@ -79,9 +96,17 @@ def fill_realistic_entry_prices(client, latest: pd.DataFrame, as_of_date, all_tr
         symbol = p["symbol"]
         if symbol not in feat_by_symbol.index:
             continue
-        open_price = feat_by_symbol.loc[symbol].get("open_raw")
+        row = feat_by_symbol.loc[symbol]
+        open_price = row.get("open_raw")
         if pd.isna(open_price):
             continue
+
+        # Log eksplisit setiap kali diisi -- supaya kalau ada kasus aneh
+        # lagi, log GitHub Actions langsung kasih bukti tanggal & nilai
+        # yang dipakai, tidak perlu diagnosa manual seperti kasus CRSR.
+        print(f"[positions] Isi realistic_entry_price {symbol}: entry_date={entry_date.date()}, "
+              f"tanggal open dipakai={row.get('date')}, open_raw={open_price}, "
+              f"high_raw={row.get('high_raw')} (pembanding, harus BEDA dari open_raw kecuali kebetulan)")
 
         client.table("positions").update({
             "realistic_entry_price": float(open_price),
@@ -155,7 +180,7 @@ def check_exits(client, latest_features: pd.DataFrame, as_of_date, all_trading_d
     if not active:
         return []
 
-    feat_by_symbol = latest_features.set_index("symbol")
+    feat_by_symbol = latest_features.drop_duplicates(subset="symbol", keep="first").set_index("symbol")
     trading_dates = pd.DatetimeIndex(sorted(pd.to_datetime(pd.Series(all_trading_dates)).unique()))
     exits = []
 
