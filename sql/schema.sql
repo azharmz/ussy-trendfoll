@@ -1,6 +1,6 @@
 -- USSY TrendFoll — Supabase Schema
 -- Project: https://rggtylvlrzzesrtumqzj.supabase.co
--- Jalankan di SQL Editor Supabase.
+-- Jalankan di SQL Editor Supabase. Aman dijalankan ulang (idempotent).
 
 -- ============================================================
 -- 1. sector_cache — cache mapping sector, refresh cuma kalau basi (>30 hari)
@@ -43,11 +43,13 @@ create index if not exists idx_watchlist_investability on watchlist (investabili
 alter table sector_cache enable row level security;
 alter table watchlist enable row level security;
 
+drop policy if exists "sector_cache read-only public" on sector_cache;
 create policy "sector_cache read-only public"
     on sector_cache for select
     to anon, authenticated
     using (true);
 
+drop policy if exists "watchlist read-only public" on watchlist;
 create policy "watchlist read-only public"
     on watchlist for select
     to anon, authenticated

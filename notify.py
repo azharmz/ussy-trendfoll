@@ -1,9 +1,9 @@
 """
 USSY TrendFoll — Telegram Notification
 =========================================
-Kirim ringkasan watchlist harian ke Telegram. Kalau TELEGRAM_BOT_TOKEN /
-TELEGRAM_CHAT_ID belum di-set, skip diam-diam (tidak error) — pola yang
-sama dipakai di USSY Signal (notify.py).
+Kirim ringkasan watchlist harian + alert exit posisi ke Telegram. Kalau
+TELEGRAM_BOT_TOKEN / TELEGRAM_CHAT_ID belum di-set, skip diam-diam (tidak
+error) — pola yang sama dipakai di USSY Signal (notify.py).
 """
 
 import os
