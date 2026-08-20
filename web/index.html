@@ -3,23 +3,26 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>USSY TrendFoll — Watchlist Harian</title>
+<title>USSY TrendFoll Dashboard</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@500;600;700&family=IBM+Plex+Sans:wght@400;500;600&family=IBM+Plex+Mono:wght@400;500;600&display=swap" rel="stylesheet">
 <style>
   :root {
     --bg: #0c1016;
-    --bg-elevated: #12161f;
-    --bg-hover: #171d29;
-    --border: #212836;
+    --bg-elevated: #131922;
+    --panel-2: #182029;
+    --bg-hover: #171f2a;
+    --border: #263140;
     --accent: #4f8cff;
-    --accent-dim: #2c4d8a;
-    --text: #e7ecf5;
-    --text-dim: #8b95a8;
+    --accent-dim: #3a5f9e;
+    --text: #e7e9ec;
+    --text-dim: #8993a3;
     --text-faint: #5a6479;
-    --pass: #3ecf8e;
+    --pass: #46b478;
     --near: #e8b339;
-    --fail: #e8546b;
+    --fail: #d1584d;
+    --purple: #9b7fd4;
+    --radius: 3px;
     --font-display: 'Space Grotesk', sans-serif;
     --font-body: 'IBM Plex Sans', sans-serif;
     --font-mono: 'IBM Plex Mono', monospace;
@@ -45,23 +48,38 @@
 
   header {
     display: flex;
-    align-items: baseline;
+    align-items: flex-start;
     justify-content: space-between;
     flex-wrap: wrap;
-    gap: 12px;
+    gap: 16px;
     margin-bottom: 28px;
     padding-bottom: 20px;
     border-bottom: 1px solid var(--border);
   }
 
+  .brand-eyebrow {
+    font-family: var(--font-mono);
+    font-size: 11px;
+    letter-spacing: 0.14em;
+    color: var(--accent);
+    text-transform: uppercase;
+    margin-bottom: 6px;
+  }
+
   h1 {
     font-family: var(--font-display);
-    font-weight: 700;
-    font-size: 22px;
+    font-weight: 600;
+    font-size: 26px;
     letter-spacing: -0.01em;
   }
 
-  h1 span { color: var(--accent); }
+  h1 .accent { color: var(--accent); }
+
+  .sub {
+    color: var(--text-dim);
+    font-size: 13px;
+    margin-top: 4px;
+  }
 
   .as-of-date {
     font-family: var(--font-mono);
@@ -75,7 +93,7 @@
     gap: 1px;
     background: var(--border);
     border: 1px solid var(--border);
-    border-radius: 10px;
+    border-radius: 6px;
     overflow: hidden;
     margin-bottom: 32px;
   }
@@ -112,22 +130,48 @@
   .table-scroll {
     overflow-x: auto;
     margin-bottom: 40px;
+    border: 1px solid var(--border);
+    border-radius: 6px;
+    scrollbar-width: thin;
+    scrollbar-color: var(--border) transparent;
+  }
+
+  .table-scroll::-webkit-scrollbar {
+    height: 6px;
+  }
+
+  .table-scroll::-webkit-scrollbar-track {
+    background: transparent;
+  }
+
+  .table-scroll::-webkit-scrollbar-thumb {
+    background: var(--border);
+    border-radius: 3px;
+  }
+
+  .table-scroll::-webkit-scrollbar-thumb:hover {
+    background: var(--text-faint);
   }
 
   table {
     width: 100%;
     border-collapse: collapse;
+    font-size: 12.5px;
   }
 
   thead th {
     text-align: left;
-    font-size: 11px;
+    font-size: 10.5px;
     letter-spacing: 0.05em;
     text-transform: uppercase;
-    color: var(--text-faint);
-    font-weight: 500;
-    padding: 0 14px 10px;
+    color: var(--text-dim);
+    font-weight: 600;
+    padding: 9px 12px;
+    background: var(--panel-2);
     border-bottom: 1px solid var(--border);
+    white-space: nowrap;
+    position: sticky;
+    top: 0;
   }
 
   tbody tr {
@@ -138,9 +182,10 @@
   tbody tr:hover { background: var(--bg-hover); }
 
   tbody td {
-    padding: 13px 14px;
+    padding: 9px 12px;
     border-bottom: 1px solid var(--border);
-    font-size: 14px;
+    font-size: 12.5px;
+    white-space: nowrap;
   }
 
   .symbol {
@@ -225,7 +270,7 @@
   .modal {
     background: var(--bg-elevated);
     border: 1px solid var(--border);
-    border-radius: 12px;
+    border-radius: 8px;
     max-width: 560px;
     width: 100%;
     padding: 24px;
@@ -263,7 +308,6 @@
 
   @media (max-width: 640px) {
     .stats-grid { grid-template-columns: repeat(2, 1fr); }
-    #watchlistTable thead th:nth-child(2), #watchlistTable tbody td:nth-child(2) { display: none; }
   }
 
   @media (prefers-reduced-motion: reduce) {
@@ -352,7 +396,11 @@
 
 <div class="wrap">
   <header>
-    <h1>USSY <span>TrendFoll</span></h1>
+    <div>
+      <div class="brand-eyebrow">utrendfoll.anyapp.my.id &middot; USSY TrendFoll</div>
+      <h1><span class="accent">USSY</span> TrendFoll</h1>
+      <div class="sub">Forward-test trend-following harian dari universe halal x XTB, otomatis via GitHub Actions</div>
+    </div>
     <div class="as-of-date" id="asOfDate">memuat...</div>
   </header>
 
@@ -471,7 +519,7 @@
     </div>
   </div>
 
-  <footer style="margin-top:40px;">USSY TrendFoll — riset internal, bukan rekomendasi finansial</footer>
+  <footer style="margin-top:40px;">Data forward-test, bukan rekomendasi finansial &middot; utrendfoll.anyapp.my.id</footer>
 </div>
 
 <div class="modal-backdrop" id="modalBackdrop">
@@ -823,6 +871,8 @@
 </html>
 <!--
   changelog:
+  v2.3 - 2026-08-01 - Custom scrollbar tipis+gelap untuk .table-scroll (ganti scrollbar default browser yang kontras dengan tema gelap)
+  v2.2 - 2026-08-01 - Adaptasi brand identity dari referensi USSY Swing Screener: token warna & radius disamakan, header brand-eyebrow+subdomain (utrendfoll.anyapp.my.id), footer subdomain. Fix bug table-scroll: white-space:nowrap + sticky header supaya overflow-x beneran kepicu di mobile (sebelumnya kolom cuma wrap, scroll gak pernah aktif)
   v2.1 - 2026-08-01 - Tambah metrik dari analisis ANET/CRSR: Momentum T-1->T0, Gap Trigger->Entry, MFE/MAE (Posisi Aktif & Riwayat Exit) — kolom baru di tabel positions: prev_close, max/min_close_since_entry
   v2.0 - 2026-08-01 - Fix inkonsistensi basis PnL: Riwayat Exit, Performance Breakdown, Equity Curve sekarang pakai realistic_entry_price (Entry) sebagai basis, sama seperti Posisi Aktif — sebelumnya masih pakai entry_price (Trigger)
   v1.9 - 2026-08-01 - Rename kolom Posisi Aktif: Tanggal Entry->Tanggal (pindah paling kiri), Harga Entry->Trigger, Entry Realistis->Entry
