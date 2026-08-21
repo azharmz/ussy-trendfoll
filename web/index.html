@@ -789,10 +789,13 @@
     `;
 
     const maxDd = computeMaxDrawdown(curve);
+    const nTrades = curve.length - 1;
+    const avgPnl = nTrades > 0 ? last.value / nTrades : 0;
     statsRow.innerHTML = `
-      <div><div class="equity-stat-label">Total PnL Kumulatif</div><div class="equity-stat-value" style="color:${last.value >= 0 ? "var(--pass)" : "var(--fail)"}">${last.value >= 0 ? "+" : ""}${last.value.toFixed(1)}%</div></div>
+      <div><div class="equity-stat-label">Sum PnL (kumulatif)</div><div class="equity-stat-value" style="color:${last.value >= 0 ? "var(--pass)" : "var(--fail)"}">${last.value >= 0 ? "+" : ""}${last.value.toFixed(1)}%</div></div>
+      <div><div class="equity-stat-label">Avg PnL per Trade</div><div class="equity-stat-value" style="color:${avgPnl >= 0 ? "var(--pass)" : "var(--fail)"}">${avgPnl >= 0 ? "+" : ""}${avgPnl.toFixed(1)}%</div></div>
       <div><div class="equity-stat-label">Max Drawdown</div><div class="equity-stat-value" style="color:var(--fail)">${maxDd.toFixed(1)}%</div></div>
-      <div><div class="equity-stat-label">Total Posisi Exit</div><div class="equity-stat-value">${curve.length - 1}</div></div>
+      <div><div class="equity-stat-label">Total Posisi Exit</div><div class="equity-stat-value">${nTrades}</div></div>
     `;
   }
 
@@ -877,5 +880,5 @@
 </html>
 <!--
   changelog:
-  v2.5 - 2026-08-01 - Lebarkan container dari 980px ke 1320px (sama seperti referensi) supaya tabel lebar muat tanpa perlu scroll aktif di desktop
+  v2.6 - 2026-08-01 - Tambah stat Avg PnL per Trade, perjelas label Total PnL jadi "Sum PnL (kumulatif)" supaya tidak disalahartikan sebagai rata-rata
 -->
