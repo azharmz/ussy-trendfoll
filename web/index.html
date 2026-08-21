@@ -41,9 +41,9 @@
   a { color: var(--accent); }
 
   .wrap {
-    max-width: 980px;
+    max-width: 1320px;
     margin: 0 auto;
-    padding: 40px 20px 80px;
+    padding: 40px 24px 80px;
   }
 
   header {
@@ -308,6 +308,7 @@
 
   @media (max-width: 640px) {
     .stats-grid { grid-template-columns: repeat(2, 1fr); }
+    .wrap { padding: 24px 16px 48px; }
   }
 
   @media (prefers-reduced-motion: reduce) {
@@ -455,7 +456,8 @@
           <th>Momentum T-1→T0</th>
           <th>Gap Trigger→Entry</th>
           <th>Mark</th>
-          <th>MFE / MAE</th>
+          <th>MFE</th>
+          <th>MAE</th>
           <th>Floating PnL</th>
           <th>Hari Berjalan</th>
         </tr>
@@ -506,7 +508,8 @@
           <th>Symbol</th>
           <th>Entry → Exit</th>
           <th>PnL</th>
-          <th>MFE / MAE</th>
+          <th>MFE</th>
+          <th>MAE</th>
           <th>Alasan</th>
           <th>Hari Ditahan</th>
         </tr>
@@ -647,15 +650,15 @@
         ? formatSignedPct((p.realistic_entry_price - p.entry_price) / p.entry_price * 100)
         : `<span style="color:var(--text-faint)">menunggu...</span>`;
 
-      const mfeMae = (() => {
-        if (p.max_close_since_entry == null || p.min_close_since_entry == null) {
-          return `<span style="color:var(--text-faint)">—</span>`;
-        }
+      let mfeCell = `<span style="color:var(--text-faint)">—</span>`;
+      let maeCell = `<span style="color:var(--text-faint)">—</span>`;
+      if (p.max_close_since_entry != null && p.min_close_since_entry != null) {
         const basisPrice = p.realistic_entry_price ?? p.entry_price;
         const mfe = (p.max_close_since_entry - basisPrice) / basisPrice * 100;
         const mae = (p.min_close_since_entry - basisPrice) / basisPrice * 100;
-        return `<span class="pnl-pos">+${mfe.toFixed(1)}%</span> / <span class="pnl-neg">${mae.toFixed(1)}%</span>`;
-      })();
+        mfeCell = formatSignedPct(mfe);
+        maeCell = formatSignedPct(mae);
+      }
 
       const tr = document.createElement("tr");
       tr.innerHTML = `
@@ -667,7 +670,8 @@
         <td>${momentum}</td>
         <td>${gapEntry}</td>
         <td class="price">${markPrice}</td>
-        <td>${mfeMae}</td>
+        <td>${mfeCell}</td>
+        <td>${maeCell}</td>
         <td>${floatingPnl}</td>
         <td class="price">~${daysElapsed} hari kalender</td>
       `;
@@ -804,19 +808,21 @@
       const basisLabel = p.realistic_entry_price != null ? "" : "*";
       const pnl = (p.exit_price - basisPrice) / basisPrice * 100;
       const pnlClass = pnl >= 0 ? "pnl-pos" : "pnl-neg";
-      const mfeMae = (p.max_close_since_entry != null && p.min_close_since_entry != null)
-        ? (() => {
-            const mfe = (p.max_close_since_entry - basisPrice) / basisPrice * 100;
-            const mae = (p.min_close_since_entry - basisPrice) / basisPrice * 100;
-            return `<span class="pnl-pos">+${mfe.toFixed(1)}%</span> / <span class="pnl-neg">${mae.toFixed(1)}%</span>`;
-          })()
-        : `<span style="color:var(--text-faint)">—</span>`;
+      let mfeCell = `<span style="color:var(--text-faint)">—</span>`;
+      let maeCell = `<span style="color:var(--text-faint)">—</span>`;
+      if (p.max_close_since_entry != null && p.min_close_since_entry != null) {
+        const mfe = (p.max_close_since_entry - basisPrice) / basisPrice * 100;
+        const mae = (p.min_close_since_entry - basisPrice) / basisPrice * 100;
+        mfeCell = formatSignedPct(mfe);
+        maeCell = formatSignedPct(mae);
+      }
       const tr = document.createElement("tr");
       tr.innerHTML = `
         <td class="symbol">${p.symbol}</td>
         <td class="price">$${Number(basisPrice).toFixed(2)} → $${Number(p.exit_price).toFixed(2)}</td>
         <td class="${pnlClass}">${pnl >= 0 ? "+" : ""}${pnl.toFixed(1)}%${basisLabel}</td>
-        <td>${mfeMae}</td>
+        <td>${mfeCell}</td>
+        <td>${maeCell}</td>
         <td><span class="badge ${p.status}">${p.status}</span></td>
         <td class="price">${p.days_held ?? "—"} hari</td>
       `;
@@ -871,18 +877,5 @@
 </html>
 <!--
   changelog:
-  v2.3 - 2026-08-01 - Custom scrollbar tipis+gelap untuk .table-scroll (ganti scrollbar default browser yang kontras dengan tema gelap)
-  v2.2 - 2026-08-01 - Adaptasi brand identity dari referensi USSY Swing Screener: token warna & radius disamakan, header brand-eyebrow+subdomain (utrendfoll.anyapp.my.id), footer subdomain. Fix bug table-scroll: white-space:nowrap + sticky header supaya overflow-x beneran kepicu di mobile (sebelumnya kolom cuma wrap, scroll gak pernah aktif)
-  v2.1 - 2026-08-01 - Tambah metrik dari analisis ANET/CRSR: Momentum T-1->T0, Gap Trigger->Entry, MFE/MAE (Posisi Aktif & Riwayat Exit) — kolom baru di tabel positions: prev_close, max/min_close_since_entry
-  v2.0 - 2026-08-01 - Fix inkonsistensi basis PnL: Riwayat Exit, Performance Breakdown, Equity Curve sekarang pakai realistic_entry_price (Entry) sebagai basis, sama seperti Posisi Aktif — sebelumnya masih pakai entry_price (Trigger)
-  v1.9 - 2026-08-01 - Rename kolom Posisi Aktif: Tanggal Entry->Tanggal (pindah paling kiri), Harga Entry->Trigger, Entry Realistis->Entry
-  v1.8 - 2026-08-01 - Tambah Equity Curve (simulasi, SVG chart) + Performance Breakdown per alasan exit di tab Riwayat, terinspirasi referensi USSY Swing Screener
-  v1.7 - 2026-08-01 - Posisi Aktif jadi tab default (bukan Watchlist)
-  v1.6 - 2026-08-01 - Restrukturisasi jadi tab (Watchlist/Posisi Aktif/Riwayat Exit), kolom Stop dipindah ke sebelah Harga Entry, tabel bisa di-scroll horizontal di mobile
-  v1.5 - 2026-08-01 - Floating PnL utamakan Entry Realistis (fallback ke Harga Entry, ditandai * kalau masih fallback)
-  v1.4 - 2026-08-01 - Tambah kolom Mark (harga terkini) & Floating PnL di Posisi Aktif, di-update tiap run
-  v1.3 - 2026-08-01 - Perbaiki "Hari Berjalan": acuan tanggal pipeline terakhir (bukan real-time saat dibuka), label diperjelas jadi kalender kasar
-  v1.2 - 2026-08-01 - Tambah kolom Entry Realistis (open H+1, dari realistic_entry_price)
-  v1.1 - 2026-08-01 - Tambah section Posisi Aktif & Riwayat Exit (dari tabel positions)
-  v1.0 - 2026-08-01 - Rilis awal: watchlist harian, stats, modal explainability per ticker
+  v2.5 - 2026-08-01 - Lebarkan container dari 980px ke 1320px (sama seperti referensi) supaya tabel lebar muat tanpa perlu scroll aktif di desktop
 -->
