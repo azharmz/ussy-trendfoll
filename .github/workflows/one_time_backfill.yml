@@ -1,0 +1,28 @@
+name: ONE-TIME — Backfill Historical Data
+
+# SEKALI PAKAI. Jalankan manual sekali dari tab Actions, verifikasi hasilnya
+# di Supabase, lalu HAPUS file ini + one_time_backfill.py dari repo.
+# Tidak ada jadwal cron -- cuma workflow_dispatch (trigger manual).
+
+on:
+  workflow_dispatch: {}
+
+jobs:
+  backfill:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Install dependencies
+        run: pip install pandas yfinance supabase
+
+      - name: Run one-time backfill
+        env:
+          SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
+          SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
+        run: python one_time_backfill.py
