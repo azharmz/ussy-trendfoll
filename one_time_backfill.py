@@ -82,9 +82,16 @@ def backfill():
         # max/min close sejak entry: mulai dari entry_price (= close T0),
         # lalu tiap close harian sampai end_date (exit_date atau hari ini)
         period_dates = trading_dates[(trading_dates > entry_date) & (trading_dates <= end_date)]
+        # Sama seperti fix di positions.py: di hari exit, pakai exit_price
+        # (bukan close hari itu) — begitu stop tersentuh & tereksekusi,
+        # pergerakan harga setelahnya bukan lagi pengalaman yang dialami.
         closes_in_period = [float(pos["entry_price"])]
+        exit_date_only = end_date.normalize() if pos.get("exit_date") else None
         for d in period_dates:
-            closes_in_period.append(float(hist.loc[d, "Close"]))
+            if exit_date_only is not None and d.normalize() == exit_date_only and pos.get("exit_price") is not None:
+                closes_in_period.append(float(pos["exit_price"]))
+            else:
+                closes_in_period.append(float(hist.loc[d, "Close"]))
 
         max_close = max(closes_in_period)
         min_close = min(closes_in_period)

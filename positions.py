@@ -207,12 +207,19 @@ def check_exits(client, latest_features: pd.DataFrame, as_of_date, all_trading_d
         elif pd.notna(row.get("ema20")) and close_raw < float(row["ema20"]):
             exit_reason, exit_price = "trend_exit", close_raw
 
-        # MFE/MAE: basis close harian sejak entry, di-update terus selama
-        # posisi masih hidup (termasuk di hari yang sama dia exit).
+        # MFE/MAE: basis close harian sejak entry — TAPI di hari exit, pakai
+        # exit_price (bukan close_raw penuh hari itu). Begitu stop tersentuh
+        # intraday dan tereksekusi, posisi sudah selesai — pergerakan harga
+        # SETELAH itu sampai closing bukan lagi pengalaman yang dialami,
+        # jadi tidak boleh ikut memperdalam MAE. Untuk trend_exit/max_holding
+        # ini tidak mengubah apapun (exit_price == close_raw hari itu),
+        # cuma relevan buat stop_loss (exit_price = level stop, bisa beda
+        # dari close hari itu).
+        price_for_excursion = exit_price if exit_reason else close_raw
         prev_max = pos.get("max_close_since_entry")
         prev_min = pos.get("min_close_since_entry")
-        new_max = max(float(prev_max), close_raw) if prev_max is not None else close_raw
-        new_min = min(float(prev_min), close_raw) if prev_min is not None else close_raw
+        new_max = max(float(prev_max), price_for_excursion) if prev_max is not None else price_for_excursion
+        new_min = min(float(prev_min), price_for_excursion) if prev_min is not None else price_for_excursion
 
         if exit_reason:
             client.table("positions").update({
