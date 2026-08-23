@@ -34,6 +34,7 @@
     background: var(--bg);
     color: var(--text);
     font-family: var(--font-body);
+    font-size: 14px;
     line-height: 1.5;
     min-height: 100vh;
   }
@@ -440,6 +441,13 @@
   </div>
 
   <div class="tab-content active" id="tab-posisi">
+    <div class="stats-grid" id="posisiStatsGrid">
+      <div class="stat"><div class="stat-num" id="posisiStatTotal">—</div><div class="stat-label">Posisi Aktif</div></div>
+      <div class="stat"><div class="stat-num pass" id="posisiStatWinning">—</div><div class="stat-label">Untung</div></div>
+      <div class="stat"><div class="stat-num" id="posisiStatLosing" style="color:var(--fail)">—</div><div class="stat-label">Rugi</div></div>
+      <div class="stat"><div class="stat-num" id="posisiStatTotalPnl">—</div><div class="stat-label">Total Floating PnL</div></div>
+    </div>
+
     <div style="font-size:12px; color:var(--text-faint); margin-bottom:16px;">
       Floating PnL berbasis Entry (open H+1). Tanda * = Entry belum terisi,
       sementara pakai Trigger (close hari sinyal).
@@ -505,13 +513,19 @@
     <table>
       <thead>
         <tr>
+          <th>Tanggal</th>
           <th>Symbol</th>
-          <th>Entry → Exit</th>
-          <th>PnL</th>
+          <th>Trigger</th>
+          <th>Stop (SL)</th>
+          <th>Entry</th>
+          <th>Momentum T-1→T0</th>
+          <th>Gap Trigger→Entry</th>
+          <th>Exit</th>
           <th>MFE</th>
           <th>MAE</th>
-          <th>Alasan</th>
+          <th>Realized PnL</th>
           <th>Hari Ditahan</th>
+          <th>Alasan</th>
         </tr>
       </thead>
       <tbody id="historyTbody"></tbody>
@@ -612,7 +626,26 @@
   });
   document.addEventListener("keydown", (e) => { if (e.key === "Escape") closeModal(); });
 
+  function renderPosisiStats(rows) {
+    const total = rows.length;
+    let winning = 0, losing = 0, totalPnl = 0;
+    for (const p of rows) {
+      if (p.mark_price == null) continue;
+      const basisPrice = p.realistic_entry_price ?? p.entry_price;
+      const pnl = (p.mark_price - basisPrice) / basisPrice * 100;
+      if (pnl >= 0) winning++; else losing++;
+      totalPnl += pnl;
+    }
+    document.getElementById("posisiStatTotal").textContent = total;
+    document.getElementById("posisiStatWinning").textContent = winning;
+    document.getElementById("posisiStatLosing").textContent = losing;
+    const totalEl = document.getElementById("posisiStatTotalPnl");
+    totalEl.textContent = `${totalPnl >= 0 ? "+" : ""}${totalPnl.toFixed(1)}%`;
+    totalEl.style.color = totalPnl >= 0 ? "var(--pass)" : "var(--fail)";
+  }
+
   function renderPositions(rows, asOfDate) {
+    renderPosisiStats(rows);
     const tbody = document.getElementById("positionsTbody");
     const empty = document.getElementById("positionsEmpty");
     tbody.innerHTML = "";
@@ -811,6 +844,17 @@
       const basisLabel = p.realistic_entry_price != null ? "" : "*";
       const pnl = (p.exit_price - basisPrice) / basisPrice * 100;
       const pnlClass = pnl >= 0 ? "pnl-pos" : "pnl-neg";
+
+      const realisticPrice = p.realistic_entry_price != null
+        ? `$${Number(p.realistic_entry_price).toFixed(2)}`
+        : `<span style="color:var(--text-faint)">*</span>`;
+      const momentum = p.prev_close != null
+        ? formatSignedPct((p.entry_price - p.prev_close) / p.prev_close * 100)
+        : `<span style="color:var(--text-faint)">—</span>`;
+      const gapEntry = p.realistic_entry_price != null
+        ? formatSignedPct((p.realistic_entry_price - p.entry_price) / p.entry_price * 100)
+        : `<span style="color:var(--text-faint)">—</span>`;
+
       let mfeCell = `<span style="color:var(--text-faint)">—</span>`;
       let maeCell = `<span style="color:var(--text-faint)">—</span>`;
       if (p.max_close_since_entry != null && p.min_close_since_entry != null) {
@@ -819,15 +863,22 @@
         mfeCell = formatSignedPct(mfe);
         maeCell = formatSignedPct(mae);
       }
+
       const tr = document.createElement("tr");
       tr.innerHTML = `
+        <td class="price">${p.entry_date}</td>
         <td class="symbol">${p.symbol}</td>
-        <td class="price">$${Number(basisPrice).toFixed(2)} → $${Number(p.exit_price).toFixed(2)}</td>
-        <td class="${pnlClass}">${pnl >= 0 ? "+" : ""}${pnl.toFixed(1)}%${basisLabel}</td>
+        <td class="price">$${Number(p.entry_price).toFixed(2)}</td>
+        <td class="price">$${Number(p.stop_price).toFixed(2)}</td>
+        <td class="price">${realisticPrice}</td>
+        <td>${momentum}</td>
+        <td>${gapEntry}</td>
+        <td class="price">$${Number(p.exit_price).toFixed(2)}</td>
         <td>${mfeCell}</td>
         <td>${maeCell}</td>
-        <td><span class="badge ${p.status}">${p.status}</span></td>
+        <td class="${pnlClass}">${pnl >= 0 ? "+" : ""}${pnl.toFixed(1)}%${basisLabel}</td>
         <td class="price">${p.days_held ?? "—"} hari</td>
+        <td><span class="badge ${p.status}">${p.status}</span></td>
       `;
       tbody.appendChild(tr);
     }
@@ -880,5 +931,5 @@
 </html>
 <!--
   changelog:
-  v2.6 - 2026-08-01 - Tambah stat Avg PnL per Trade, perjelas label Total PnL jadi "Sum PnL (kumulatif)" supaya tidak disalahartikan sebagai rata-rata
+  v2.7 - 2026-08-01 - Kolom Riwayat Exit disamakan persis dengan Posisi Aktif (+Alasan). Tambah stats-grid di Posisi Aktif (jumlah/untung/rugi/total floating PnL). Base font-size body disamakan referensi (14px, sebelumnya default browser)
 -->
