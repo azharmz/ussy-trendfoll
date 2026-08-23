@@ -406,6 +406,20 @@
     <div class="as-of-date" id="asOfDate">memuat...</div>
   </header>
 
+  <div class="chart-note" style="margin-top:0;">
+    Ringkasan investasi ini <strong>simulasi</strong> — tabel <code>positions</code>
+    sendiri tidak menyimpan modal/lembar saham (sengaja unlimited, tanpa cap
+    modal). Angka $ di bawah dihitung on-the-fly memakai metodologi yang sama
+    dengan backtest tervalidasi: modal $100.000, risiko 1% per trade
+    (~$1.000), ukuran posisi dari jarak Trigger→Stop.
+  </div>
+  <div class="stats-grid" id="investmentStatsGrid" style="margin-bottom:32px;">
+    <div class="stat"><div class="stat-num" id="investStatRealized">—</div><div class="stat-label">Realized PnL ($)</div></div>
+    <div class="stat"><div class="stat-num" id="investStatFloating">—</div><div class="stat-label">Floating PnL ($)</div></div>
+    <div class="stat"><div class="stat-num" id="investStatTotal">—</div><div class="stat-label">Total PnL ($)</div></div>
+    <div class="stat"><div class="stat-num" id="investStatTotalPct">—</div><div class="stat-label">Total PnL (% modal)</div></div>
+  </div>
+
   <div class="tabs">
     <button class="tab-btn" data-tab="watchlist">Watchlist</button>
     <button class="tab-btn active" data-tab="posisi">Posisi Aktif</button>
@@ -884,6 +898,52 @@
     }
   }
 
+  const SIM_CAPITAL = 100_000;
+  const SIM_RISK_PCT = 0.01; // $1,000 per trade, non-compounding — sama seperti portfolio_backtest.py
+
+  function simDollarPnl(pos, exitOrMarkPrice) {
+    const riskPerShare = pos.entry_price - pos.stop_price; // basis Trigger, sama seperti backtest
+    if (!riskPerShare || riskPerShare <= 0) return null;
+    const shares = (SIM_CAPITAL * SIM_RISK_PCT) / riskPerShare;
+    const basisPrice = pos.realistic_entry_price ?? pos.entry_price;
+    if (exitOrMarkPrice == null) return null;
+    return shares * (exitOrMarkPrice - basisPrice);
+  }
+
+  function renderInvestmentSummary(activePositions, historyPositions) {
+    let realizedTotal = 0;
+    for (const p of historyPositions) {
+      const pnl = simDollarPnl(p, p.exit_price);
+      if (pnl != null) realizedTotal += pnl;
+    }
+    let floatingTotal = 0;
+    for (const p of activePositions) {
+      const pnl = simDollarPnl(p, p.mark_price);
+      if (pnl != null) floatingTotal += pnl;
+    }
+    const total = realizedTotal + floatingTotal;
+
+    const fmt = (v) => `${v >= 0 ? "+" : "-"}$${Math.abs(v).toLocaleString("en-US", { maximumFractionDigits: 0 })}`;
+    const colorFor = (v) => v >= 0 ? "var(--pass)" : "var(--fail)";
+
+    const elRealized = document.getElementById("investStatRealized");
+    elRealized.textContent = fmt(realizedTotal);
+    elRealized.style.color = colorFor(realizedTotal);
+
+    const elFloating = document.getElementById("investStatFloating");
+    elFloating.textContent = fmt(floatingTotal);
+    elFloating.style.color = colorFor(floatingTotal);
+
+    const elTotal = document.getElementById("investStatTotal");
+    elTotal.textContent = fmt(total);
+    elTotal.style.color = colorFor(total);
+
+    const elTotalPct = document.getElementById("investStatTotalPct");
+    const pct = total / SIM_CAPITAL * 100;
+    elTotalPct.textContent = `${pct >= 0 ? "+" : ""}${pct.toFixed(2)}%`;
+    elTotalPct.style.color = colorFor(pct);
+  }
+
   async function load() {
     try {
       const latestDateRows = await sb("watchlist?select=date&order=date.desc&limit=1");
@@ -909,6 +969,8 @@
       const historyForCharts = await sb("positions?select=*&status=neq.active&order=exit_date.asc");
       renderPerfBreakdown(historyForCharts);
       renderEquityChart(historyForCharts);
+
+      renderInvestmentSummary(activePositions, historyForCharts);
     } catch (err) {
       document.getElementById("asOfDate").textContent = "gagal memuat";
       console.error(err);
@@ -931,5 +993,5 @@
 </html>
 <!--
   changelog:
-  v2.7 - 2026-08-01 - Kolom Riwayat Exit disamakan persis dengan Posisi Aktif (+Alasan). Tambah stats-grid di Posisi Aktif (jumlah/untung/rugi/total floating PnL). Base font-size body disamakan referensi (14px, sebelumnya default browser)
+  v2.8 - 2026-08-01 - Tambah section "Ringkasan Investasi" ($, di atas tabs) — simulasi realized+floating PnL pakai metodologi backtest (1% risk, $100k modal, sizing dari Trigger->Stop)
 -->
