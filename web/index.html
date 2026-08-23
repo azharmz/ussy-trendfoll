@@ -99,6 +99,10 @@
     margin-bottom: 32px;
   }
 
+  #investmentStatsGrid {
+    grid-template-columns: repeat(5, 1fr);
+  }
+
   .stat {
     background: var(--bg-elevated);
     padding: 16px 18px;
@@ -309,6 +313,7 @@
 
   @media (max-width: 640px) {
     .stats-grid { grid-template-columns: repeat(2, 1fr); }
+    #investmentStatsGrid { grid-template-columns: repeat(2, 1fr); }
     .wrap { padding: 24px 16px 48px; }
   }
 
@@ -408,16 +413,17 @@
 
   <div class="chart-note" style="margin-top:0;">
     Ringkasan investasi ini <strong>simulasi</strong> — tabel <code>positions</code>
-    sendiri tidak menyimpan modal/lembar saham (sengaja unlimited, tanpa cap
-    modal). Angka $ di bawah dihitung on-the-fly memakai metodologi yang sama
-    dengan backtest tervalidasi: modal $100.000, risiko 1% per trade
-    (~$1.000), ukuran posisi dari jarak Trigger→Stop.
+    sendiri tidak menyimpan modal/lembar saham. Angka $ di bawah dihitung
+    on-the-fly memakai metodologi backtest (modal $100.000, risiko 1% per
+    trade, cap 20 posisi bersamaan, cek cash sebelum entry) — sinyal yang
+    kelewat karena modal/slot penuh dihitung terpisah, bukan diabaikan.
   </div>
   <div class="stats-grid" id="investmentStatsGrid" style="margin-bottom:32px;">
     <div class="stat"><div class="stat-num" id="investStatRealized">—</div><div class="stat-label">Realized PnL ($)</div></div>
     <div class="stat"><div class="stat-num" id="investStatFloating">—</div><div class="stat-label">Floating PnL ($)</div></div>
     <div class="stat"><div class="stat-num" id="investStatTotal">—</div><div class="stat-label">Total PnL ($)</div></div>
     <div class="stat"><div class="stat-num" id="investStatTotalPct">—</div><div class="stat-label">Total PnL (% modal)</div></div>
+    <div class="stat"><div class="stat-num near" id="investStatNotTaken">—</div><div class="stat-label">Sinyal Terlewat (modal/slot penuh)</div></div>
   </div>
 
   <div class="tabs">
@@ -899,49 +905,112 @@
   }
 
   const SIM_CAPITAL = 100_000;
-  const SIM_RISK_PCT = 0.01; // $1,000 per trade, non-compounding — sama seperti portfolio_backtest.py
+  const SIM_RISK_PCT = 0.01;
+  const SIM_MAX_CONCURRENT = 20; // sama seperti portfolio_backtest.py
 
-  function simDollarPnl(pos, exitOrMarkPrice) {
-    const riskPerShare = pos.entry_price - pos.stop_price; // basis Trigger, sama seperti backtest
-    if (!riskPerShare || riskPerShare <= 0) return null;
-    const shares = (SIM_CAPITAL * SIM_RISK_PCT) / riskPerShare;
-    const basisPrice = pos.realistic_entry_price ?? pos.entry_price;
-    if (exitOrMarkPrice == null) return null;
-    return shares * (exitOrMarkPrice - basisPrice);
+  // Simulasi cash-constrained, EVENT-DRIVEN (bukan harian) -- kita tidak
+  // punya histori harga harian penuh per ticker (positions cuma simpan
+  // snapshot entry/mark/exit), jadi tidak bisa bikin kurva mark-to-market
+  // harian presisi seperti referensi. Tapi urutan entry/exit per tanggal
+  // sudah cukup untuk simulasi cash & cap yang realistis.
+  //
+  // Size dalam $ (bukan lembar saham) -- nilai posisi dihitung dari RASIO
+  // harga (size * currentPrice/basisPrice), otomatis mendukung fractional
+  // share, tidak pernah perlu hitung literal lembar.
+  function simulateCashConstrainedPortfolio(activePositions, historyPositions) {
+    const all = [...activePositions, ...historyPositions].filter(p => p.entry_date && p.stop_price);
+    if (all.length === 0) return null;
+
+    const events = new Set();
+    all.forEach(p => {
+      events.add(p.entry_date);
+      if (p.exit_date) events.add(p.exit_date);
+    });
+    const sortedDates = [...events].sort();
+
+    let cash = SIM_CAPITAL;
+    let realizedPnl = 0;
+    let notTaken = 0;
+    const openPos = []; // {pos, size, basisPrice}
+
+    for (const date of sortedDates) {
+      // proses EXIT dulu -- cash yang freed hari ini bisa dipakai entry baru hari yang sama
+      for (const p of all) {
+        if (p.exit_date === date) {
+          const idx = openPos.findIndex(op => op.pos === p);
+          if (idx === -1) continue;
+          const [op] = openPos.splice(idx, 1);
+          const finalValue = op.size * (p.exit_price / op.basisPrice);
+          const pnlDollar = finalValue - op.size;
+          cash += finalValue;
+          realizedPnl += pnlDollar;
+        }
+      }
+      // proses ENTRY baru
+      for (const p of all) {
+        if (p.entry_date === date) {
+          if (openPos.some(op => op.pos === p)) continue; // sudah diproses (guard)
+          if (openPos.length >= SIM_MAX_CONCURRENT) { notTaken++; continue; }
+          const riskPerPct = (p.entry_price - p.stop_price) / p.entry_price;
+          if (!riskPerPct || riskPerPct <= 0) continue;
+          const size = (SIM_CAPITAL * SIM_RISK_PCT) / riskPerPct;
+          if (size > cash) { notTaken++; continue; }
+          cash -= size;
+          const basisPrice = p.realistic_entry_price ?? p.entry_price;
+          openPos.push({ pos: p, size, basisPrice });
+        }
+      }
+    }
+
+    // Posisi yang masih terbuka di akhir (active, belum exit): mark ke harga terkini
+    let floatingPnl = 0, investedValue = 0;
+    for (const op of openPos) {
+      if (op.pos.mark_price == null) { investedValue += op.size; continue; }
+      const currentValue = op.size * (op.pos.mark_price / op.basisPrice);
+      investedValue += currentValue;
+      floatingPnl += currentValue - op.size;
+    }
+
+    const totalEquity = cash + investedValue;
+    return {
+      totalEquity, cash, realizedPnl, floatingPnl,
+      netPnl: totalEquity - SIM_CAPITAL,
+      netPnlPct: (totalEquity / SIM_CAPITAL - 1) * 100,
+      openCount: openPos.length, notTaken,
+    };
   }
 
   function renderInvestmentSummary(activePositions, historyPositions) {
-    let realizedTotal = 0;
-    for (const p of historyPositions) {
-      const pnl = simDollarPnl(p, p.exit_price);
-      if (pnl != null) realizedTotal += pnl;
-    }
-    let floatingTotal = 0;
-    for (const p of activePositions) {
-      const pnl = simDollarPnl(p, p.mark_price);
-      if (pnl != null) floatingTotal += pnl;
-    }
-    const total = realizedTotal + floatingTotal;
+    const sim = simulateCashConstrainedPortfolio(activePositions, historyPositions);
 
     const fmt = (v) => `${v >= 0 ? "+" : "-"}$${Math.abs(v).toLocaleString("en-US", { maximumFractionDigits: 0 })}`;
     const colorFor = (v) => v >= 0 ? "var(--pass)" : "var(--fail)";
 
+    if (!sim) {
+      ["investStatRealized", "investStatFloating", "investStatTotal", "investStatTotalPct", "investStatNotTaken"].forEach(id => {
+        document.getElementById(id).textContent = "—";
+      });
+      return;
+    }
+
     const elRealized = document.getElementById("investStatRealized");
-    elRealized.textContent = fmt(realizedTotal);
-    elRealized.style.color = colorFor(realizedTotal);
+    elRealized.textContent = fmt(sim.realizedPnl);
+    elRealized.style.color = colorFor(sim.realizedPnl);
 
     const elFloating = document.getElementById("investStatFloating");
-    elFloating.textContent = fmt(floatingTotal);
-    elFloating.style.color = colorFor(floatingTotal);
+    elFloating.textContent = fmt(sim.floatingPnl);
+    elFloating.style.color = colorFor(sim.floatingPnl);
 
     const elTotal = document.getElementById("investStatTotal");
-    elTotal.textContent = fmt(total);
-    elTotal.style.color = colorFor(total);
+    elTotal.textContent = fmt(sim.netPnl);
+    elTotal.style.color = colorFor(sim.netPnl);
 
     const elTotalPct = document.getElementById("investStatTotalPct");
-    const pct = total / SIM_CAPITAL * 100;
-    elTotalPct.textContent = `${pct >= 0 ? "+" : ""}${pct.toFixed(2)}%`;
-    elTotalPct.style.color = colorFor(pct);
+    elTotalPct.textContent = `${sim.netPnlPct >= 0 ? "+" : ""}${sim.netPnlPct.toFixed(2)}%`;
+    elTotalPct.style.color = colorFor(sim.netPnlPct);
+
+    const elNotTaken = document.getElementById("investStatNotTaken");
+    elNotTaken.textContent = sim.notTaken;
   }
 
   async function load() {
@@ -993,5 +1062,5 @@
 </html>
 <!--
   changelog:
-  v2.8 - 2026-08-01 - Tambah section "Ringkasan Investasi" ($, di atas tabs) — simulasi realized+floating PnL pakai metodologi backtest (1% risk, $100k modal, sizing dari Trigger->Stop)
+  v2.9 - 2026-08-01 - Ganti simulasi investasi jadi cash-constrained event-driven (cap 20 + cek cash sebelum entry, sizing $ pakai rasio harga bukan lembar saham), tambah stat "Sinyal Terlewat" — adaptasi dari simulatePaperPortfolioDaily di referensi USSY Swing Screener
 -->
