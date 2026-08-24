@@ -412,18 +412,18 @@
   </header>
 
   <div class="chart-note" style="margin-top:0;">
-    Ringkasan investasi ini <strong>simulasi paper trading</strong> — tabel
-    <code>positions</code> sendiri tidak menyimpan modal. Alokasi <strong>tetap
-    1% modal per posisi</strong> (bukan risk-based dari jarak stop), non-compounding.
-    Tidak ada konsep "cash kurang" (ini bukan modal riil) — satu-satunya alasan
-    sinyal terlewat adalah kalau posisi terbuka bersamaan melebihi buffer aman.
+    Ringkasan investasi ini <strong>simulasi</strong> — tabel <code>positions</code>
+    sendiri tidak menyimpan modal/lembar saham. Angka $ di bawah dihitung
+    on-the-fly memakai metodologi backtest (modal $100.000, risiko 1% per
+    trade, cap 20 posisi bersamaan, cek cash sebelum entry) — sinyal yang
+    kelewat karena modal/slot penuh dihitung terpisah, bukan diabaikan.
   </div>
   <div class="stats-grid" id="investmentStatsGrid" style="margin-bottom:32px;">
     <div class="stat"><div class="stat-num" id="investStatRealized">—</div><div class="stat-label">Realized PnL ($)</div></div>
     <div class="stat"><div class="stat-num" id="investStatFloating">—</div><div class="stat-label">Floating PnL ($)</div></div>
     <div class="stat"><div class="stat-num" id="investStatTotal">—</div><div class="stat-label">Total PnL ($)</div></div>
     <div class="stat"><div class="stat-num" id="investStatTotalPct">—</div><div class="stat-label">Total PnL (% modal)</div></div>
-    <div class="stat"><div class="stat-num near" id="investStatNotTaken">—</div><div class="stat-label">Sinyal Terlewat (slot penuh)</div></div>
+    <div class="stat"><div class="stat-num near" id="investStatNotTaken">—</div><div class="stat-label">Sinyal Terlewat (modal/slot penuh)</div></div>
   </div>
   <div id="skippedSignalsWrap" style="display:none; margin-bottom:32px;">
     <div class="subsection-title" style="margin-top:0;">Detail Sinyal Terlewat</div>
@@ -920,19 +920,20 @@
   }
 
   const SIM_CAPITAL = 100_000;
-  const SIM_ALLOC_PCT = 0.01; // alokasi TETAP 1% modal per posisi (bukan risk-based dari jarak stop)
-  const SIM_MAX_CONCURRENT = 150; // buffer aman jauh di atas skala posisi kita sekarang (~15) — praktis tidak pernah kepicu
+  const SIM_RISK_PCT = 0.01;
+  const SIM_MAX_CONCURRENT = 20; // sama seperti portfolio_backtest.py
 
-  // Paper trading -- bukan modal riil, jadi TIDAK ADA konsep "cash kurang".
-  // Alokasi per posisi FLAT (SIM_CAPITAL * SIM_ALLOC_PCT), non-compounding —
-  // beda dari referensi Swing yang compounding dari equity saat itu (equityNow
-  // * PCT), karena itu butuh tahu nilai SEMUA posisi terbuka di TIAP tanggal
-  // historis -- kita tidak punya histori harga harian penuh per posisi
-  // (cuma snapshot entry/mark/exit), jadi tidak bisa hitung equityNow akurat
-  // di titik waktu manapun selain "sekarang". Non-compounding flat allocation
-  // adalah pendekatan paling jujur dengan data yang tersedia.
+  // Simulasi cash-constrained, EVENT-DRIVEN (bukan harian) -- kita tidak
+  // punya histori harga harian penuh per ticker (positions cuma simpan
+  // snapshot entry/mark/exit), jadi tidak bisa bikin kurva mark-to-market
+  // harian presisi seperti referensi. Tapi urutan entry/exit per tanggal
+  // sudah cukup untuk simulasi cash & cap yang realistis.
+  //
+  // Size dalam $ (bukan lembar saham) -- nilai posisi dihitung dari RASIO
+  // harga (size * currentPrice/basisPrice), otomatis mendukung fractional
+  // share, tidak pernah perlu hitung literal lembar.
   function simulateCashConstrainedPortfolio(activePositions, historyPositions) {
-    const all = [...activePositions, ...historyPositions].filter(p => p.entry_date && p.entry_price);
+    const all = [...activePositions, ...historyPositions].filter(p => p.entry_date && p.stop_price);
     if (all.length === 0) return null;
 
     const events = new Set();
@@ -942,53 +943,64 @@
     });
     const sortedDates = [...events].sort();
 
-    const SIZE = SIM_CAPITAL * SIM_ALLOC_PCT; // flat $ per posisi
+    let cash = SIM_CAPITAL;
     let realizedPnl = 0;
     let notTaken = 0;
     const skippedList = []; // {symbol, entry_date, reason}
-    const openPos = []; // {pos, basisPrice}
+    const openPos = []; // {pos, size, basisPrice}
 
     for (const date of sortedDates) {
-      // proses EXIT dulu
+      // proses EXIT dulu -- cash yang freed hari ini bisa dipakai entry baru hari yang sama
       for (const p of all) {
         if (p.exit_date === date) {
           const idx = openPos.findIndex(op => op.pos === p);
           if (idx === -1) continue;
           const [op] = openPos.splice(idx, 1);
-          const finalValue = SIZE * (p.exit_price / op.basisPrice);
-          realizedPnl += finalValue - SIZE;
+          const finalValue = op.size * (p.exit_price / op.basisPrice);
+          const pnlDollar = finalValue - op.size;
+          cash += finalValue;
+          realizedPnl += pnlDollar;
         }
       }
-      // proses ENTRY baru -- satu-satunya alasan skip: slot kepenuhan
-      // (SIM_MAX_CONCURRENT), bukan cash, karena ini paper trading
+      // proses ENTRY baru
       for (const p of all) {
         if (p.entry_date === date) {
-          if (openPos.some(op => op.pos === p)) continue; // guard
+          if (openPos.some(op => op.pos === p)) continue; // sudah diproses (guard)
           if (openPos.length >= SIM_MAX_CONCURRENT) {
             notTaken++;
-            skippedList.push({ symbol: p.symbol, entry_date: p.entry_date, reason: `slot penuh (>${SIM_MAX_CONCURRENT} posisi)` });
+            skippedList.push({ symbol: p.symbol, entry_date: p.entry_date, reason: "slot penuh (>20 posisi)" });
             continue;
           }
+          const riskPerPct = (p.entry_price - p.stop_price) / p.entry_price;
+          if (!riskPerPct || riskPerPct <= 0) continue;
+          const size = (SIM_CAPITAL * SIM_RISK_PCT) / riskPerPct;
+          if (size > cash) {
+            notTaken++;
+            skippedList.push({ symbol: p.symbol, entry_date: p.entry_date, reason: `cash kurang (butuh $${Math.round(size).toLocaleString("en-US")}, sisa $${Math.round(cash).toLocaleString("en-US")})` });
+            continue;
+          }
+          cash -= size;
           const basisPrice = p.realistic_entry_price ?? p.entry_price;
-          openPos.push({ pos: p, basisPrice });
+          openPos.push({ pos: p, size, basisPrice });
         }
       }
     }
 
     // Posisi yang masih terbuka di akhir (active, belum exit): mark ke harga terkini
-    let floatingPnl = 0;
+    let floatingPnl = 0, investedValue = 0;
     for (const op of openPos) {
-      if (op.pos.mark_price == null) continue;
-      const currentValue = SIZE * (op.pos.mark_price / op.basisPrice);
-      floatingPnl += currentValue - SIZE;
+      if (op.pos.mark_price == null) { investedValue += op.size; continue; }
+      const currentValue = op.size * (op.pos.mark_price / op.basisPrice);
+      investedValue += currentValue;
+      floatingPnl += currentValue - op.size;
     }
 
-    const netPnl = realizedPnl + floatingPnl;
+    const totalEquity = cash + investedValue;
     return {
-      realizedPnl, floatingPnl, netPnl,
-      netPnlPct: netPnl / SIM_CAPITAL * 100,
+      totalEquity, cash, realizedPnl, floatingPnl,
+      netPnl: totalEquity - SIM_CAPITAL,
+      netPnlPct: (totalEquity / SIM_CAPITAL - 1) * 100,
       openCount: openPos.length, notTaken, skippedList,
-      allocPerTrade: SIZE,
     };
   }
 
@@ -1089,5 +1101,5 @@
 </html>
 <!--
   changelog:
-  v3.1 - 2026-08-01 - Ganti sizing dari risk-based (jarak Trigger->Stop) jadi alokasi TETAP 1% modal/posisi, hapus skip "cash kurang" (ini paper trading, bukan modal riil) — sinyal terlewat sekarang cuma karena slot penuh (buffer 150, praktis tak pernah kepicu di skala kita)
+  v3.0 - 2026-08-01 - Tambah tabel "Detail Sinyal Terlewat" (tanggal, symbol, alasan: slot penuh/cash kurang) — muncul di bawah Ringkasan Investasi kalau ada sinyal yang tidak lolos simulasi cash-constrained
 -->
