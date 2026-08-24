@@ -408,6 +408,7 @@
 
   <div class="chart-note" style="margin-top:0;">
 <<<<<<< HEAD
+<<<<<<< HEAD
     Ringkasan investasi ini <strong>simulasi</strong> — tabel <code>positions</code>
 <<<<<<< HEAD
     sendiri tidak menyimpan modal/lembar saham (sengaja unlimited, tanpa cap
@@ -421,11 +422,16 @@
     kelewat karena modal/slot penuh dihitung terpisah, bukan diabaikan.
 >>>>>>> parent of ef6e596 (Update index.html)
 =======
+=======
+>>>>>>> parent of 4c43ddc (Revert "Update index.html")
     Ringkasan investasi ini <strong>simulasi paper trading</strong> — tabel
     <code>positions</code> sendiri tidak menyimpan modal. Alokasi <strong>tetap
     1% modal per posisi</strong> (bukan risk-based dari jarak stop), non-compounding.
     Tidak ada konsep "cash kurang" (ini bukan modal riil) — satu-satunya alasan
     sinyal terlewat adalah kalau posisi terbuka bersamaan melebihi buffer aman.
+<<<<<<< HEAD
+>>>>>>> parent of 4c43ddc (Revert "Update index.html")
+=======
 >>>>>>> parent of 4c43ddc (Revert "Update index.html")
   </div>
   <div class="stats-grid" id="investmentStatsGrid" style="margin-bottom:32px;">
@@ -435,8 +441,12 @@
     <div class="stat"><div class="stat-num" id="investStatTotalPct">—</div><div class="stat-label">Total PnL (% modal)</div></div>
 <<<<<<< HEAD
 <<<<<<< HEAD
+<<<<<<< HEAD
 =======
     <div class="stat"><div class="stat-num near" id="investStatNotTaken">—</div><div class="stat-label">Sinyal Terlewat (modal/slot penuh)</div></div>
+=======
+    <div class="stat"><div class="stat-num near" id="investStatNotTaken">—</div><div class="stat-label">Sinyal Terlewat (slot penuh)</div></div>
+>>>>>>> parent of 4c43ddc (Revert "Update index.html")
 =======
     <div class="stat"><div class="stat-num near" id="investStatNotTaken">—</div><div class="stat-label">Sinyal Terlewat (slot penuh)</div></div>
 >>>>>>> parent of 4c43ddc (Revert "Update index.html")
@@ -939,6 +949,7 @@
   const SIM_CAPITAL = 100_000;
 <<<<<<< HEAD
 <<<<<<< HEAD
+<<<<<<< HEAD
   const SIM_RISK_PCT = 0.01; // $1,000 per trade, non-compounding — sama seperti portfolio_backtest.py
 
   function simDollarPnl(pos, exitOrMarkPrice) {
@@ -951,6 +962,10 @@
 =======
   const SIM_RISK_PCT = 0.01;
   const SIM_MAX_CONCURRENT = 20; // sama seperti portfolio_backtest.py
+=======
+  const SIM_ALLOC_PCT = 0.01; // alokasi TETAP 1% modal per posisi (bukan risk-based dari jarak stop)
+  const SIM_MAX_CONCURRENT = 150; // buffer aman jauh di atas skala posisi kita sekarang (~15) — praktis tidak pernah kepicu
+>>>>>>> parent of 4c43ddc (Revert "Update index.html")
 =======
   const SIM_ALLOC_PCT = 0.01; // alokasi TETAP 1% modal per posisi (bukan risk-based dari jarak stop)
   const SIM_MAX_CONCURRENT = 150; // buffer aman jauh di atas skala posisi kita sekarang (~15) — praktis tidak pernah kepicu
@@ -1111,10 +1126,14 @@
   changelog:
 <<<<<<< HEAD
 <<<<<<< HEAD
+<<<<<<< HEAD
   v2.8 - 2026-08-01 - Tambah section "Ringkasan Investasi" ($, di atas tabs) — simulasi realized+floating PnL pakai metodologi backtest (1% risk, $100k modal, sizing dari Trigger->Stop)
 =======
   v3.0 - 2026-08-01 - Tambah tabel "Detail Sinyal Terlewat" (tanggal, symbol, alasan: slot penuh/cash kurang) — muncul di bawah Ringkasan Investasi kalau ada sinyal yang tidak lolos simulasi cash-constrained
 >>>>>>> parent of ef6e596 (Update index.html)
+=======
+  v3.1 - 2026-08-01 - Ganti sizing dari risk-based (jarak Trigger->Stop) jadi alokasi TETAP 1% modal/posisi, hapus skip "cash kurang" (ini paper trading, bukan modal riil) — sinyal terlewat sekarang cuma karena slot penuh (buffer 150, praktis tak pernah kepicu di skala kita)
+>>>>>>> parent of 4c43ddc (Revert "Update index.html")
 =======
   v3.1 - 2026-08-01 - Ganti sizing dari risk-based (jarak Trigger->Stop) jadi alokasi TETAP 1% modal/posisi, hapus skip "cash kurang" (ini paper trading, bukan modal riil) — sinyal terlewat sekarang cuma karena slot penuh (buffer 150, praktis tak pernah kepicu di skala kita)
 >>>>>>> parent of 4c43ddc (Revert "Update index.html")
