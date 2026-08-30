@@ -91,11 +91,20 @@ def backfill():
                            else float(pos["entry_price"]))
         closes_in_period = [float(excursion_start)]
         exit_date_only = end_date.normalize() if pos.get("exit_date") else None
+        exit_price_added = False
         for d in period_dates:
             if exit_date_only is not None and d.normalize() == exit_date_only and pos.get("exit_price") is not None:
                 closes_in_period.append(float(pos["exit_price"]))
+                exit_price_added = True
             else:
                 closes_in_period.append(float(hist.loc[d, "Close"]))
+
+        # Data lama pernah memiliki exit_date yang sama dengan entry_date
+        # (days_held=0). Dalam kasus itu period_dates kosong karena eksekusi
+        # realistis baru terjadi pada H+1. Harga exit tetap wajib masuk excursion
+        # agar MAE posisi closed tidak berhenti di harga Entry saja.
+        if pos.get("exit_price") is not None and not exit_price_added:
+            closes_in_period.append(float(pos["exit_price"]))
 
         max_close = max(closes_in_period)
         min_close = min(closes_in_period)
