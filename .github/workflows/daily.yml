@@ -2,8 +2,9 @@ name: USSY TrendFoll — Daily Watchlist
 
 on:
   schedule:
-    # 21:30 UTC = 1.5 jam setelah market close NYSE (buffer data yfinance settle)
-    - cron: "30 21 * * 1-5"
+    # 22:30 UTC = minimal 1.5 jam setelah market close NYSE sepanjang tahun
+    # (20:00 UTC saat DST, 21:00 UTC saat non-DST).
+    - cron: "30 22 * * 1-5"
   workflow_dispatch: {}  # bisa trigger manual dari tab Actions
 
 jobs:

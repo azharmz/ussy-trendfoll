@@ -47,6 +47,10 @@ def main():
     candidates = latest[latest["investability_status"].map(STATUS_RANK) >= STATUS_RANK["NEAR_PASS"]].copy()
     print(f"Tanggal: {pd.Timestamp(as_of_date).date()} — {len(candidates)} kandidat dari {len(latest)} ticker.")
 
+    # Posisi aktif tidak boleh hilang diam-diam dari snapshot terbaru. Gagalkan
+    # workflow sebelum menulis data parsial jika exit/mark tidak bisa diperiksa.
+    positions.validate_active_position_coverage(client, latest)
+
     explanations = {row["symbol"]: explain_candidate(row) for _, row in candidates.iterrows()}
 
     print("=== [6/7] Simpan ke Supabase + kirim Telegram (watchlist) ===")

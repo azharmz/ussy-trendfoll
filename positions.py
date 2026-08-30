@@ -50,6 +50,23 @@ ATR_STOP_MULTIPLIER = 2.0    # final Sprint 3, jangan diubah tanpa alasan
 MAX_HOLDING_DAYS = 45        # final Sprint 3
 
 
+def validate_active_position_coverage(client, latest: pd.DataFrame):
+    """Fail fast jika posisi aktif tidak punya data pada tanggal pipeline.
+
+    Tanpa guard ini, ticker yang gagal diunduh diam-diam tidak diperiksa stop,
+    trend exit, atau mark price-nya, sementara workflow tetap berstatus sukses.
+    """
+    active_symbols = _get_active_symbols(client)
+    latest_symbols = set(latest["symbol"].dropna())
+    missing = sorted(active_symbols - latest_symbols)
+    if missing:
+        raise RuntimeError(
+            "Data tanggal terbaru tidak tersedia untuk posisi aktif: "
+            + ", ".join(missing)
+        )
+    return active_symbols
+
+
 def fill_realistic_entry_prices(client, feature_history: pd.DataFrame, as_of_date):
     """
     entry_price (close hari sinyal) match backtest, tapi TIDAK realistis

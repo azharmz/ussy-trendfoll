@@ -32,7 +32,8 @@ runtime total, ada ticker yang gagal fetch atau tidak, dan cek tabel
 `watchlist`/`positions` di Supabase + pesan Telegram masuk.
 
 ### 5. Jadwal otomatis
-Sudah di-set jalan Senin-Jumat jam 21:30 UTC di `.github/workflows/daily.yml`.
+Sudah di-set jalan Senin-Jumat jam 22:30 UTC di `.github/workflows/daily.yml`
+(minimal 1,5 jam setelah market close saat DST maupun non-DST).
 
 ## Struktur file
 
