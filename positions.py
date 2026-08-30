@@ -50,66 +50,74 @@ ATR_STOP_MULTIPLIER = 2.0    # final Sprint 3, jangan diubah tanpa alasan
 MAX_HOLDING_DAYS = 45        # final Sprint 3
 
 
-def fill_realistic_entry_prices(client, latest: pd.DataFrame, as_of_date, all_trading_dates):
+def fill_realistic_entry_prices(client, feature_history: pd.DataFrame, as_of_date):
     """
     entry_price (close hari sinyal) match backtest, tapi TIDAK realistis
     dieksekusi manusia (notifikasi Telegram baru masuk setelah market tutup).
     realistic_entry_price = open_raw di HARI BURSA BERIKUTNYA setelah
     entry_date — baru bisa diisi 1 hari setelah posisi diregistrasi (begitu
-    data open besok tersedia di run berikutnya), makanya fungsi ini jalan
-    tiap hari dan cuma ngisi yang masih kosong DAN entry_date-nya persis
-    kemarin (1 hari bursa sebelum as_of_date).
+    data open besok tersedia di run berikutnya). Fungsi memakai feature history
+    penuh supaya entry yang terlewat karena pipeline gagal tetap bisa dipulihkan
+    pada run berikutnya, bukan dibiarkan NULL permanen.
 
-    DEFENSIVE CHECK: kalau `latest` punya baris duplikat untuk symbol yang
-    sama (harusnya tidak pernah terjadi, tapi pernah ditemukan kasus
-    realistic_entry_price ke-isi salah - misalnya kepilih High bukan Open),
-    fungsi ini sekarang detect & log eksplisit alih-alih diam-diam pakai
-    baris yang salah.
+    MFE/MAE juga diinisialisasi ulang dari open H+1 dan close yang benar-benar
+    dialami sejak posisi dibuka. Harga Trigger T0 tidak ikut excursion karena
+    posisi realistis belum ada saat itu.
     """
-    pending = client.table("positions").select("id, symbol, entry_date") \
+    pending = client.table("positions").select(
+        "id, symbol, entry_date, entry_price, status, exit_date, exit_price"
+    ) \
         .is_("realistic_entry_price", "null").execute().data
     if not pending:
         return
 
-    trading_dates = pd.DatetimeIndex(sorted(pd.to_datetime(pd.Series(all_trading_dates)).unique()))
-    idx_asof = trading_dates.searchsorted(pd.Timestamp(as_of_date))
+    history = feature_history.copy()
+    history["date"] = pd.to_datetime(history["date"]).dt.normalize()
+    history = history[history["date"] <= pd.Timestamp(as_of_date).normalize()]
 
-    # Cek duplikat symbol di `latest` SEBELUM di-index -- kalau ada, log semua
-    # baris duplikatnya supaya ketahuan datanya seperti apa.
-    dup_symbols = latest["symbol"][latest["symbol"].duplicated(keep=False)].unique()
-    if len(dup_symbols) > 0:
-        print(f"[positions][WARN] Ditemukan {len(dup_symbols)} symbol duplikat di `latest` "
-              f"tanggal {pd.Timestamp(as_of_date).date()}: {list(dup_symbols)}")
-        for s in dup_symbols:
-            dup_rows = latest[latest["symbol"] == s][["symbol", "date", "open_raw", "high_raw", "close_raw"]]
-            print(f"[positions][WARN]   Baris duplikat untuk {s}:\n{dup_rows.to_string(index=False)}")
-
-    feat_by_symbol = latest.drop_duplicates(subset="symbol", keep="first").set_index("symbol")
+    duplicates = history.duplicated(subset=["symbol", "date"], keep=False)
+    if duplicates.any():
+        dup_keys = history.loc[duplicates, ["symbol", "date"]].drop_duplicates()
+        print(f"[positions][WARN] Ditemukan {len(dup_keys)} duplikat symbol+date di feature history; "
+              "baris pertama dipakai.")
+    history = history.drop_duplicates(subset=["symbol", "date"], keep="first")
 
     filled = 0
     for p in pending:
-        entry_date = pd.Timestamp(p["entry_date"])
-        idx_entry = trading_dates.searchsorted(entry_date)
-        if idx_asof - idx_entry != 1:
-            continue  # bukan "hari berikutnya" dari entry_date, skip (belum waktunya / sudah lewat & data hilang)
-
+        entry_date = pd.Timestamp(p["entry_date"]).normalize()
         symbol = p["symbol"]
-        if symbol not in feat_by_symbol.index:
+        symbol_history = history[
+            (history["symbol"] == symbol) & (history["date"] > entry_date)
+        ].sort_values("date")
+        if symbol_history.empty:
             continue
-        row = feat_by_symbol.loc[symbol]
-        open_price = row.get("open_raw")
+        entry_row = symbol_history.iloc[0]
+        open_price = entry_row.get("open_raw")
         if pd.isna(open_price):
             continue
+
+        end_date = (pd.Timestamp(p["exit_date"]).normalize()
+                    if p.get("exit_date") else pd.Timestamp(as_of_date).normalize())
+        experienced = symbol_history[symbol_history["date"] <= end_date]
+        excursion_prices = [float(open_price)]
+        for _, row in experienced.iterrows():
+            if (p.get("exit_date") and row["date"] == end_date
+                    and p.get("exit_price") is not None):
+                excursion_prices.append(float(p["exit_price"]))
+            elif pd.notna(row.get("close_raw")):
+                excursion_prices.append(float(row["close_raw"]))
 
         # Log eksplisit setiap kali diisi -- supaya kalau ada kasus aneh
         # lagi, log GitHub Actions langsung kasih bukti tanggal & nilai
         # yang dipakai, tidak perlu diagnosa manual seperti kasus CRSR.
         print(f"[positions] Isi realistic_entry_price {symbol}: entry_date={entry_date.date()}, "
-              f"tanggal open dipakai={row.get('date')}, open_raw={open_price}, "
-              f"high_raw={row.get('high_raw')} (pembanding, harus BEDA dari open_raw kecuali kebetulan)")
+              f"tanggal open dipakai={entry_row.get('date')}, open_raw={open_price}, "
+              f"high_raw={entry_row.get('high_raw')} (pembanding, harus BEDA dari open_raw kecuali kebetulan)")
 
         client.table("positions").update({
             "realistic_entry_price": float(open_price),
+            "max_close_since_entry": max(excursion_prices),
+            "min_close_since_entry": min(excursion_prices),
         }).eq("id", p["id"]).execute()
         filled += 1
 
@@ -154,8 +162,9 @@ def register_new_positions(client, latest: pd.DataFrame, as_of_date):
             "entry_date": pd.Timestamp(as_of_date).date().isoformat(),
             "entry_price": entry_price,
             "prev_close": prev_close,               # untuk metrik T-1->T0 momentum
-            "max_close_since_entry": entry_price,    # basis awal MFE, sebelum ada data hari berikutnya
-            "min_close_since_entry": entry_price,    # basis awal MAE
+            # Belum ada posisi realistis di T0. MFE/MAE baru dimulai dari open H+1.
+            "max_close_since_entry": None,
+            "min_close_since_entry": None,
             "stop_price": stop_price,
             "status": "active",
         })
@@ -233,11 +242,14 @@ def check_exits(client, latest_features: pd.DataFrame, as_of_date, all_trading_d
                 "updated_at": pd.Timestamp.utcnow().isoformat(),
             }).eq("id", pos["id"]).execute()
 
-            pnl_pct = (exit_price - float(pos["entry_price"])) / float(pos["entry_price"]) * 100
+            basis_price = pos.get("realistic_entry_price") or pos["entry_price"]
+            basis_price = float(basis_price)
+            pnl_pct = (exit_price - basis_price) / basis_price * 100
             exits.append({
                 "symbol": symbol,
                 "exit_reason": exit_reason,
-                "entry_price": float(pos["entry_price"]),
+                "trigger_price": float(pos["entry_price"]),
+                "entry_price": basis_price,
                 "exit_price": exit_price,
                 "pnl_pct": pnl_pct,
                 "days_held": int(days_held),

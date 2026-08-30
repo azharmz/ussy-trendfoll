@@ -16,8 +16,8 @@ harga symbol itu dari yfinance (entry_date - 10 hari sampai exit_date + 5
 hari, atau sampai hari ini kalau masih active), lalu hitung ulang:
   - prev_close       : close T-1 (hari bursa sebelum entry_date)
   - realistic_entry_price : open hari bursa BERIKUTNYA setelah entry_date
-  - max/min_close_since_entry : rentang close dari entry_date (mulai dari
-    entry_price, yang memang == close T0) sampai exit_date (atau hari ini)
+  - max/min_close_since_entry : mulai dari open H+1 (realistic entry), lalu
+    rentang close sampai exit_date (atau hari ini)
 
 HANYA overwrite realistic_entry_price kalau beda signifikan (>0.5%) dari
 yang sudah ada, supaya tidak mengubah data yang sudah benar tanpa alasan.
@@ -79,13 +79,17 @@ def backfill():
         next_dates = trading_dates[trading_dates > entry_date]
         realistic_entry_price = float(hist.loc[next_dates[0], "Open"]) if len(next_dates) > 0 else None
 
-        # max/min close sejak entry: mulai dari entry_price (= close T0),
-        # lalu tiap close harian sampai end_date (exit_date atau hari ini)
+        # max/min sejak posisi realistis dibuka: mulai dari open H+1, lalu tiap
+        # close harian sampai end_date (exit_date atau hari ini). Trigger/close
+        # T0 tidak ikut karena posisi belum bisa dieksekusi saat itu.
         period_dates = trading_dates[(trading_dates > entry_date) & (trading_dates <= end_date)]
         # Sama seperti fix di positions.py: di hari exit, pakai exit_price
         # (bukan close hari itu) — begitu stop tersentuh & tereksekusi,
         # pergerakan harga setelahnya bukan lagi pengalaman yang dialami.
-        closes_in_period = [float(pos["entry_price"])]
+        excursion_start = (realistic_entry_price
+                           if realistic_entry_price is not None
+                           else float(pos["entry_price"]))
+        closes_in_period = [float(excursion_start)]
         exit_date_only = end_date.normalize() if pos.get("exit_date") else None
         for d in period_dates:
             if exit_date_only is not None and d.normalize() == exit_date_only and pos.get("exit_price") is not None:

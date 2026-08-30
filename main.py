@@ -53,11 +53,13 @@ def main():
     database.upsert_watchlist(client, candidates, explanations)
     notify.send_watchlist_summary(candidates, as_of_date)
 
-    print("=== [7/7] Position tracking: cek exit posisi aktif, registrasi entry baru ===")
+    print("=== [7/7] Position tracking: isi entry realistis, cek exit, registrasi entry baru ===")
     all_trading_dates = decided["date"].unique()
+    # Isi open H+1 sebelum cek exit supaya PnL alert dan MFE/MAE memakai basis
+    # eksekusi realistis, termasuk jika posisi langsung exit pada H+1.
+    positions.fill_realistic_entry_prices(client, decided, as_of_date)
     exits = positions.check_exits(client, latest, as_of_date, all_trading_dates)
     notify.send_exit_alerts(exits)
-    positions.fill_realistic_entry_prices(client, latest, as_of_date, all_trading_dates)
     positions.register_new_positions(client, latest, as_of_date)
 
     print("Selesai.")

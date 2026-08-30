@@ -44,6 +44,7 @@ def send_exit_alerts(exits: list):
         label = reason_label.get(e["exit_reason"], e["exit_reason"])
         text = (
             f"{label} — {e['symbol']}\n\n"
+            f"Trigger: ${e['trigger_price']:.2f}\n"
             f"Entry: ${e['entry_price']:.2f}\n"
             f"Exit: ${e['exit_price']:.2f}\n"
             f"PnL: {e['pnl_pct']:+.1f}%\n"
