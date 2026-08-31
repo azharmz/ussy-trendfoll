@@ -15,6 +15,10 @@ Buka Supabase project → SQL Editor → jalankan isi `sql/schema.sql`, lalu
 `sql/schema_positions.sql` (tabel exit tracking). Keduanya aman dijalankan
 ulang (idempotent).
 
+Untuk database yang sudah memiliki posisi lama, jalankan juga
+`sql/migrate_stop_anchor_filled.sql` satu kali. Migrasi ini idempotent dan
+hanya mengubah stop posisi yang masih aktif.
+
 ### 3. Set GitHub Actions secrets
 Repo → Settings → Secrets and variables → Actions → New repository secret:
 
@@ -47,6 +51,7 @@ Sudah di-set jalan Senin-Jumat jam 22:30 UTC di `.github/workflows/daily.yml`
 - `positions.py` — exit tracking: registrasi posisi baru otomatis, cek
   harian 3 kondisi exit, isi realistic_entry_price (open H+1), update
   mark_price + MFE/MAE tiap hari
+- `backtests/` — notebook eksperimen; tidak dipakai pipeline produksi
 - `main.py` — orkestrator, dipanggil GitHub Actions
 
 ## Kondisi masuk Posisi Aktif
@@ -63,6 +68,9 @@ asli, bukan syarat keras masuk backtest.
 
 - **stop_loss**: `low_raw <= stop_price` (intraday low, bukan close) —
   exit_price = stop_price (asumsi fill persis di level stop)
+- **stop anchor**: `realistic_entry_price (open H+1) - 2 × ATR14 T0`.
+  ATR dibekukan dari hari sinyal; stop diperbarui setelah open H+1 tersedia
+  dan sebelum pengecekan exit pada hari tersebut.
 - **max_holding**: 45 hari BURSA sejak entry (hari entry = 0)
 - **trend_exit**: `close_raw < ema20`
 
@@ -74,6 +82,8 @@ Satu symbol cuma boleh punya 1 posisi `active` (unique index parsial di SQL).
   realistis dieksekusi (notifikasi baru masuk setelah market tutup)
 - `realistic_entry_price` ("Entry") — open hari bursa BERIKUTNYA, terisi
   otomatis 1 hari setelah entry_date
+- `atr14_at_entry` — ATR14 pada hari sinyal T0, disimpan agar stop selalu
+  dapat diaudit dan dihitung dari harga Entry
 - `mark_price` — harga terkini, di-update tiap run selama posisi masih active
 - `prev_close`, `max_close_since_entry`, `min_close_since_entry` — untuk
   metrik Momentum T-1→T0 dan MFE/MAE (dihitung sejak Entry)

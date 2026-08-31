@@ -7,11 +7,12 @@ create table if not exists positions (
     entry_date date not null,
     entry_price numeric not null,          -- close hari sinyal (match backtest, apple-to-apple) -- "Trigger"
     realistic_entry_price numeric,          -- open hari BERIKUTNYA (realistis, terisi 1 hari setelah entry_date) -- "Entry"
+    atr14_at_entry numeric,                 -- ATR14 hari sinyal T0; dipakai dengan filled H+1 untuk stop
     prev_close numeric,                     -- close T-1 (hari sebelum sinyal) -- untuk metrik T-1->T0 momentum
     max_close_since_entry numeric,          -- untuk hitung MFE (Maximum Favorable Excursion), basis close harian
     min_close_since_entry numeric,          -- untuk hitung MAE (Maximum Adverse Excursion), basis close harian
     mark_price numeric,                     -- harga terkini, di-update tiap run selama status='active'
-    stop_price numeric not null,          -- entry_price - 2*ATR14 saat entry (parameter final Sprint 3)
+    stop_price numeric not null,          -- realistic_entry_price - 2*ATR14 T0 (sementara Trigger-based sampai H+1)
     status text not null default 'active', -- active | stop_loss | trend_exit | max_holding
     exit_date date,
     exit_price numeric,
@@ -42,6 +43,7 @@ create policy "positions read-only public"
 -- (versi tanpa realistic_entry_price), jalankan baris ini saja:
 -- ============================================================
 alter table positions add column if not exists realistic_entry_price numeric;
+alter table positions add column if not exists atr14_at_entry numeric;
 alter table positions add column if not exists mark_price numeric;
 alter table positions add column if not exists prev_close numeric;
 alter table positions add column if not exists max_close_since_entry numeric;

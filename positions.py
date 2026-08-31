@@ -82,7 +82,8 @@ def fill_realistic_entry_prices(client, feature_history: pd.DataFrame, as_of_dat
     posisi realistis belum ada saat itu.
     """
     pending = client.table("positions").select(
-        "id, symbol, entry_date, entry_price, status, exit_date, exit_price"
+        "id, symbol, entry_date, entry_price, atr14_at_entry, stop_price, "
+        "status, exit_date, exit_price"
     ) \
         .is_("realistic_entry_price", "null").execute().data
     if not pending:
@@ -113,6 +114,21 @@ def fill_realistic_entry_prices(client, feature_history: pd.DataFrame, as_of_dat
         if pd.isna(open_price):
             continue
 
+        # ATR tetap nilai T0. Untuk row lama sebelum kolom atr14_at_entry ada,
+        # pulihkan ATR dari stop Trigger lama: stop = trigger - 2*ATR.
+        atr14_t0 = p.get("atr14_at_entry")
+        if atr14_t0 is None:
+            old_stop = p.get("stop_price")
+            if old_stop is None:
+                print(f"[positions][WARN] {symbol}: ATR T0 dan stop lama kosong; skip fill.")
+                continue
+            atr14_t0 = (float(p["entry_price"]) - float(old_stop)) / ATR_STOP_MULTIPLIER
+        atr14_t0 = float(atr14_t0)
+        if atr14_t0 <= 0:
+            print(f"[positions][WARN] {symbol}: ATR T0 tidak valid ({atr14_t0}); skip fill.")
+            continue
+        filled_stop_price = float(open_price) - ATR_STOP_MULTIPLIER * atr14_t0
+
         end_date = (pd.Timestamp(p["exit_date"]).normalize()
                     if p.get("exit_date") else pd.Timestamp(as_of_date).normalize())
         experienced = symbol_history[symbol_history["date"] <= end_date]
@@ -131,15 +147,65 @@ def fill_realistic_entry_prices(client, feature_history: pd.DataFrame, as_of_dat
               f"tanggal open dipakai={entry_row.get('date')}, open_raw={open_price}, "
               f"high_raw={entry_row.get('high_raw')} (pembanding, harus BEDA dari open_raw kecuali kebetulan)")
 
-        client.table("positions").update({
+        fill_update = {
             "realistic_entry_price": float(open_price),
+            "atr14_at_entry": atr14_t0,
             "max_close_since_entry": max(excursion_prices),
             "min_close_since_entry": min(excursion_prices),
-        }).eq("id", p["id"]).execute()
+        }
+        # Jangan ubah stop row closed lama: exit historisnya memakai aturan
+        # yang berlaku saat itu. Posisi active wajib memakai anchor Filled H+1.
+        if p.get("status") == "active":
+            fill_update["stop_price"] = filled_stop_price
+        client.table("positions").update(fill_update).eq("id", p["id"]).execute()
         filled += 1
 
     if filled:
         print(f"[positions] {filled} realistic_entry_price terisi (open H+1).")
+
+
+def align_active_stops_to_filled_entry(client):
+    """Migrasikan stop posisi aktif lama ke Entry H+1 - 2*ATR T0.
+
+    Sebelum kolom atr14_at_entry ditambahkan, ATR T0 masih dapat dipulihkan
+    tepat dari rumus lama: stop = Trigger T0 - 2*ATR T0. Fungsi ini idempotent;
+    setelah ATR tersimpan, run berikutnya selalu memakai nilai tersebut.
+    """
+    active = client.table("positions").select(
+        "id, symbol, entry_price, realistic_entry_price, atr14_at_entry, stop_price"
+    ).eq("status", "active").execute().data
+
+    aligned = 0
+    for pos in active:
+        filled_price = pos.get("realistic_entry_price")
+        old_stop = pos.get("stop_price")
+        if filled_price is None or old_stop is None:
+            continue
+
+        atr14_t0 = pos.get("atr14_at_entry")
+        if atr14_t0 is None:
+            atr14_t0 = (
+                float(pos["entry_price"]) - float(old_stop)
+            ) / ATR_STOP_MULTIPLIER
+        atr14_t0 = float(atr14_t0)
+        if atr14_t0 <= 0:
+            print(f"[positions][WARN] {pos['symbol']}: ATR T0 tidak valid; stop tidak diubah.")
+            continue
+
+        expected_stop = float(filled_price) - ATR_STOP_MULTIPLIER * atr14_t0
+        update = {}
+        if pos.get("atr14_at_entry") is None:
+            update["atr14_at_entry"] = atr14_t0
+        if abs(float(old_stop) - expected_stop) > 0.000001:
+            update["stop_price"] = expected_stop
+
+        if update:
+            client.table("positions").update(update).eq("id", pos["id"]).execute()
+            print(f"[positions] Selaraskan stop {pos['symbol']}: {old_stop} -> {expected_stop}")
+            aligned += 1
+
+    if aligned:
+        print(f"[positions] {aligned} posisi aktif memakai stop berbasis Entry H+1.")
 
 
 def register_new_positions(client, latest: pd.DataFrame, as_of_date):
@@ -172,12 +238,16 @@ def register_new_positions(client, latest: pd.DataFrame, as_of_date):
         if atr14 is None:
             print(f"[positions] {r['symbol']}: atr14 kosong, skip registrasi posisi.")
             continue
+        # Harga filled H+1 belum diketahui pada T0. Nilai ini sementara agar
+        # memenuhi kolom NOT NULL; fill_realistic_entry_prices menggantinya
+        # dengan open H+1 - 2*ATR T0 sebelum exit H+1 diperiksa.
         stop_price = entry_price - ATR_STOP_MULTIPLIER * atr14
         prev_close = float(r.get("prev_close")) if pd.notna(r.get("prev_close")) else None
         new_rows.append({
             "symbol": r["symbol"],
             "entry_date": pd.Timestamp(as_of_date).date().isoformat(),
             "entry_price": entry_price,
+            "atr14_at_entry": atr14,
             "prev_close": prev_close,               # untuk metrik T-1->T0 momentum
             # Belum ada posisi realistis di T0. MFE/MAE baru dimulai dari open H+1.
             "max_close_since_entry": None,

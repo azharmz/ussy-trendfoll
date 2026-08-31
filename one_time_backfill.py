@@ -16,6 +16,8 @@ harga symbol itu dari yfinance (entry_date - 10 hari sampai exit_date + 5
 hari, atau sampai hari ini kalau masih active), lalu hitung ulang:
   - prev_close       : close T-1 (hari bursa sebelum entry_date)
   - realistic_entry_price : open hari bursa BERIKUTNYA setelah entry_date
+  - atr14_at_entry    : ATR T0 yang dipulihkan dari stop Trigger lama
+  - stop_price        : untuk posisi active, Entry H+1 - 2*ATR T0
   - max/min_close_since_entry : mulai dari open H+1 (realistic entry), lalu
     rentang close sampai exit_date (atau hari ini)
 
@@ -118,6 +120,24 @@ def backfill():
             existing = pos.get("realistic_entry_price")
             if existing is None or abs(existing - realistic_entry_price) / realistic_entry_price > 0.005:
                 update["realistic_entry_price"] = realistic_entry_price
+
+        # Row lama menyimpan stop = Trigger T0 - 2*ATR T0, sehingga ATR dapat
+        # dipulihkan tanpa mengunduh indikator tambahan. Stop posisi ACTIVE
+        # kemudian diselaraskan ke Filled H+1 - 2*ATR T0. Stop posisi closed
+        # tidak diubah agar histori exit lama tidak menjadi inkonsisten.
+        atr14_t0 = pos.get("atr14_at_entry")
+        if atr14_t0 is None and pos.get("stop_price") is not None:
+            atr14_t0 = (
+                float(pos["entry_price"]) - float(pos["stop_price"])
+            ) / 2.0
+        if atr14_t0 is not None and float(atr14_t0) > 0:
+            atr14_t0 = float(atr14_t0)
+            if pos.get("atr14_at_entry") is None:
+                update["atr14_at_entry"] = atr14_t0
+            if pos.get("status") == "active" and realistic_entry_price is not None:
+                filled_stop = float(realistic_entry_price) - 2.0 * atr14_t0
+                if abs(float(pos["stop_price"]) - filled_stop) > 0.005:
+                    update["stop_price"] = filled_stop
 
         existing_max = pos.get("max_close_since_entry")
         existing_min = pos.get("min_close_since_entry")

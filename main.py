@@ -62,6 +62,7 @@ def main():
     # Isi open H+1 sebelum cek exit supaya PnL alert dan MFE/MAE memakai basis
     # eksekusi realistis, termasuk jika posisi langsung exit pada H+1.
     positions.fill_realistic_entry_prices(client, decided, as_of_date)
+    positions.align_active_stops_to_filled_entry(client)
     exits = positions.check_exits(client, latest, as_of_date, all_trading_dates)
     notify.send_exit_alerts(exits)
     positions.register_new_positions(client, latest, as_of_date)
