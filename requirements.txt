@@ -3,3 +3,5 @@ numpy
 yfinance
 supabase
 requests
+boto3
+pyarrow
