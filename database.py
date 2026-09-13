@@ -11,7 +11,6 @@ secret), TIDAK di-hardcode di sini:
 """
 
 import os
-import json
 import pandas as pd
 from supabase import create_client
 
@@ -27,6 +26,35 @@ def get_client():
     url = os.environ["SUPABASE_URL"]
     key = os.environ["SUPABASE_SERVICE_ROLE_KEY"]
     return create_client(url, key)
+
+
+def get_previous_watchlist(supabase_client, as_of_date) -> pd.DataFrame:
+    """Ambil snapshot watchlist terbaru yang tanggalnya < as_of_date.
+
+    Query tanggal dilakukan terpisah supaya kita selalu membandingkan seluruh
+    snapshot hari bursa sebelumnya, bukan satu row/ticker acak.
+    """
+    date_str = pd.Timestamp(as_of_date).date().isoformat()
+    latest_prior = (
+        supabase_client.table("watchlist")
+        .select("date")
+        .lt("date", date_str)
+        .order("date", desc=True)
+        .limit(1)
+        .execute()
+    )
+    rows = latest_prior.data or []
+    if not rows:
+        return pd.DataFrame()
+
+    previous_date = rows[0]["date"]
+    snapshot = (
+        supabase_client.table("watchlist")
+        .select("symbol,date,close_raw,investability_status,tradability_status,has_breakout,has_volume_confirmation,has_tight_structure,regime_status,market_regime")
+        .eq("date", previous_date)
+        .execute()
+    )
+    return pd.DataFrame(snapshot.data or [])
 
 
 def upsert_watchlist(supabase_client, decision_df: pd.DataFrame, explanations: dict):
