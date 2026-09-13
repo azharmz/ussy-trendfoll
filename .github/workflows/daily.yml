@@ -2,10 +2,8 @@ name: USSY TrendFoll — Daily Watchlist
 
 on:
   schedule:
-    # 22:30 UTC = minimal 1.5 jam setelah market close NYSE sepanjang tahun
-    # (20:00 UTC saat DST, 21:00 UTC saat non-DST).
     - cron: "30 22 * * 1-5"
-  workflow_dispatch: {}  # bisa trigger manual dari tab Actions
+  workflow_dispatch: {}
 
 jobs:
   run-pipeline:
@@ -13,18 +11,21 @@ jobs:
     timeout-minutes: 60
     steps:
       - uses: actions/checkout@v4
-
       - uses: actions/setup-python@v5
         with:
           python-version: "3.12"
-
       - name: Install dependencies
-        run: pip install -r requirements.txt
-
+        run: |
+          pip install -r requirements.txt
+          pip install boto3 pyarrow
       - name: Run daily pipeline
         env:
           SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
           SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
           TELEGRAM_BOT_TOKEN: ${{ secrets.TELEGRAM_BOT_TOKEN }}
           TELEGRAM_CHAT_ID: ${{ secrets.TELEGRAM_CHAT_ID }}
-        run: python main.py
+          R2_ENDPOINT: ${{ secrets.R2_ENDPOINT }}
+          R2_ACCESS_KEY_ID: ${{ secrets.R2_ACCESS_KEY_ID }}
+          R2_SECRET_ACCESS_KEY: ${{ secrets.R2_SECRET_ACCESS_KEY }}
+          R2_BUCKET_NAME: ${{ secrets.R2_BUCKET_NAME }}
+        run: python r2_main.py
