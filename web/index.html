@@ -7,47 +7,1115 @@
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@500;600;700&family=IBM+Plex+Sans:wght@400;500;600&family=IBM+Plex+Mono:wght@400;500;600&display=swap" rel="stylesheet">
 <style>
-:root{--bg:#0c1016;--e:#131922;--p:#182029;--h:#171f2a;--b:#263140;--a:#4f8cff;--t:#e7e9ec;--d:#8993a3;--f:#5a6479;--pass:#46b478;--near:#e8b339;--fail:#d1584d;--fd:'Space Grotesk',sans-serif;--fb:'IBM Plex Sans',sans-serif;--fm:'IBM Plex Mono',monospace}*{box-sizing:border-box;margin:0;padding:0}body{background:var(--bg);color:var(--t);font:14px/1.5 var(--fb);min-height:100vh}.wrap{max-width:1320px;margin:auto;padding:40px 24px 80px}header{display:flex;justify-content:space-between;gap:16px;flex-wrap:wrap;margin-bottom:28px;padding-bottom:20px;border-bottom:1px solid var(--b)}h1{font:600 26px var(--fd)}h1 span{color:var(--a)}.eyebrow,.section,.subsection{font:12px var(--fm);letter-spacing:.08em;text-transform:uppercase;color:var(--f)}.eyebrow{color:var(--a);margin-bottom:6px}.sub,.note{color:var(--d);font-size:12px}.asof{font:13px var(--fm);color:var(--d)}.stats{display:grid;grid-template-columns:repeat(4,1fr);gap:1px;background:var(--b);border:1px solid var(--b);border-radius:6px;overflow:hidden;margin:14px 0 28px}.stats.five{grid-template-columns:repeat(5,1fr)}.stat{background:var(--e);padding:16px 18px}.num{font:700 25px var(--fd)}.label{font-size:12px;color:var(--d)}.pass{color:var(--pass)}.near{color:var(--near)}.fail{color:var(--fail)}.tabs{display:flex;gap:4px;border-bottom:1px solid var(--b);margin-bottom:24px}.tab{background:none;border:0;color:var(--f);padding:10px 16px;cursor:pointer;font:500 14px var(--fb);border-bottom:2px solid transparent}.tab.active{color:var(--t);border-bottom-color:var(--a)}.pane{display:none}.pane.active{display:block}.scroll{overflow:auto;border:1px solid var(--b);border-radius:6px;margin:12px 0 32px}table{width:100%;border-collapse:collapse;font-size:12.5px}th{text-align:left;padding:9px 12px;background:var(--p);color:var(--d);font-size:10.5px;text-transform:uppercase;letter-spacing:.05em;white-space:nowrap}td{padding:9px 12px;border-top:1px solid var(--b);white-space:nowrap}tbody tr.clickable{cursor:pointer}tbody tr.clickable:hover{background:var(--h)}.mono,.symbol{font-family:var(--fm)}.symbol{font-weight:600}.badge{display:inline-flex;padding:3px 9px;border-radius:99px;font:500 11px var(--fm)}.badge.pass{background:rgba(70,180,120,.12)}.badge.near{background:rgba(232,179,57,.12)}.badge.fail,.badge.stop_loss{background:rgba(209,88,77,.12)}.badge.active,.badge.max_holding{background:rgba(79,140,255,.12);color:var(--a)}.badge.trend_exit{background:rgba(232,179,57,.12);color:var(--near)}.empty{text-align:center;padding:28px;color:var(--d)}.modal-bg{position:fixed;inset:0;display:none;align-items:flex-start;justify-content:center;padding:60px 20px;background:rgba(4,6,10,.72);backdrop-filter:blur(3px);z-index:50;overflow:auto}.modal-bg.open{display:flex}.modal{width:min(620px,100%);background:var(--e);border:1px solid var(--b);border-radius:8px;padding:24px}.modal button{float:right;background:none;border:0;color:var(--d);cursor:pointer}.modal pre{font:13px/1.7 var(--fm);white-space:pre-wrap;margin-top:8px}.modal pre strong{color:var(--a)}.chart{background:var(--e);border:1px solid var(--b);border-radius:8px;padding:16px;margin:12px 0 24px}.eqstats{display:flex;gap:24px;flex-wrap:wrap;margin-top:12px;padding-top:12px;border-top:1px solid var(--b)}footer{text-align:center;color:var(--f);font:12px var(--fm);margin-top:40px}@media(max-width:640px){.stats,.stats.five{grid-template-columns:repeat(2,1fr)}.wrap{padding:24px 16px 48px}}
+  :root {
+    --bg: #0c1016;
+    --bg-elevated: #131922;
+    --panel-2: #182029;
+    --bg-hover: #171f2a;
+    --border: #263140;
+    --accent: #4f8cff;
+    --accent-dim: #3a5f9e;
+    --text: #e7e9ec;
+    --text-dim: #8993a3;
+    --text-faint: #5a6479;
+    --pass: #46b478;
+    --near: #e8b339;
+    --fail: #d1584d;
+    --purple: #9b7fd4;
+    --radius: 3px;
+    --font-display: 'Space Grotesk', sans-serif;
+    --font-body: 'IBM Plex Sans', sans-serif;
+    --font-mono: 'IBM Plex Mono', monospace;
+  }
+
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+
+  body {
+    background: var(--bg);
+    color: var(--text);
+    font-family: var(--font-body);
+    font-size: 14px;
+    line-height: 1.5;
+    min-height: 100vh;
+  }
+
+  a { color: var(--accent); }
+
+  .wrap {
+    max-width: 1320px;
+    margin: 0 auto;
+    padding: 40px 24px 80px;
+  }
+
+  header {
+    display: flex;
+    align-items: flex-start;
+    justify-content: space-between;
+    flex-wrap: wrap;
+    gap: 16px;
+    margin-bottom: 28px;
+    padding-bottom: 20px;
+    border-bottom: 1px solid var(--border);
+  }
+
+  .brand-eyebrow {
+    font-family: var(--font-mono);
+    font-size: 11px;
+    letter-spacing: 0.14em;
+    color: var(--accent);
+    text-transform: uppercase;
+    margin-bottom: 6px;
+  }
+
+  h1 {
+    font-family: var(--font-display);
+    font-weight: 600;
+    font-size: 26px;
+    letter-spacing: -0.01em;
+  }
+
+  h1 .accent { color: var(--accent); }
+
+  .sub {
+    color: var(--text-dim);
+    font-size: 13px;
+    margin-top: 4px;
+  }
+
+  .as-of-date {
+    font-family: var(--font-mono);
+    font-size: 13px;
+    color: var(--text-dim);
+  }
+
+  .stats-grid {
+    display: grid;
+    grid-template-columns: repeat(4, 1fr);
+    gap: 1px;
+    background: var(--border);
+    border: 1px solid var(--border);
+    border-radius: 6px;
+    overflow: hidden;
+    margin-bottom: 32px;
+  }
+
+  #investmentStatsGrid {
+    grid-template-columns: repeat(5, 1fr);
+  }
+
+  .stat {
+    background: var(--bg-elevated);
+    padding: 16px 18px;
+  }
+
+  .stat-num {
+    font-family: var(--font-display);
+    font-size: 26px;
+    font-weight: 700;
+  }
+
+  .stat-label {
+    font-size: 12px;
+    color: var(--text-dim);
+    margin-top: 2px;
+  }
+
+  .stat-num.pass { color: var(--pass); }
+  .stat-num.near { color: var(--near); }
+
+  .section-title {
+    font-family: var(--font-mono);
+    font-size: 12px;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    color: var(--text-faint);
+    margin-bottom: 12px;
+  }
+
+  .table-scroll {
+    overflow-x: auto;
+    margin-bottom: 40px;
+    border: 1px solid var(--border);
+    border-radius: 6px;
+    scrollbar-width: thin;
+    scrollbar-color: var(--border) transparent;
+  }
+
+  .table-scroll::-webkit-scrollbar {
+    height: 6px;
+  }
+
+  .table-scroll::-webkit-scrollbar-track {
+    background: transparent;
+  }
+
+  .table-scroll::-webkit-scrollbar-thumb {
+    background: var(--border);
+    border-radius: 3px;
+  }
+
+  .table-scroll::-webkit-scrollbar-thumb:hover {
+    background: var(--text-faint);
+  }
+
+  table {
+    width: 100%;
+    border-collapse: collapse;
+    font-size: 12.5px;
+  }
+
+  thead th {
+    text-align: left;
+    font-size: 10.5px;
+    letter-spacing: 0.05em;
+    text-transform: uppercase;
+    color: var(--text-dim);
+    font-weight: 600;
+    padding: 9px 12px;
+    background: var(--panel-2);
+    border-bottom: 1px solid var(--border);
+    white-space: nowrap;
+    position: sticky;
+    top: 0;
+  }
+
+  tbody tr {
+    cursor: pointer;
+    transition: background 0.12s ease;
+  }
+
+  tbody tr:hover { background: var(--bg-hover); }
+
+  tbody td {
+    padding: 9px 12px;
+    border-bottom: 1px solid var(--border);
+    font-size: 12.5px;
+    white-space: nowrap;
+  }
+
+  .symbol {
+    font-family: var(--font-mono);
+    font-weight: 600;
+    letter-spacing: 0.01em;
+  }
+
+  .price {
+    font-family: var(--font-mono);
+    color: var(--text-dim);
+  }
+
+  .badge {
+    display: inline-flex;
+    align-items: center;
+    gap: 5px;
+    padding: 3px 9px;
+    border-radius: 100px;
+    font-size: 11px;
+    font-family: var(--font-mono);
+    font-weight: 500;
+  }
+
+  .badge.pass { background: rgba(62, 207, 142, 0.12); color: var(--pass); }
+  .badge.near { background: rgba(232, 179, 57, 0.12); color: var(--near); }
+  .badge.fail { background: rgba(232, 84, 107, 0.12); color: var(--fail); }
+  .badge.active { background: rgba(79, 140, 255, 0.12); color: var(--accent); }
+  .badge.stop_loss { background: rgba(232, 84, 107, 0.12); color: var(--fail); }
+  .badge.trend_exit { background: rgba(232, 179, 57, 0.12); color: var(--near); }
+  .badge.max_holding { background: rgba(79, 140, 255, 0.12); color: var(--accent); }
+
+  .pnl-pos { color: var(--pass); font-family: var(--font-mono); }
+  .pnl-neg { color: var(--fail); font-family: var(--font-mono); }
+
+  .section-gap { margin-top: 44px; }
+
+  .badge-dot {
+    width: 5px; height: 5px;
+    border-radius: 50%;
+    background: currentColor;
+  }
+
+  .empty-state {
+    text-align: center;
+    padding: 60px 20px;
+    color: var(--text-dim);
+  }
+
+  .empty-state .glyph {
+    font-family: var(--font-mono);
+    font-size: 28px;
+    color: var(--text-faint);
+    margin-bottom: 10px;
+  }
+
+  footer {
+    text-align: center;
+    font-size: 12px;
+    color: var(--text-faint);
+    font-family: var(--font-mono);
+  }
+
+  footer a { color: var(--text-faint); text-decoration: underline; }
+
+  /* Modal */
+  .modal-backdrop {
+    position: fixed;
+    inset: 0;
+    background: rgba(4, 6, 10, 0.7);
+    backdrop-filter: blur(3px);
+    display: none;
+    align-items: flex-start;
+    justify-content: center;
+    padding: 60px 20px;
+    z-index: 50;
+    overflow-y: auto;
+  }
+
+  .modal-backdrop.open { display: flex; }
+
+  .modal {
+    background: var(--bg-elevated);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    max-width: 560px;
+    width: 100%;
+    padding: 24px;
+    animation: modal-in 0.15s ease;
+  }
+
+  @keyframes modal-in {
+    from { opacity: 0; transform: translateY(6px); }
+    to { opacity: 1; transform: translateY(0); }
+  }
+
+  .modal-close {
+    float: right;
+    background: none;
+    border: none;
+    color: var(--text-dim);
+    font-family: var(--font-mono);
+    font-size: 13px;
+    cursor: pointer;
+    padding: 4px 8px;
+  }
+
+  .modal-close:hover { color: var(--text); }
+
+  .modal pre {
+    font-family: var(--font-mono);
+    font-size: 13px;
+    line-height: 1.7;
+    white-space: pre-wrap;
+    color: var(--text);
+    margin-top: 8px;
+  }
+
+  .modal pre strong { color: var(--accent); }
+
+  @media (max-width: 640px) {
+    .stats-grid { grid-template-columns: repeat(2, 1fr); }
+    #investmentStatsGrid { grid-template-columns: repeat(2, 1fr); }
+    .wrap { padding: 24px 16px 48px; }
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    * { animation: none !important; transition: none !important; }
+  }
+
+  .tabs {
+    display: flex;
+    gap: 4px;
+    margin-bottom: 24px;
+    border-bottom: 1px solid var(--border);
+  }
+
+  .tab-btn {
+    background: none;
+    border: none;
+    color: var(--text-faint);
+    font-family: var(--font-body);
+    font-size: 14px;
+    font-weight: 500;
+    padding: 10px 16px;
+    cursor: pointer;
+    border-bottom: 2px solid transparent;
+    transition: color 0.12s ease, border-color 0.12s ease;
+  }
+
+  .tab-btn:hover { color: var(--text-dim); }
+
+  .tab-btn.active {
+    color: var(--text);
+    border-bottom-color: var(--accent);
+  }
+
+  .tab-content { display: none; }
+  .tab-content.active { display: block; }
+
+  .subsection-title {
+    font-family: var(--font-mono);
+    font-size: 12px;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    color: var(--text-faint);
+    margin: 32px 0 12px;
+  }
+
+  .chart-note {
+    font-size: 12px;
+    color: var(--text-faint);
+    margin-bottom: 14px;
+    line-height: 1.5;
+  }
+
+  .equity-chart-wrap {
+    background: var(--bg-elevated);
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    padding: 16px;
+    margin-bottom: 12px;
+  }
+
+  .equity-stats-row {
+    display: flex;
+    gap: 24px;
+    flex-wrap: wrap;
+    margin-top: 12px;
+    padding-top: 12px;
+    border-top: 1px solid var(--border);
+  }
+
+  .equity-stat-label {
+    font-size: 11px;
+    color: var(--text-faint);
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+  }
+
+  .equity-stat-value {
+    font-family: var(--font-mono);
+    font-size: 15px;
+    font-weight: 600;
+    margin-top: 2px;
+  }
 </style>
 </head>
 <body>
+
 <div class="wrap">
-<header><div><div class="eyebrow">utrendfoll.anyapp.my.id · USSY TrendFoll</div><h1><span>USSY</span> TrendFoll</h1><div class="sub">Forward-test trend-following harian · Investability + Tradability + paper tracking</div></div><div id="asOfDate" class="asof">memuat...</div></header>
-<div class="note">Ringkasan investasi adalah simulasi paper trading flat 1% modal per posisi, non-compounding.</div>
-<div class="stats five"><div class="stat"><div class="num" id="investStatRealized">—</div><div class="label">Realized PnL ($)</div></div><div class="stat"><div class="num" id="investStatFloating">—</div><div class="label">Floating PnL ($)</div></div><div class="stat"><div class="num" id="investStatTotal">—</div><div class="label">Total PnL ($)</div></div><div class="stat"><div class="num" id="investStatTotalPct">—</div><div class="label">Total PnL (% modal)</div></div><div class="stat"><div class="num near" id="investStatNotTaken">—</div><div class="label">Sinyal Terlewat</div></div></div>
-<div class="tabs"><button class="tab" data-tab="watchlist">Watchlist</button><button class="tab active" data-tab="posisi">Posisi Aktif</button><button class="tab" data-tab="riwayat">Riwayat Exit</button></div>
-<section id="tab-watchlist" class="pane"><div class="stats"><div class="stat"><div class="num" id="statTotal">—</div><div class="label">Kandidat</div></div><div class="stat"><div class="num pass" id="statPassFull">—</div><div class="label">PASS penuh</div></div><div class="stat"><div class="num" id="statBreakout">—</div><div class="label">Ada breakout</div></div><div class="stat"><div class="num near" id="statNear">—</div><div class="label">Investability NEAR_PASS</div></div></div><div class="scroll"><table id="watchlistTable"><thead><tr><th>Symbol</th><th>Harga</th><th>Investability</th><th>Tradability</th></tr></thead><tbody id="tbody"></tbody></table></div><div class="empty" id="emptyState" style="display:none">Tidak ada kandidat pada tanggal terbaru.</div></section>
-<section id="tab-posisi" class="pane active"><div class="stats"><div class="stat"><div class="num" id="posisiStatTotal">—</div><div class="label">Posisi Aktif</div></div><div class="stat"><div class="num pass" id="posisiStatWinning">—</div><div class="label">Untung</div></div><div class="stat"><div class="num fail" id="posisiStatLosing">—</div><div class="label">Rugi</div></div><div class="stat"><div class="num" id="posisiStatTotalPnl">—</div><div class="label">Total Floating PnL</div></div></div><div class="note">Klik baris untuk membuka detail posisi. Entry = open H+1 bila sudah tersedia.</div><div class="scroll"><table><thead><tr><th>Tanggal</th><th>Symbol</th><th>Trigger</th><th>Stop</th><th>Entry</th><th>Momentum T-1→T0</th><th>Gap</th><th>Mark</th><th>MFE</th><th>MAE</th><th>Floating PnL</th><th>Hari</th></tr></thead><tbody id="positionsTbody"></tbody></table></div><div class="empty" id="positionsEmpty" style="display:none">Tidak ada posisi aktif.</div></section>
-<section id="tab-riwayat" class="pane"><div class="subsection">Equity Curve (simulasi)</div><div class="chart"><svg id="equityChart" viewBox="0 0 800 240" style="width:100%;height:auto"></svg><div id="equityStatsRow" class="eqstats"></div></div><div class="subsection">Performance per alasan exit</div><div class="scroll"><table><thead><tr><th>Alasan</th><th>Jumlah</th><th>Win Rate</th><th>Avg PnL%</th><th>Total PnL%</th></tr></thead><tbody id="breakdownTbody"></tbody></table></div><div class="subsection">Riwayat lengkap — klik baris untuk detail</div><div class="scroll"><table><thead><tr><th>Tanggal</th><th>Symbol</th><th>Trigger</th><th>Stop</th><th>Entry</th><th>Momentum</th><th>Gap</th><th>Exit</th><th>MFE</th><th>MAE</th><th>Realized</th><th>Hari</th><th>Alasan</th></tr></thead><tbody id="historyTbody"></tbody></table></div><div class="empty" id="historyEmpty" style="display:none">Belum ada posisi exit.</div></section>
-<footer>Data forward-test, bukan rekomendasi finansial · utrendfoll.anyapp.my.id</footer>
+  <header>
+    <div>
+      <div class="brand-eyebrow">utrendfoll.anyapp.my.id &middot; USSY TrendFoll</div>
+      <h1><span class="accent">USSY</span> TrendFoll</h1>
+      <div class="sub">Forward-test trend-following harian dari universe halal x XTB, otomatis via GitHub Actions</div>
+    </div>
+    <div class="as-of-date" id="asOfDate">memuat...</div>
+  </header>
+
+  <div class="chart-note" style="margin-top:0;">
+    Ringkasan investasi ini <strong>simulasi paper trading</strong> — tabel
+    <code>positions</code> sendiri tidak menyimpan modal. Alokasi <strong>tetap
+    1% modal per posisi</strong> (bukan risk-based dari jarak stop), non-compounding.
+    Tidak ada konsep "cash kurang" (ini bukan modal riil) — satu-satunya alasan
+    sinyal terlewat adalah kalau posisi terbuka bersamaan melebihi buffer aman.
+  </div>
+  <div class="stats-grid" id="investmentStatsGrid" style="margin-bottom:32px;">
+    <div class="stat"><div class="stat-num" id="investStatRealized">—</div><div class="stat-label">Realized PnL ($)</div></div>
+    <div class="stat"><div class="stat-num" id="investStatFloating">—</div><div class="stat-label">Floating PnL ($)</div></div>
+    <div class="stat"><div class="stat-num" id="investStatTotal">—</div><div class="stat-label">Total PnL ($)</div></div>
+    <div class="stat"><div class="stat-num" id="investStatTotalPct">—</div><div class="stat-label">Total PnL (% modal)</div></div>
+    <div class="stat"><div class="stat-num near" id="investStatNotTaken">—</div><div class="stat-label">Sinyal Terlewat (slot penuh)</div></div>
+  </div>
+  <div id="skippedSignalsWrap" style="display:none; margin-bottom:32px;">
+    <div class="subsection-title" style="margin-top:0;">Detail Sinyal Terlewat</div>
+    <div class="table-scroll">
+    <table>
+      <thead>
+        <tr>
+          <th>Tanggal</th>
+          <th>Symbol</th>
+          <th>Alasan</th>
+        </tr>
+      </thead>
+      <tbody id="skippedSignalsTbody"></tbody>
+    </table>
+    </div>
+  </div>
+
+  <div class="tabs">
+    <button class="tab-btn" data-tab="watchlist">Watchlist</button>
+    <button class="tab-btn active" data-tab="posisi">Posisi Aktif</button>
+    <button class="tab-btn" data-tab="riwayat">Riwayat Exit</button>
+  </div>
+
+  <div class="tab-content" id="tab-watchlist">
+    <div class="stats-grid" id="statsGrid">
+      <div class="stat"><div class="stat-num" id="statTotal">—</div><div class="stat-label">Kandidat</div></div>
+      <div class="stat"><div class="stat-num pass" id="statPassFull">—</div><div class="stat-label">PASS penuh</div></div>
+      <div class="stat"><div class="stat-num" id="statBreakout">—</div><div class="stat-label">Ada breakout</div></div>
+      <div class="stat"><div class="stat-num near" id="statNear">—</div><div class="stat-label">Investability NEAR_PASS</div></div>
+    </div>
+
+    <div class="table-scroll">
+    <table id="watchlistTable">
+      <thead>
+        <tr>
+          <th>Symbol</th>
+          <th>Harga</th>
+          <th>Investability</th>
+          <th>Tradability</th>
+        </tr>
+      </thead>
+      <tbody id="tbody"></tbody>
+    </table>
+    </div>
+
+    <div class="empty-state" id="emptyState" style="display:none">
+      <div class="glyph">∅</div>
+      Tidak ada kandidat investability ≥ NEAR_PASS di tanggal terbaru.
+    </div>
+  </div>
+
+  <div class="tab-content active" id="tab-posisi">
+    <div class="stats-grid" id="posisiStatsGrid">
+      <div class="stat"><div class="stat-num" id="posisiStatTotal">—</div><div class="stat-label">Posisi Aktif</div></div>
+      <div class="stat"><div class="stat-num pass" id="posisiStatWinning">—</div><div class="stat-label">Untung</div></div>
+      <div class="stat"><div class="stat-num" id="posisiStatLosing" style="color:var(--fail)">—</div><div class="stat-label">Rugi</div></div>
+      <div class="stat"><div class="stat-num" id="posisiStatTotalPnl">—</div><div class="stat-label">Total Floating PnL</div></div>
+    </div>
+
+    <div style="font-size:12px; color:var(--text-faint); margin-bottom:16px;">
+      Floating PnL berbasis Entry (open H+1). Tanda * = Entry belum terisi,
+      sementara pakai Trigger (close hari sinyal).
+    </div>
+    <div class="table-scroll">
+    <table>
+      <thead>
+        <tr>
+          <th>Tanggal</th>
+          <th>Symbol</th>
+          <th>Trigger</th>
+          <th>Stop (SL)</th>
+          <th>Entry</th>
+          <th>Momentum T-1→T0</th>
+          <th>Gap Trigger→Entry</th>
+          <th>Mark</th>
+          <th>MFE</th>
+          <th>MAE</th>
+          <th>Floating PnL</th>
+          <th>Hari Berjalan</th>
+        </tr>
+      </thead>
+      <tbody id="positionsTbody"></tbody>
+    </table>
+    </div>
+    <div class="empty-state" id="positionsEmpty" style="display:none; padding:24px 20px;">
+      Tidak ada posisi aktif saat ini.
+    </div>
+  </div>
+
+  <div class="tab-content" id="tab-riwayat">
+    <div class="subsection-title">Equity Curve (Simulasi)</div>
+    <div class="chart-note">
+      Kurva kumulatif dari PnL% tiap posisi yang sudah exit, diurutkan berdasarkan
+      tanggal exit — <strong>bukan</strong> simulasi portfolio dengan modal/cash
+      constraint seperti backtest (tabel <code>positions</code> memang sengaja
+      unlimited, tanpa cap modal). Anggap ini gambaran arah, bukan angka
+      equity presisi.
+    </div>
+    <div class="equity-chart-wrap">
+      <svg id="equityChart" viewBox="0 0 800 240" style="width:100%; height:auto; display:block;"></svg>
+      <div class="equity-stats-row" id="equityStatsRow"></div>
+    </div>
+
+    <div class="subsection-title">Performance Breakdown per Alasan Exit</div>
+    <div class="table-scroll">
+    <table>
+      <thead>
+        <tr>
+          <th>Alasan Exit</th>
+          <th>Jumlah</th>
+          <th>Win Rate</th>
+          <th>Avg PnL%</th>
+          <th>Total PnL%</th>
+        </tr>
+      </thead>
+      <tbody id="breakdownTbody"></tbody>
+    </table>
+    </div>
+
+    <div class="subsection-title">Riwayat Lengkap</div>
+    <div class="table-scroll">
+    <table>
+      <thead>
+        <tr>
+          <th>Tanggal</th>
+          <th>Symbol</th>
+          <th>Trigger</th>
+          <th>Stop (SL)</th>
+          <th>Entry</th>
+          <th>Momentum T-1→T0</th>
+          <th>Gap Trigger→Entry</th>
+          <th>Exit</th>
+          <th>MFE</th>
+          <th>MAE</th>
+          <th>Realized PnL</th>
+          <th>Hari Ditahan</th>
+          <th>Alasan</th>
+        </tr>
+      </thead>
+      <tbody id="historyTbody"></tbody>
+    </table>
+    </div>
+    <div class="empty-state" id="historyEmpty" style="display:none; padding:24px 20px;">
+      Belum ada posisi yang exit.
+    </div>
+  </div>
+
+  <footer style="margin-top:40px;">Data forward-test, bukan rekomendasi finansial &middot; utrendfoll.anyapp.my.id</footer>
 </div>
-<div id="modalBackdrop" class="modal-bg"><div class="modal"><button id="modalClose">tutup ✕</button><pre id="modalContent"></pre></div></div>
+
+<div class="modal-backdrop" id="modalBackdrop">
+  <div class="modal">
+    <button class="modal-close" id="modalClose">tutup ✕</button>
+    <pre id="modalContent"></pre>
+  </div>
+</div>
+
 <script>
-const SUPABASE_URL="https://rggtylvlrzzesrtumqzj.supabase.co";
-const SUPABASE_ANON_KEY="sb_publishable_uiCCNQBjfHE7JwzHNNMtaQ_4nE3ch5a";
-async function sb(path){const r=await fetch(`${SUPABASE_URL}/rest/v1/${path}`,{headers:{apikey:SUPABASE_ANON_KEY,Authorization:`Bearer ${SUPABASE_ANON_KEY}`}});if(!r.ok)throw new Error(`Supabase error ${r.status}`);return r.json()}
-async function sbAll(path,pageSize=1000){const rows=[];let offset=0,total=null;while(total==null||rows.length<total){const r=await fetch(`${SUPABASE_URL}/rest/v1/${path}`,{headers:{apikey:SUPABASE_ANON_KEY,Authorization:`Bearer ${SUPABASE_ANON_KEY}`,Prefer:"count=exact",Range:`${offset}-${offset+pageSize-1}`}});if(!r.ok)throw new Error(`Supabase error ${r.status}`);const page=await r.json();rows.push(...page);const m=(r.headers.get("content-range")||"").match(/\/(\d+)$/);if(m)total=Number(m[1]);if(!page.length||(total==null&&page.length<pageSize))break;offset+=page.length}return rows}
-const cls=s=>s==="PASS"?"pass":s==="NEAR_PASS"?"near":"fail";
-const money=v=>v==null?"—":`$${Number(v).toFixed(2)}`;
-const pct=v=>v==null?"—":`${v>=0?"+":""}${Number(v).toFixed(1)}%`;
-function escapeHtml(t){return String(t??"").replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;")}
-function openModal(text){document.getElementById("modalContent").innerHTML=escapeHtml(text).replace(/\*\*(.+?)\*\*/g,"<strong>$1</strong>");document.getElementById("modalBackdrop").classList.add("open")}
-function closeModal(){document.getElementById("modalBackdrop").classList.remove("open")}
-document.getElementById("modalClose").onclick=closeModal;document.getElementById("modalBackdrop").onclick=e=>{if(e.target.id==="modalBackdrop")closeModal()};document.addEventListener("keydown",e=>{if(e.key==="Escape")closeModal()});
-function positionDetail(p,history=false){const basis=p.realistic_entry_price??p.entry_price;const pnl=history&&p.exit_price!=null?(p.exit_price-basis)/basis*100:p.mark_price!=null?(p.mark_price-basis)/basis*100:null;const mom=p.prev_close!=null?(p.entry_price-p.prev_close)/p.prev_close*100:null;const gap=p.realistic_entry_price!=null?(p.realistic_entry_price-p.entry_price)/p.entry_price*100:null;const mfe=p.max_close_since_entry!=null?(p.max_close_since_entry-basis)/basis*100:null;const mae=p.min_close_since_entry!=null?(p.min_close_since_entry-basis)/basis*100:null;return [`**${p.symbol} — ${history?"Riwayat Exit":"Posisi Aktif"}**`,``,`Tanggal sinyal: ${p.entry_date??"—"}`,`Trigger (close T0): ${money(p.entry_price)}`,`Entry realistis (open H+1): ${money(p.realistic_entry_price)}`,`Stop: ${money(p.stop_price)}`,`Momentum T-1→T0: ${pct(mom)}`,`Gap Trigger→Entry: ${pct(gap)}`,``,`Mark: ${money(p.mark_price)}`,`MFE: ${pct(mfe)}`,`MAE: ${pct(mae)}`,`${history?"Realized":"Floating"} PnL: ${pct(pnl)}`,history?`Exit: ${money(p.exit_price)}`:"",history?`Exit date: ${p.exit_date??"—"}`:"",history?`Alasan exit: ${p.status??"—"}`:`Status: ${p.status??"active"}`,history?`Hari ditahan: ${p.days_held??"—"}`:""].filter(Boolean).join("\n")}
-function renderStats(rows){document.getElementById("statTotal").textContent=rows.length;document.getElementById("statPassFull").textContent=rows.filter(r=>r.investability_status==="PASS"&&r.tradability_status==="PASS").length;document.getElementById("statBreakout").textContent=rows.filter(r=>r.has_breakout).length;document.getElementById("statNear").textContent=rows.filter(r=>r.investability_status==="NEAR_PASS").length}
-function renderTable(rows){const tb=document.getElementById("tbody"),empty=document.getElementById("emptyState");tb.innerHTML="";if(!rows.length){empty.style.display="block";return}empty.style.display="none";const rank={PASS:2,NEAR_PASS:1,FAIL:0};[...rows].sort((a,b)=>(rank[b.tradability_status]-rank[a.tradability_status])||(rank[b.investability_status]-rank[a.investability_status])).forEach(r=>{const tr=document.createElement("tr");tr.className="clickable";tr.innerHTML=`<td class="symbol">${r.symbol}</td><td class="mono">${money(r.close_raw)}</td><td><span class="badge ${cls(r.investability_status)}">${r.investability_status}</span></td><td><span class="badge ${cls(r.tradability_status)}">${r.tradability_status}</span></td>`;tr.onclick=()=>openModal(r.explanation_text||"Belum ada detail.");tb.appendChild(tr)})}
-function renderPosisiStats(rows){let w=0,l=0,total=0;rows.forEach(p=>{if(p.mark_price==null)return;const b=p.realistic_entry_price??p.entry_price,v=(p.mark_price-b)/b*100;v>=0?w++:l++;total+=v});document.getElementById("posisiStatTotal").textContent=rows.length;document.getElementById("posisiStatWinning").textContent=w;document.getElementById("posisiStatLosing").textContent=l;document.getElementById("posisiStatTotalPnl").textContent=pct(total)}
-function renderPositions(rows,asOf){renderPosisiStats(rows);const tb=document.getElementById("positionsTbody"),empty=document.getElementById("positionsEmpty");tb.innerHTML="";if(!rows.length){empty.style.display="block";return}empty.style.display="none";const ref=asOf?new Date(asOf):new Date();rows.forEach(p=>{const b=p.realistic_entry_price??p.entry_price,mom=p.prev_close!=null?(p.entry_price-p.prev_close)/p.prev_close*100:null,gap=p.realistic_entry_price!=null?(p.realistic_entry_price-p.entry_price)/p.entry_price*100:null,mfe=p.max_close_since_entry!=null?(p.max_close_since_entry-b)/b*100:null,mae=p.min_close_since_entry!=null?(p.min_close_since_entry-b)/b*100:null,fp=p.mark_price!=null?(p.mark_price-b)/b*100:null,days=Math.floor((ref-new Date(p.entry_date))/86400000);const tr=document.createElement("tr");tr.className="clickable";tr.innerHTML=`<td class="mono">${p.entry_date}</td><td class="symbol">${p.symbol}</td><td>${money(p.entry_price)}</td><td>${money(p.stop_price)}</td><td>${money(p.realistic_entry_price)}</td><td>${pct(mom)}</td><td>${pct(gap)}</td><td>${money(p.mark_price)}</td><td>${pct(mfe)}</td><td>${pct(mae)}</td><td>${pct(fp)}</td><td>~${days} hari</td>`;tr.onclick=()=>openModal(positionDetail(p,false));tb.appendChild(tr)})}
-function perf(history){const g={};history.forEach(p=>{const b=p.realistic_entry_price??p.entry_price,v=(p.exit_price-b)/b*100;(g[p.status]??=[]).push(v)});return Object.entries(g).map(([reason,a])=>({reason,n:a.length,win:a.filter(v=>v>=0).length/a.length*100,avg:a.reduce((x,y)=>x+y,0)/a.length,total:a.reduce((x,y)=>x+y,0)})).sort((a,b)=>b.n-a.n)}
-function renderPerf(history){const tb=document.getElementById("breakdownTbody");tb.innerHTML="";perf(history).forEach(r=>{const tr=document.createElement("tr");tr.innerHTML=`<td><span class="badge ${r.reason}">${r.reason}</span></td><td>${r.n}</td><td>${r.win.toFixed(1)}%</td><td>${pct(r.avg)}</td><td>${pct(r.total)}</td>`;tb.appendChild(tr)})}
-function renderHistory(rows){const tb=document.getElementById("historyTbody"),empty=document.getElementById("historyEmpty");tb.innerHTML="";if(!rows.length){empty.style.display="block";return}empty.style.display="none";rows.forEach(p=>{const b=p.realistic_entry_price??p.entry_price,mom=p.prev_close!=null?(p.entry_price-p.prev_close)/p.prev_close*100:null,gap=p.realistic_entry_price!=null?(p.realistic_entry_price-p.entry_price)/p.entry_price*100:null,mfe=p.max_close_since_entry!=null?(p.max_close_since_entry-b)/b*100:null,mae=p.min_close_since_entry!=null?(p.min_close_since_entry-b)/b*100:null,pnl=(p.exit_price-b)/b*100;const tr=document.createElement("tr");tr.className="clickable";tr.innerHTML=`<td>${p.entry_date}</td><td class="symbol">${p.symbol}</td><td>${money(p.entry_price)}</td><td>${money(p.stop_price)}</td><td>${money(p.realistic_entry_price)}</td><td>${pct(mom)}</td><td>${pct(gap)}</td><td>${money(p.exit_price)}</td><td>${pct(mfe)}</td><td>${pct(mae)}</td><td>${pct(pnl)}</td><td>${p.days_held??"—"}</td><td><span class="badge ${p.status}">${p.status}</span></td>`;tr.onclick=()=>openModal(positionDetail(p,true));tb.appendChild(tr)})}
-function renderEquity(history){const svg=document.getElementById("equityChart"),stats=document.getElementById("equityStatsRow"),a=[...history].filter(p=>p.exit_date).sort((x,y)=>new Date(x.exit_date)-new Date(y.exit_date));if(!a.length){svg.innerHTML='<text x="400" y="120" text-anchor="middle" fill="#8993a3">Belum ada posisi exit.</text>';stats.innerHTML="";return}let c=0;const vals=[0];a.forEach(p=>{const b=p.realistic_entry_price??p.entry_price;c+=(p.exit_price-b)/b*100;vals.push(c)});const lo=Math.min(0,...vals),hi=Math.max(0,...vals),range=hi-lo||1,W=800,H=240,P=24,x=i=>P+i*(W-2*P)/(vals.length-1),y=v=>H-P-(v-lo)/range*(H-2*P),points=vals.map((v,i)=>`${x(i)},${y(v)}`).join(" ");svg.innerHTML=`<line x1="${P}" y1="${y(0)}" x2="${W-P}" y2="${y(0)}" stroke="#263140" stroke-dasharray="4 4"/><polyline points="${points}" fill="none" stroke="${c>=0?'#46b478':'#d1584d'}" stroke-width="2"/>`;let peak=0,dd=0;vals.forEach(v=>{peak=Math.max(peak,v);dd=Math.min(dd,v-peak)});stats.innerHTML=`<div><div class="label">Sum PnL</div><div class="num">${pct(c)}</div></div><div><div class="label">Avg/Trade</div><div class="num">${pct(c/a.length)}</div></div><div><div class="label">Max Drawdown</div><div class="num fail">${pct(dd)}</div></div><div><div class="label">Exit</div><div class="num">${a.length}</div></div>`}
-const SIM_CAPITAL=100000,SIM_ALLOC=.01;
-function renderInvestment(active,history){const all=[...active,...history].filter(p=>p.entry_date&&p.entry_price),size=SIM_CAPITAL*SIM_ALLOC;let realized=0,floating=0;history.forEach(p=>{const b=p.realistic_entry_price??p.entry_price;if(p.exit_price!=null)realized+=size*(p.exit_price/b-1)});active.forEach(p=>{const b=p.realistic_entry_price??p.entry_price;if(p.mark_price!=null)floating+=size*(p.mark_price/b-1)});const net=realized+floating,fmt=v=>`${v>=0?'+':'-'}$${Math.abs(v).toLocaleString('en-US',{maximumFractionDigits:0})}`;document.getElementById("investStatRealized").textContent=all.length?fmt(realized):"—";document.getElementById("investStatFloating").textContent=all.length?fmt(floating):"—";document.getElementById("investStatTotal").textContent=all.length?fmt(net):"—";document.getElementById("investStatTotalPct").textContent=all.length?pct(net/SIM_CAPITAL*100):"—";document.getElementById("investStatNotTaken").textContent="0"}
-async function load(){try{const latest=await sb("watchlist?select=date&order=date.desc&limit=1");let asOf=null;if(latest.length){asOf=latest[0].date;document.getElementById("asOfDate").textContent=asOf;const rows=await sb(`watchlist?select=*&date=eq.${asOf}`);renderStats(rows);renderTable(rows)}else{document.getElementById("asOfDate").textContent="belum ada data";renderStats([]);renderTable([])}const active=await sbAll("positions?select=*&status=eq.active&order=entry_date.desc");renderPositions(active,asOf);const hist=await sbAll("positions?select=*&status=neq.active&order=exit_date.asc");renderHistory([...hist].reverse());renderPerf(hist);renderEquity(hist);renderInvestment(active,hist)}catch(e){document.getElementById("asOfDate").textContent="gagal memuat";console.error(e)}}
-document.querySelectorAll(".tab").forEach(btn=>btn.onclick=()=>{document.querySelectorAll(".tab").forEach(x=>x.classList.remove("active"));document.querySelectorAll(".pane").forEach(x=>x.classList.remove("active"));btn.classList.add("active");document.getElementById(`tab-${btn.dataset.tab}`).classList.add("active")});
-load();
+  // ============================================================
+  // CONFIG — isi dengan anon key dari Supabase project TrendFoll
+  // (Settings → API → anon/public key). Ini AMAN untuk ditaruh di
+  // frontend karena tabel dilindungi RLS read-only.
+  // ============================================================
+  const SUPABASE_URL = "https://rggtylvlrzzesrtumqzj.supabase.co";
+  const SUPABASE_ANON_KEY = "sb_publishable_uiCCNQBjfHE7JwzHNNMtaQ_4nE3ch5a";
+
+  async function sb(path) {
+    const res = await fetch(`${SUPABASE_URL}/rest/v1/${path}`, {
+      headers: {
+        apikey: SUPABASE_ANON_KEY,
+        Authorization: `Bearer ${SUPABASE_ANON_KEY}`,
+      },
+    });
+    if (!res.ok) throw new Error(`Supabase error ${res.status}`);
+    return res.json();
+  }
+
+  // Supabase/PostgREST biasanya membatasi satu respons ke 1.000 baris.
+  // Ambil semua halaman agar riwayat lama tidak terpotong diam-diam.
+  async function sbAll(path, pageSize = 1000) {
+    const rows = [];
+    let offset = 0;
+    let total = null;
+    while (total == null || rows.length < total) {
+      const res = await fetch(`${SUPABASE_URL}/rest/v1/${path}`, {
+        headers: {
+          apikey: SUPABASE_ANON_KEY,
+          Authorization: `Bearer ${SUPABASE_ANON_KEY}`,
+          Prefer: "count=exact",
+          Range: `${offset}-${offset + pageSize - 1}`,
+        },
+      });
+      if (!res.ok) throw new Error(`Supabase error ${res.status}`);
+      const page = await res.json();
+      rows.push(...page);
+
+      const contentRange = res.headers.get("content-range");
+      const match = contentRange && contentRange.match(/\/(\d+)$/);
+      if (match) total = Number(match[1]);
+      if (page.length === 0 || (total == null && page.length < pageSize)) break;
+      offset += page.length;
+    }
+    return rows;
+  }
+
+  const statusClass = (s) => s === "PASS" ? "pass" : s === "NEAR_PASS" ? "near" : "fail";
+
+  function renderStats(rows) {
+    const passFull = rows.filter(r => r.investability_status === "PASS" && r.tradability_status === "PASS");
+    const breakout = rows.filter(r => r.has_breakout);
+    const near = rows.filter(r => r.investability_status === "NEAR_PASS");
+    document.getElementById("statTotal").textContent = rows.length;
+    document.getElementById("statPassFull").textContent = passFull.length;
+    document.getElementById("statBreakout").textContent = breakout.length;
+    document.getElementById("statNear").textContent = near.length;
+  }
+
+  function renderTable(rows) {
+    const tbody = document.getElementById("tbody");
+    const emptyState = document.getElementById("emptyState");
+    tbody.innerHTML = "";
+
+    if (rows.length === 0) {
+      document.getElementById("watchlistTable").style.display = "none";
+      emptyState.style.display = "block";
+      return;
+    }
+
+    const sorted = [...rows].sort((a, b) => {
+      const rank = { PASS: 2, NEAR_PASS: 1, FAIL: 0 };
+      return (rank[b.tradability_status] - rank[a.tradability_status])
+        || (rank[b.investability_status] - rank[a.investability_status]);
+    });
+
+    for (const r of sorted) {
+      const tr = document.createElement("tr");
+      tr.innerHTML = `
+        <td class="symbol">${r.symbol}</td>
+        <td class="price">$${Number(r.close_raw).toFixed(2)}</td>
+        <td><span class="badge ${statusClass(r.investability_status)}"><span class="badge-dot"></span>${r.investability_status}</span></td>
+        <td><span class="badge ${statusClass(r.tradability_status)}"><span class="badge-dot"></span>${r.tradability_status}</span></td>
+      `;
+      tr.addEventListener("click", () => openModal(r.explanation_text || "Belum ada detail."));
+      tbody.appendChild(tr);
+    }
+  }
+
+  function openModal(text) {
+    const html = text
+      .replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;")
+      .replace(/\*\*(.+?)\*\*/g, "<strong>$1</strong>");
+    document.getElementById("modalContent").innerHTML = html;
+    document.getElementById("modalBackdrop").classList.add("open");
+  }
+
+  function closeModal() {
+    document.getElementById("modalBackdrop").classList.remove("open");
+  }
+
+  document.getElementById("modalClose").addEventListener("click", closeModal);
+  document.getElementById("modalBackdrop").addEventListener("click", (e) => {
+    if (e.target.id === "modalBackdrop") closeModal();
+  });
+  document.addEventListener("keydown", (e) => { if (e.key === "Escape") closeModal(); });
+
+  function renderPosisiStats(rows) {
+    const total = rows.length;
+    let winning = 0, losing = 0, totalPnl = 0;
+    for (const p of rows) {
+      if (p.mark_price == null) continue;
+      const basisPrice = p.realistic_entry_price ?? p.entry_price;
+      const pnl = (p.mark_price - basisPrice) / basisPrice * 100;
+      if (pnl >= 0) winning++; else losing++;
+      totalPnl += pnl;
+    }
+    document.getElementById("posisiStatTotal").textContent = total;
+    document.getElementById("posisiStatWinning").textContent = winning;
+    document.getElementById("posisiStatLosing").textContent = losing;
+    const totalEl = document.getElementById("posisiStatTotalPnl");
+    totalEl.textContent = `${totalPnl >= 0 ? "+" : ""}${totalPnl.toFixed(1)}%`;
+    totalEl.style.color = totalPnl >= 0 ? "var(--pass)" : "var(--fail)";
+  }
+
+  function renderPositions(rows, asOfDate) {
+    renderPosisiStats(rows);
+    const tbody = document.getElementById("positionsTbody");
+    const empty = document.getElementById("positionsEmpty");
+    tbody.innerHTML = "";
+    if (rows.length === 0) { empty.style.display = "block"; return; }
+    empty.style.display = "none";
+
+    const refDate = asOfDate ? new Date(asOfDate) : new Date();
+
+    for (const p of rows) {
+      // Kalender kasar dari entry_date ke tanggal pipeline TERAKHIR (bukan
+      // waktu real-time saat halaman dibuka) — hari bursa asli yang jadi
+      // dasar keputusan max_holding dihitung di backend, bisa beda dari
+      // angka ini (kalender vs bursa, dan weekend/libur tidak dikurangi).
+      const daysElapsed = Math.floor((refDate - new Date(p.entry_date)) / 86400000);
+      const realisticPrice = p.realistic_entry_price != null
+        ? `$${Number(p.realistic_entry_price).toFixed(2)}`
+        : `<span style="color:var(--text-faint)">menunggu...</span>`;
+      const markPrice = p.mark_price != null
+        ? `$${Number(p.mark_price).toFixed(2)}`
+        : `<span style="color:var(--text-faint)">—</span>`;
+      let floatingPnl = `<span style="color:var(--text-faint)">—</span>`;
+      if (p.mark_price != null) {
+        const basisPrice = p.realistic_entry_price ?? p.entry_price;
+        const basisLabel = p.realistic_entry_price != null ? "" : "*";
+        const pnl = (p.mark_price - basisPrice) / basisPrice * 100;
+        const cls = pnl >= 0 ? "pnl-pos" : "pnl-neg";
+        floatingPnl = `<span class="${cls}">${pnl >= 0 ? "+" : ""}${pnl.toFixed(1)}%${basisLabel}</span>`;
+      }
+
+      const momentum = p.prev_close != null
+        ? formatSignedPct((p.entry_price - p.prev_close) / p.prev_close * 100)
+        : `<span style="color:var(--text-faint)">—</span>`;
+
+      const gapEntry = p.realistic_entry_price != null
+        ? formatSignedPct((p.realistic_entry_price - p.entry_price) / p.entry_price * 100)
+        : `<span style="color:var(--text-faint)">menunggu...</span>`;
+
+      let mfeCell = `<span style="color:var(--text-faint)">—</span>`;
+      let maeCell = `<span style="color:var(--text-faint)">—</span>`;
+      if (p.max_close_since_entry != null && p.min_close_since_entry != null) {
+        const basisPrice = p.realistic_entry_price ?? p.entry_price;
+        const mfe = (p.max_close_since_entry - basisPrice) / basisPrice * 100;
+        const mae = (p.min_close_since_entry - basisPrice) / basisPrice * 100;
+        mfeCell = formatSignedPct(mfe);
+        maeCell = formatSignedPct(mae);
+      }
+
+      const tr = document.createElement("tr");
+      tr.innerHTML = `
+        <td class="price">${p.entry_date}</td>
+        <td class="symbol">${p.symbol}</td>
+        <td class="price">$${Number(p.entry_price).toFixed(2)}</td>
+        <td class="price">$${Number(p.stop_price).toFixed(2)}</td>
+        <td class="price">${realisticPrice}</td>
+        <td>${momentum}</td>
+        <td>${gapEntry}</td>
+        <td class="price">${markPrice}</td>
+        <td>${mfeCell}</td>
+        <td>${maeCell}</td>
+        <td>${floatingPnl}</td>
+        <td class="price">~${daysElapsed} hari kalender</td>
+      `;
+      tr.addEventListener("click", () => openModal(JSON.stringify(p, null, 2)));
+      tbody.appendChild(tr);
+    }
+  }
+
+  function formatSignedPct(v) {
+    const cls = v >= 0 ? "pnl-pos" : "pnl-neg";
+    return `<span class="${cls}">${v >= 0 ? "+" : ""}${v.toFixed(1)}%</span>`;
+  }
+
+  function computePerfBreakdown(history) {
+    const groups = {};
+    for (const p of history) {
+      const reason = p.status;
+      if (!groups[reason]) groups[reason] = [];
+      const basisPrice = p.realistic_entry_price ?? p.entry_price;
+      const pnl = (p.exit_price - basisPrice) / basisPrice * 100;
+      groups[reason].push(pnl);
+    }
+    const rows = [];
+    for (const [reason, pnls] of Object.entries(groups)) {
+      const n = pnls.length;
+      const wins = pnls.filter((x) => x >= 0).length;
+      const total = pnls.reduce((a, b) => a + b, 0);
+      rows.push({
+        reason, n,
+        winRate: n ? (wins / n * 100) : 0,
+        avgPnl: n ? (total / n) : 0,
+        totalPnl: total,
+      });
+    }
+    return rows.sort((a, b) => b.n - a.n);
+  }
+
+  function renderPerfBreakdown(history) {
+    const tbody = document.getElementById("breakdownTbody");
+    tbody.innerHTML = "";
+    const rows = computePerfBreakdown(history);
+    if (rows.length === 0) {
+      tbody.innerHTML = `<tr><td colspan="5" style="padding:16px; color:var(--text-faint);">Belum ada data.</td></tr>`;
+      return;
+    }
+    for (const r of rows) {
+      const avgCls = r.avgPnl >= 0 ? "pnl-pos" : "pnl-neg";
+      const totalCls = r.totalPnl >= 0 ? "pnl-pos" : "pnl-neg";
+      const tr = document.createElement("tr");
+      tr.innerHTML = `
+        <td><span class="badge ${r.reason}">${r.reason}</span></td>
+        <td class="price">${r.n}</td>
+        <td class="price">${r.winRate.toFixed(1)}%</td>
+        <td class="${avgCls}">${r.avgPnl >= 0 ? "+" : ""}${r.avgPnl.toFixed(1)}%</td>
+        <td class="${totalCls}">${r.totalPnl >= 0 ? "+" : ""}${r.totalPnl.toFixed(1)}%</td>
+      `;
+      tbody.appendChild(tr);
+    }
+  }
+
+  function computeEquityCurve(history) {
+    const sorted = [...history]
+      .filter((p) => p.exit_date)
+      .sort((a, b) => new Date(a.exit_date) - new Date(b.exit_date));
+    let cumulative = 0;
+    const curve = [{ date: null, value: 0 }];
+    for (const p of sorted) {
+      const basisPrice = p.realistic_entry_price ?? p.entry_price;
+      const pnl = (p.exit_price - basisPrice) / basisPrice * 100;
+      cumulative += pnl;
+      curve.push({ date: p.exit_date, value: cumulative, symbol: p.symbol });
+    }
+    return curve;
+  }
+
+  function computeMaxDrawdown(curve) {
+    let peak = curve[0] ? curve[0].value : 0;
+    let maxDd = 0;
+    for (const point of curve) {
+      if (point.value > peak) peak = point.value;
+      const dd = point.value - peak;
+      if (dd < maxDd) maxDd = dd;
+    }
+    return maxDd;
+  }
+
+  function renderEquityChart(history) {
+    const svg = document.getElementById("equityChart");
+    const statsRow = document.getElementById("equityStatsRow");
+    const curve = computeEquityCurve(history);
+
+    if (curve.length <= 1) {
+      svg.innerHTML = `<text x="400" y="120" text-anchor="middle" fill="var(--text-faint)" font-size="13">Belum ada posisi yang exit.</text>`;
+      statsRow.innerHTML = "";
+      return;
+    }
+
+    const W = 800, H = 240, PAD = 24;
+    const values = curve.map((p) => p.value);
+    const minV = Math.min(0, ...values);
+    const maxV = Math.max(0, ...values);
+    const range = (maxV - minV) || 1;
+
+    const xStep = (W - PAD * 2) / (curve.length - 1);
+    const yFor = (v) => H - PAD - ((v - minV) / range) * (H - PAD * 2);
+    const xFor = (i) => PAD + i * xStep;
+
+    const zeroY = yFor(0);
+    const points = curve.map((p, i) => `${xFor(i)},${yFor(p.value)}`).join(" ");
+    const last = curve[curve.length - 1];
+    const lineColor = last.value >= 0 ? "var(--pass)" : "var(--fail)";
+
+    svg.innerHTML = `
+      <line x1="${PAD}" y1="${zeroY}" x2="${W - PAD}" y2="${zeroY}" stroke="var(--border)" stroke-width="1" stroke-dasharray="4 4" />
+      <polyline points="${points}" fill="none" stroke="${lineColor}" stroke-width="2" />
+    `;
+
+    const maxDd = computeMaxDrawdown(curve);
+    const nTrades = curve.length - 1;
+    const avgPnl = nTrades > 0 ? last.value / nTrades : 0;
+    statsRow.innerHTML = `
+      <div><div class="equity-stat-label">Sum PnL (kumulatif)</div><div class="equity-stat-value" style="color:${last.value >= 0 ? "var(--pass)" : "var(--fail)"}">${last.value >= 0 ? "+" : ""}${last.value.toFixed(1)}%</div></div>
+      <div><div class="equity-stat-label">Avg PnL per Trade</div><div class="equity-stat-value" style="color:${avgPnl >= 0 ? "var(--pass)" : "var(--fail)"}">${avgPnl >= 0 ? "+" : ""}${avgPnl.toFixed(1)}%</div></div>
+      <div><div class="equity-stat-label">Max Drawdown</div><div class="equity-stat-value" style="color:var(--fail)">${maxDd.toFixed(1)}%</div></div>
+      <div><div class="equity-stat-label">Total Posisi Exit</div><div class="equity-stat-value">${nTrades}</div></div>
+    `;
+  }
+
+  function renderHistory(rows) {
+    const tbody = document.getElementById("historyTbody");
+    const empty = document.getElementById("historyEmpty");
+    tbody.innerHTML = "";
+    if (rows.length === 0) { empty.style.display = "block"; return; }
+    empty.style.display = "none";
+
+    for (const p of rows) {
+      const basisPrice = p.realistic_entry_price ?? p.entry_price;
+      const basisLabel = p.realistic_entry_price != null ? "" : "*";
+      const pnl = (p.exit_price - basisPrice) / basisPrice * 100;
+      const pnlClass = pnl >= 0 ? "pnl-pos" : "pnl-neg";
+
+      const realisticPrice = p.realistic_entry_price != null
+        ? `$${Number(p.realistic_entry_price).toFixed(2)}`
+        : `<span style="color:var(--text-faint)">*</span>`;
+      const momentum = p.prev_close != null
+        ? formatSignedPct((p.entry_price - p.prev_close) / p.prev_close * 100)
+        : `<span style="color:var(--text-faint)">—</span>`;
+      const gapEntry = p.realistic_entry_price != null
+        ? formatSignedPct((p.realistic_entry_price - p.entry_price) / p.entry_price * 100)
+        : `<span style="color:var(--text-faint)">—</span>`;
+
+      let mfeCell = `<span style="color:var(--text-faint)">—</span>`;
+      let maeCell = `<span style="color:var(--text-faint)">—</span>`;
+      if (p.max_close_since_entry != null && p.min_close_since_entry != null) {
+        const mfe = (p.max_close_since_entry - basisPrice) / basisPrice * 100;
+        const mae = (p.min_close_since_entry - basisPrice) / basisPrice * 100;
+        mfeCell = formatSignedPct(mfe);
+        maeCell = formatSignedPct(mae);
+      }
+
+      const tr = document.createElement("tr");
+      tr.innerHTML = `
+        <td class="price">${p.entry_date}</td>
+        <td class="symbol">${p.symbol}</td>
+        <td class="price">$${Number(p.entry_price).toFixed(2)}</td>
+        <td class="price">$${Number(p.stop_price).toFixed(2)}</td>
+        <td class="price">${realisticPrice}</td>
+        <td>${momentum}</td>
+        <td>${gapEntry}</td>
+        <td class="price">$${Number(p.exit_price).toFixed(2)}</td>
+        <td>${mfeCell}</td>
+        <td>${maeCell}</td>
+        <td class="${pnlClass}">${pnl >= 0 ? "+" : ""}${pnl.toFixed(1)}%${basisLabel}</td>
+        <td class="price">${p.days_held ?? "—"} hari</td>
+        <td><span class="badge ${p.status}">${p.status}</span></td>
+      `;
+      tr.addEventListener("click", () => openModal(JSON.stringify(p, null, 2)));
+      tbody.appendChild(tr);
+    }
+  }
+
+  const SIM_CAPITAL = 100_000;
+  const SIM_ALLOC_PCT = 0.01; // alokasi TETAP 1% modal per posisi (bukan risk-based dari jarak stop)
+  const SIM_MAX_CONCURRENT = 150; // buffer aman jauh di atas skala posisi kita sekarang (~15) — praktis tidak pernah kepicu
+
+  // Paper trading -- bukan modal riil, jadi TIDAK ADA konsep "cash kurang".
+  // Alokasi per posisi FLAT (SIM_CAPITAL * SIM_ALLOC_PCT), non-compounding —
+  // beda dari referensi Swing yang compounding dari equity saat itu (equityNow
+  // * PCT), karena itu butuh tahu nilai SEMUA posisi terbuka di TIAP tanggal
+  // historis -- kita tidak punya histori harga harian penuh per posisi
+  // (cuma snapshot entry/mark/exit), jadi tidak bisa hitung equityNow akurat
+  // di titik waktu manapun selain "sekarang". Non-compounding flat allocation
+  // adalah pendekatan paling jujur dengan data yang tersedia.
+  function simulateCashConstrainedPortfolio(activePositions, historyPositions) {
+    const all = [...activePositions, ...historyPositions].filter(p => p.entry_date && p.entry_price);
+    if (all.length === 0) return null;
+
+    const events = new Set();
+    all.forEach(p => {
+      events.add(p.entry_date);
+      if (p.exit_date) events.add(p.exit_date);
+    });
+    const sortedDates = [...events].sort();
+
+    const SIZE = SIM_CAPITAL * SIM_ALLOC_PCT; // flat $ per posisi
+    let realizedPnl = 0;
+    let notTaken = 0;
+    const skippedList = []; // {symbol, entry_date, reason}
+    const openPos = []; // {pos, basisPrice}
+
+    for (const date of sortedDates) {
+      // proses EXIT dulu
+      for (const p of all) {
+        if (p.exit_date === date) {
+          const idx = openPos.findIndex(op => op.pos === p);
+          if (idx === -1) continue;
+          const [op] = openPos.splice(idx, 1);
+          const finalValue = SIZE * (p.exit_price / op.basisPrice);
+          realizedPnl += finalValue - SIZE;
+        }
+      }
+      // proses ENTRY baru -- satu-satunya alasan skip: slot kepenuhan
+      // (SIM_MAX_CONCURRENT), bukan cash, karena ini paper trading
+      for (const p of all) {
+        if (p.entry_date === date) {
+          if (openPos.some(op => op.pos === p)) continue; // guard
+          if (openPos.length >= SIM_MAX_CONCURRENT) {
+            notTaken++;
+            skippedList.push({ symbol: p.symbol, entry_date: p.entry_date, reason: `slot penuh (>${SIM_MAX_CONCURRENT} posisi)` });
+            continue;
+          }
+          const basisPrice = p.realistic_entry_price ?? p.entry_price;
+          openPos.push({ pos: p, basisPrice });
+        }
+      }
+    }
+
+    // Posisi yang masih terbuka di akhir (active, belum exit): mark ke harga terkini
+    let floatingPnl = 0;
+    for (const op of openPos) {
+      if (op.pos.mark_price == null) continue;
+      const currentValue = SIZE * (op.pos.mark_price / op.basisPrice);
+      floatingPnl += currentValue - SIZE;
+    }
+
+    const netPnl = realizedPnl + floatingPnl;
+    return {
+      realizedPnl, floatingPnl, netPnl,
+      netPnlPct: netPnl / SIM_CAPITAL * 100,
+      openCount: openPos.length, notTaken, skippedList,
+      allocPerTrade: SIZE,
+    };
+  }
+
+  function renderInvestmentSummary(activePositions, historyPositions) {
+    const sim = simulateCashConstrainedPortfolio(activePositions, historyPositions);
+
+    const fmt = (v) => `${v >= 0 ? "+" : "-"}$${Math.abs(v).toLocaleString("en-US", { maximumFractionDigits: 0 })}`;
+    const colorFor = (v) => v >= 0 ? "var(--pass)" : "var(--fail)";
+
+    if (!sim) {
+      ["investStatRealized", "investStatFloating", "investStatTotal", "investStatTotalPct", "investStatNotTaken"].forEach(id => {
+        document.getElementById(id).textContent = "—";
+      });
+      return;
+    }
+
+    const elRealized = document.getElementById("investStatRealized");
+    elRealized.textContent = fmt(sim.realizedPnl);
+    elRealized.style.color = colorFor(sim.realizedPnl);
+
+    const elFloating = document.getElementById("investStatFloating");
+    elFloating.textContent = fmt(sim.floatingPnl);
+    elFloating.style.color = colorFor(sim.floatingPnl);
+
+    const elTotal = document.getElementById("investStatTotal");
+    elTotal.textContent = fmt(sim.netPnl);
+    elTotal.style.color = colorFor(sim.netPnl);
+
+    const elTotalPct = document.getElementById("investStatTotalPct");
+    elTotalPct.textContent = `${sim.netPnlPct >= 0 ? "+" : ""}${sim.netPnlPct.toFixed(2)}%`;
+    elTotalPct.style.color = colorFor(sim.netPnlPct);
+
+    const elNotTaken = document.getElementById("investStatNotTaken");
+    elNotTaken.textContent = sim.notTaken;
+
+    const wrap = document.getElementById("skippedSignalsWrap");
+    const tbody = document.getElementById("skippedSignalsTbody");
+    if (sim.skippedList.length === 0) {
+      wrap.style.display = "none";
+    } else {
+      wrap.style.display = "block";
+      tbody.innerHTML = sim.skippedList.map(s => `
+        <tr>
+          <td class="price">${s.entry_date}</td>
+          <td class="symbol">${s.symbol}</td>
+          <td>${s.reason}</td>
+        </tr>
+      `).join("");
+    }
+  }
+
+  async function load() {
+    try {
+      const latestDateRows = await sb("watchlist?select=date&order=date.desc&limit=1");
+      let asOfDate = null;
+      if (latestDateRows.length === 0) {
+        document.getElementById("asOfDate").textContent = "belum ada data";
+        renderTable([]);
+        renderStats([]);
+      } else {
+        asOfDate = latestDateRows[0].date;
+        document.getElementById("asOfDate").textContent = asOfDate;
+        const rows = await sb(`watchlist?select=*&date=eq.${asOfDate}`);
+        renderStats(rows);
+        renderTable(rows);
+      }
+
+      const activePositions = await sbAll("positions?select=*&status=eq.active&order=entry_date.desc");
+      renderPositions(activePositions, asOfDate);
+
+      const historyForCharts = await sbAll("positions?select=*&status=neq.active&order=exit_date.asc");
+      renderHistory([...historyForCharts].reverse());
+      renderPerfBreakdown(historyForCharts);
+      renderEquityChart(historyForCharts);
+
+      renderInvestmentSummary(activePositions, historyForCharts);
+    } catch (err) {
+      document.getElementById("asOfDate").textContent = "gagal memuat";
+      console.error(err);
+    }
+  }
+
+  document.querySelectorAll(".tab-btn").forEach((btn) => {
+    btn.addEventListener("click", () => {
+      document.querySelectorAll(".tab-btn").forEach((b) => b.classList.remove("active"));
+      document.querySelectorAll(".tab-content").forEach((c) => c.classList.remove("active"));
+      btn.classList.add("active");
+      document.getElementById(`tab-${btn.dataset.tab}`).classList.add("active");
+    });
+  });
+
+  load();
 </script>
+
 </body>
 </html>
+<!--
+  changelog:
+  v3.2 - 2026-08-01 - Hapus limit=20 di query tabel Riwayat Exit -- sebelumnya bisa bikin posisi lama "ada di data tapi tidak kelihatan di tabel"
+-->
