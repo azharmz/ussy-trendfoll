@@ -1,10 +1,6 @@
 name: USSY TrendFoll — Daily Watchlist
 
 on:
-  push:
-    branches: [main]
-    paths:
-      - ".github/workflows/daily.yml"
   schedule:
     - cron: "30 22 * * 1-5"
   workflow_dispatch: {}
