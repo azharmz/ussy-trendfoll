@@ -7,8 +7,10 @@ import feature_engine as fe
 from r2_ready import load_ready_dataset, to_feature_contract
 
 
-def build_feature_store_from_r2(sector_map=None) -> dict:
-    ready, manifest = load_ready_dataset()
+def build_feature_store_from_r2(sector_map=None, ready=None, manifest=None) -> dict:
+    if ready is None or manifest is None:
+        ready, manifest = load_ready_dataset()
+
     raw_universe = to_feature_contract(ready)
     raw_universe["date"] = pd.to_datetime(raw_universe["date"]).astype("datetime64[ns]")
     universe = sorted(raw_universe["symbol"].dropna().unique().tolist())
