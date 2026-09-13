@@ -1,11 +1,6 @@
 name: USSY TrendFoll — NEAR_TRIGGER Research
 
 on:
-  push:
-    branches: [main]
-    paths:
-      - "research_near_trigger.py"
-      - ".github/workflows/research-near-trigger.yml"
   workflow_dispatch: {}
 
 jobs:
