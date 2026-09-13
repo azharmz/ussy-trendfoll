@@ -21,6 +21,12 @@ WATCHLIST_COLS = [
     "regime_status", "market_regime",
 ]
 
+WATCHLIST_HISTORY_SELECT = (
+    "symbol,date,close_raw,investability_status,tradability_status,"
+    "has_breakout,has_volume_confirmation,has_tight_structure,"
+    "regime_status,market_regime,explanation_text"
+)
+
 
 def get_client():
     url = os.environ["SUPABASE_URL"]
@@ -55,6 +61,37 @@ def get_previous_watchlist(supabase_client, as_of_date) -> pd.DataFrame:
         .execute()
     )
     return pd.DataFrame(snapshot.data or [])
+
+
+def get_watchlist_history(supabase_client, page_size: int = 1000) -> pd.DataFrame:
+    """Ambil seluruh histori watchlist secara paginated.
+
+    `watchlist` memang menyimpan satu row per (symbol, date), jadi kandidat yang
+    hilang dari snapshot terbaru tidak hilang dari database. Fungsi ini menjadi
+    sumber persistent candidate lifecycle tanpa membuat tabel baru.
+    """
+    rows = []
+    start = 0
+    while True:
+        resp = (
+            supabase_client.table("watchlist")
+            .select(WATCHLIST_HISTORY_SELECT)
+            .order("date", desc=False)
+            .order("symbol", desc=False)
+            .range(start, start + page_size - 1)
+            .execute()
+        )
+        batch = resp.data or []
+        rows.extend(batch)
+        if len(batch) < page_size:
+            break
+        start += page_size
+
+    if not rows:
+        return pd.DataFrame()
+    df = pd.DataFrame(rows)
+    df["date"] = pd.to_datetime(df["date"])
+    return df.sort_values(["symbol", "date"]).reset_index(drop=True)
 
 
 def upsert_watchlist(supabase_client, decision_df: pd.DataFrame, explanations: dict):
