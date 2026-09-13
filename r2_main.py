@@ -4,9 +4,33 @@ from hard_filter import compute_hard_filter, STATUS_RANK
 from decision_layer import compute_decision_layer, explain_candidate
 from sector_cache import get_sector_map
 from alert_state import compute_alert_transitions
+from near_trigger_shadow import add_near_trigger_shadow
 from r2_ready import load_ready_dataset
 from r2_feature_engine import build_feature_store_from_r2
 import database, notify, positions
+
+
+SHADOW_ARTIFACT_PATH = "near_trigger_shadow_snapshot.csv"
+
+
+def _write_near_trigger_shadow_snapshot(latest: pd.DataFrame, as_of_date):
+    shadow = add_near_trigger_shadow(latest)
+    monitored = shadow[
+        shadow["investability_status"].map(STATUS_RANK) >= STATUS_RANK["NEAR_PASS"]
+    ].copy()
+    cols = [
+        "symbol", "date", "close_raw", "investability_status", "tradability_status",
+        "has_breakout", "prev_pivot_high", "atr14",
+        "distance_to_prev_pivot_pct", "distance_to_prev_pivot_atr",
+        "near_trigger_shadow",
+    ]
+    monitored[cols].to_csv(SHADOW_ARTIFACT_PATH, index=False)
+    n_shadow = int(monitored["near_trigger_shadow"].sum()) if not monitored.empty else 0
+    print(
+        f"[near_trigger shadow] {n_shadow}/{len(monitored)} monitored ticker "
+        f"memenuhi frozen development candidate <= 0.60 ATR pada "
+        f"{pd.Timestamp(as_of_date).date()}."
+    )
 
 
 def main():
@@ -32,6 +56,11 @@ def main():
     print(f"Tanggal {pd.Timestamp(as_of_date).date()}: {len(candidates)} kandidat / {len(latest)} latest / {len(universe)} ready")
     if missing_latest:
         print(f"[R2 freshness] {len(missing_latest)} ready ticker tanpa bar latest: {missing_latest[:20]}")
+
+    # Shadow-only evidence. Tidak memengaruhi Investability, Tradability,
+    # Telegram state, posisi, entry, atau exit.
+    _write_near_trigger_shadow_snapshot(latest, as_of_date)
+
     positions.validate_active_position_coverage(client, latest)
     previous = database.get_previous_watchlist(client, as_of_date)
     transitions = compute_alert_transitions(latest, previous)
