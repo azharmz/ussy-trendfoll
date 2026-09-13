@@ -99,9 +99,8 @@
     margin-bottom: 32px;
   }
 
-  #investmentStatsGrid {
-    grid-template-columns: repeat(5, 1fr);
-  }
+  #investmentStatsGrid { grid-template-columns: repeat(5, 1fr); }
+  #lifecycleStatsGrid { grid-template-columns: repeat(4, 1fr); }
 
   .stat {
     background: var(--bg-elevated);
@@ -141,28 +140,12 @@
     scrollbar-color: var(--border) transparent;
   }
 
-  .table-scroll::-webkit-scrollbar {
-    height: 6px;
-  }
+  .table-scroll::-webkit-scrollbar { height: 6px; }
+  .table-scroll::-webkit-scrollbar-track { background: transparent; }
+  .table-scroll::-webkit-scrollbar-thumb { background: var(--border); border-radius: 3px; }
+  .table-scroll::-webkit-scrollbar-thumb:hover { background: var(--text-faint); }
 
-  .table-scroll::-webkit-scrollbar-track {
-    background: transparent;
-  }
-
-  .table-scroll::-webkit-scrollbar-thumb {
-    background: var(--border);
-    border-radius: 3px;
-  }
-
-  .table-scroll::-webkit-scrollbar-thumb:hover {
-    background: var(--text-faint);
-  }
-
-  table {
-    width: 100%;
-    border-collapse: collapse;
-    font-size: 12.5px;
-  }
+  table { width: 100%; border-collapse: collapse; font-size: 12.5px; }
 
   thead th {
     text-align: left;
@@ -179,11 +162,7 @@
     top: 0;
   }
 
-  tbody tr {
-    cursor: pointer;
-    transition: background 0.12s ease;
-  }
-
+  tbody tr { cursor: pointer; transition: background 0.12s ease; }
   tbody tr:hover { background: var(--bg-hover); }
 
   tbody td {
@@ -193,16 +172,8 @@
     white-space: nowrap;
   }
 
-  .symbol {
-    font-family: var(--font-mono);
-    font-weight: 600;
-    letter-spacing: 0.01em;
-  }
-
-  .price {
-    font-family: var(--font-mono);
-    color: var(--text-dim);
-  }
+  .symbol { font-family: var(--font-mono); font-weight: 600; letter-spacing: 0.01em; }
+  .price { font-family: var(--font-mono); color: var(--text-dim); }
 
   .badge {
     display: inline-flex;
@@ -215,9 +186,9 @@
     font-weight: 500;
   }
 
-  .badge.pass { background: rgba(62, 207, 142, 0.12); color: var(--pass); }
-  .badge.near { background: rgba(232, 179, 57, 0.12); color: var(--near); }
-  .badge.fail { background: rgba(232, 84, 107, 0.12); color: var(--fail); }
+  .badge.pass, .badge.actionable { background: rgba(62, 207, 142, 0.12); color: var(--pass); }
+  .badge.near, .badge.near_trigger { background: rgba(232, 179, 57, 0.12); color: var(--near); }
+  .badge.fail, .badge.invalidated { background: rgba(232, 84, 107, 0.12); color: var(--fail); }
   .badge.active { background: rgba(79, 140, 255, 0.12); color: var(--accent); }
   .badge.stop_loss { background: rgba(232, 84, 107, 0.12); color: var(--fail); }
   .badge.trend_exit { background: rgba(232, 179, 57, 0.12); color: var(--near); }
@@ -225,14 +196,8 @@
 
   .pnl-pos { color: var(--pass); font-family: var(--font-mono); }
   .pnl-neg { color: var(--fail); font-family: var(--font-mono); }
-
   .section-gap { margin-top: 44px; }
-
-  .badge-dot {
-    width: 5px; height: 5px;
-    border-radius: 50%;
-    background: currentColor;
-  }
+  .badge-dot { width: 5px; height: 5px; border-radius: 50%; background: currentColor; }
 
   .empty-state {
     text-align: center;
@@ -240,12 +205,7 @@
     color: var(--text-dim);
   }
 
-  .empty-state .glyph {
-    font-family: var(--font-mono);
-    font-size: 28px;
-    color: var(--text-faint);
-    margin-bottom: 10px;
-  }
+  .empty-state .glyph { font-family: var(--font-mono); font-size: 28px; color: var(--text-faint); margin-bottom: 10px; }
 
   footer {
     text-align: center;
@@ -256,7 +216,6 @@
 
   footer a { color: var(--text-faint); text-decoration: underline; }
 
-  /* Modal */
   .modal-backdrop {
     position: fixed;
     inset: 0;
@@ -282,10 +241,7 @@
     animation: modal-in 0.15s ease;
   }
 
-  @keyframes modal-in {
-    from { opacity: 0; transform: translateY(6px); }
-    to { opacity: 1; transform: translateY(0); }
-  }
+  @keyframes modal-in { from { opacity: 0; transform: translateY(6px); } to { opacity: 1; transform: translateY(0); } }
 
   .modal-close {
     float: right;
@@ -313,19 +269,19 @@
 
   @media (max-width: 640px) {
     .stats-grid { grid-template-columns: repeat(2, 1fr); }
-    #investmentStatsGrid { grid-template-columns: repeat(2, 1fr); }
+    #investmentStatsGrid, #lifecycleStatsGrid { grid-template-columns: repeat(2, 1fr); }
     .wrap { padding: 24px 16px 48px; }
   }
 
-  @media (prefers-reduced-motion: reduce) {
-    * { animation: none !important; transition: none !important; }
-  }
+  @media (prefers-reduced-motion: reduce) { * { animation: none !important; transition: none !important; } }
 
   .tabs {
     display: flex;
     gap: 4px;
     margin-bottom: 24px;
     border-bottom: 1px solid var(--border);
+    overflow-x: auto;
+    scrollbar-width: thin;
   }
 
   .tab-btn {
@@ -339,15 +295,11 @@
     cursor: pointer;
     border-bottom: 2px solid transparent;
     transition: color 0.12s ease, border-color 0.12s ease;
+    white-space: nowrap;
   }
 
   .tab-btn:hover { color: var(--text-dim); }
-
-  .tab-btn.active {
-    color: var(--text);
-    border-bottom-color: var(--accent);
-  }
-
+  .tab-btn.active { color: var(--text); border-bottom-color: var(--accent); }
   .tab-content { display: none; }
   .tab-content.active { display: block; }
 
@@ -360,12 +312,7 @@
     margin: 32px 0 12px;
   }
 
-  .chart-note {
-    font-size: 12px;
-    color: var(--text-faint);
-    margin-bottom: 14px;
-    line-height: 1.5;
-  }
+  .chart-note { font-size: 12px; color: var(--text-faint); margin-bottom: 14px; line-height: 1.5; }
 
   .equity-chart-wrap {
     background: var(--bg-elevated);
@@ -384,19 +331,8 @@
     border-top: 1px solid var(--border);
   }
 
-  .equity-stat-label {
-    font-size: 11px;
-    color: var(--text-faint);
-    text-transform: uppercase;
-    letter-spacing: 0.05em;
-  }
-
-  .equity-stat-value {
-    font-family: var(--font-mono);
-    font-size: 15px;
-    font-weight: 600;
-    margin-top: 2px;
-  }
+  .equity-stat-label { font-size: 11px; color: var(--text-faint); text-transform: uppercase; letter-spacing: 0.05em; }
+  .equity-stat-value { font-family: var(--font-mono); font-size: 15px; font-weight: 600; margin-top: 2px; }
 </style>
 </head>
 <body>
@@ -429,13 +365,7 @@
     <div class="subsection-title" style="margin-top:0;">Detail Sinyal Terlewat</div>
     <div class="table-scroll">
     <table>
-      <thead>
-        <tr>
-          <th>Tanggal</th>
-          <th>Symbol</th>
-          <th>Alasan</th>
-        </tr>
-      </thead>
+      <thead><tr><th>Tanggal</th><th>Symbol</th><th>Alasan</th></tr></thead>
       <tbody id="skippedSignalsTbody"></tbody>
     </table>
     </div>
@@ -443,6 +373,7 @@
 
   <div class="tabs">
     <button class="tab-btn" data-tab="watchlist">Watchlist</button>
+    <button class="tab-btn" data-tab="lifecycle">Candidate Lifecycle</button>
     <button class="tab-btn active" data-tab="posisi">Posisi Aktif</button>
     <button class="tab-btn" data-tab="riwayat">Riwayat Exit</button>
   </div>
@@ -454,25 +385,38 @@
       <div class="stat"><div class="stat-num" id="statBreakout">—</div><div class="stat-label">Ada breakout</div></div>
       <div class="stat"><div class="stat-num near" id="statNear">—</div><div class="stat-label">Investability NEAR_PASS</div></div>
     </div>
-
     <div class="table-scroll">
-    <table id="watchlistTable">
-      <thead>
-        <tr>
-          <th>Symbol</th>
-          <th>Harga</th>
-          <th>Investability</th>
-          <th>Tradability</th>
-        </tr>
-      </thead>
-      <tbody id="tbody"></tbody>
-    </table>
+      <table id="watchlistTable">
+        <thead><tr><th>Symbol</th><th>Harga</th><th>Investability</th><th>Tradability</th></tr></thead>
+        <tbody id="tbody"></tbody>
+      </table>
     </div>
+    <div class="empty-state" id="emptyState" style="display:none"><div class="glyph">∅</div>Tidak ada kandidat investability ≥ NEAR_PASS di tanggal terbaru.</div>
+  </div>
 
-    <div class="empty-state" id="emptyState" style="display:none">
-      <div class="glyph">∅</div>
-      Tidak ada kandidat investability ≥ NEAR_PASS di tanggal terbaru.
+  <div class="tab-content" id="tab-lifecycle">
+    <div class="chart-note">
+      Lifecycle direkonstruksi dari seluruh histori tabel <code>watchlist</code>. Ticker yang pernah dipantau tetap tampil walaupun sudah keluar dari snapshot terbaru. Status <strong>INVALIDATED</strong> berarti saat ini tidak lagi memenuhi batas monitored; ini bukan posisi exit dan tidak mengubah rule entry.
     </div>
+    <div class="stats-grid" id="lifecycleStatsGrid">
+      <div class="stat"><div class="stat-num" id="lifecycleStatHistorical">—</div><div class="stat-label">Historical Symbols</div></div>
+      <div class="stat"><div class="stat-num near" id="lifecycleStatNear">—</div><div class="stat-label">Pernah Tradability NEAR_PASS</div></div>
+      <div class="stat"><div class="stat-num pass" id="lifecycleStatMonitored">—</div><div class="stat-label">Masih Monitored</div></div>
+      <div class="stat"><div class="stat-num" id="lifecycleStatInactive" style="color:var(--fail)">—</div><div class="stat-label">Tidak Monitored / Invalidated</div></div>
+    </div>
+    <div class="table-scroll">
+      <table id="lifecycleTable">
+        <thead>
+          <tr>
+            <th>Symbol</th><th>First Watch</th><th>Last Watch</th><th>Watch Days</th>
+            <th>Ever Tradability</th><th>Current Investability</th><th>Current Tradability</th>
+            <th>Current State</th><th>Days Since Last Watch</th>
+          </tr>
+        </thead>
+        <tbody id="lifecycleTbody"></tbody>
+      </table>
+    </div>
+    <div class="empty-state" id="lifecycleEmpty" style="display:none; padding:24px 20px;">Belum ada histori kandidat.</div>
   </div>
 
   <div class="tab-content active" id="tab-posisi">
@@ -482,144 +426,65 @@
       <div class="stat"><div class="stat-num" id="posisiStatLosing" style="color:var(--fail)">—</div><div class="stat-label">Rugi</div></div>
       <div class="stat"><div class="stat-num" id="posisiStatTotalPnl">—</div><div class="stat-label">Total Floating PnL</div></div>
     </div>
-
     <div style="font-size:12px; color:var(--text-faint); margin-bottom:16px;">
-      Floating PnL berbasis Entry (open H+1). Tanda * = Entry belum terisi,
-      sementara pakai Trigger (close hari sinyal).
+      Floating PnL berbasis Entry (open H+1). Tanda * = Entry belum terisi, sementara pakai Trigger (close hari sinyal).
     </div>
     <div class="table-scroll">
-    <table>
-      <thead>
-        <tr>
-          <th>Tanggal</th>
-          <th>Symbol</th>
-          <th>Trigger</th>
-          <th>Stop (SL)</th>
-          <th>Entry</th>
-          <th>Momentum T-1→T0</th>
-          <th>Gap Trigger→Entry</th>
-          <th>Mark</th>
-          <th>MFE</th>
-          <th>MAE</th>
-          <th>Floating PnL</th>
-          <th>Hari Berjalan</th>
-        </tr>
-      </thead>
-      <tbody id="positionsTbody"></tbody>
-    </table>
+      <table>
+        <thead><tr><th>Tanggal</th><th>Symbol</th><th>Trigger</th><th>Stop (SL)</th><th>Entry</th><th>Momentum T-1→T0</th><th>Gap Trigger→Entry</th><th>Mark</th><th>MFE</th><th>MAE</th><th>Floating PnL</th><th>Hari Berjalan</th></tr></thead>
+        <tbody id="positionsTbody"></tbody>
+      </table>
     </div>
-    <div class="empty-state" id="positionsEmpty" style="display:none; padding:24px 20px;">
-      Tidak ada posisi aktif saat ini.
-    </div>
+    <div class="empty-state" id="positionsEmpty" style="display:none; padding:24px 20px;">Tidak ada posisi aktif saat ini.</div>
   </div>
 
   <div class="tab-content" id="tab-riwayat">
     <div class="subsection-title">Equity Curve (Simulasi)</div>
     <div class="chart-note">
-      Kurva kumulatif dari PnL% tiap posisi yang sudah exit, diurutkan berdasarkan
-      tanggal exit — <strong>bukan</strong> simulasi portfolio dengan modal/cash
-      constraint seperti backtest (tabel <code>positions</code> memang sengaja
-      unlimited, tanpa cap modal). Anggap ini gambaran arah, bukan angka
-      equity presisi.
+      Kurva kumulatif dari PnL% tiap posisi yang sudah exit, diurutkan berdasarkan tanggal exit — <strong>bukan</strong> simulasi portfolio dengan modal/cash constraint seperti backtest (tabel <code>positions</code> memang sengaja unlimited, tanpa cap modal). Anggap ini gambaran arah, bukan angka equity presisi.
     </div>
     <div class="equity-chart-wrap">
       <svg id="equityChart" viewBox="0 0 800 240" style="width:100%; height:auto; display:block;"></svg>
       <div class="equity-stats-row" id="equityStatsRow"></div>
     </div>
-
     <div class="subsection-title">Performance Breakdown per Alasan Exit</div>
-    <div class="table-scroll">
-    <table>
-      <thead>
-        <tr>
-          <th>Alasan Exit</th>
-          <th>Jumlah</th>
-          <th>Win Rate</th>
-          <th>Avg PnL%</th>
-          <th>Total PnL%</th>
-        </tr>
-      </thead>
-      <tbody id="breakdownTbody"></tbody>
-    </table>
-    </div>
-
+    <div class="table-scroll"><table><thead><tr><th>Alasan Exit</th><th>Jumlah</th><th>Win Rate</th><th>Avg PnL%</th><th>Total PnL%</th></tr></thead><tbody id="breakdownTbody"></tbody></table></div>
     <div class="subsection-title">Riwayat Lengkap</div>
     <div class="table-scroll">
-    <table>
-      <thead>
-        <tr>
-          <th>Tanggal</th>
-          <th>Symbol</th>
-          <th>Trigger</th>
-          <th>Stop (SL)</th>
-          <th>Entry</th>
-          <th>Momentum T-1→T0</th>
-          <th>Gap Trigger→Entry</th>
-          <th>Exit</th>
-          <th>MFE</th>
-          <th>MAE</th>
-          <th>Realized PnL</th>
-          <th>Hari Ditahan</th>
-          <th>Alasan</th>
-        </tr>
-      </thead>
-      <tbody id="historyTbody"></tbody>
-    </table>
+      <table>
+        <thead><tr><th>Tanggal</th><th>Symbol</th><th>Trigger</th><th>Stop (SL)</th><th>Entry</th><th>Momentum T-1→T0</th><th>Gap Trigger→Entry</th><th>Exit</th><th>MFE</th><th>MAE</th><th>Realized PnL</th><th>Hari Ditahan</th><th>Alasan</th></tr></thead>
+        <tbody id="historyTbody"></tbody>
+      </table>
     </div>
-    <div class="empty-state" id="historyEmpty" style="display:none; padding:24px 20px;">
-      Belum ada posisi yang exit.
-    </div>
+    <div class="empty-state" id="historyEmpty" style="display:none; padding:24px 20px;">Belum ada posisi yang exit.</div>
   </div>
 
   <footer style="margin-top:40px;">Data forward-test, bukan rekomendasi finansial &middot; utrendfoll.anyapp.my.id</footer>
 </div>
 
-<div class="modal-backdrop" id="modalBackdrop">
-  <div class="modal">
-    <button class="modal-close" id="modalClose">tutup ✕</button>
-    <pre id="modalContent"></pre>
-  </div>
-</div>
+<div class="modal-backdrop" id="modalBackdrop"><div class="modal"><button class="modal-close" id="modalClose">tutup ✕</button><pre id="modalContent"></pre></div></div>
 
 <script>
-  // ============================================================
-  // CONFIG — isi dengan anon key dari Supabase project TrendFoll
-  // (Settings → API → anon/public key). Ini AMAN untuk ditaruh di
-  // frontend karena tabel dilindungi RLS read-only.
-  // ============================================================
   const SUPABASE_URL = "https://rggtylvlrzzesrtumqzj.supabase.co";
   const SUPABASE_ANON_KEY = "sb_publishable_uiCCNQBjfHE7JwzHNNMtaQ_4nE3ch5a";
 
   async function sb(path) {
-    const res = await fetch(`${SUPABASE_URL}/rest/v1/${path}`, {
-      headers: {
-        apikey: SUPABASE_ANON_KEY,
-        Authorization: `Bearer ${SUPABASE_ANON_KEY}`,
-      },
-    });
+    const res = await fetch(`${SUPABASE_URL}/rest/v1/${path}`, { headers: { apikey: SUPABASE_ANON_KEY, Authorization: `Bearer ${SUPABASE_ANON_KEY}` } });
     if (!res.ok) throw new Error(`Supabase error ${res.status}`);
     return res.json();
   }
 
-  // Supabase/PostgREST biasanya membatasi satu respons ke 1.000 baris.
-  // Ambil semua halaman agar riwayat lama tidak terpotong diam-diam.
   async function sbAll(path, pageSize = 1000) {
     const rows = [];
     let offset = 0;
     let total = null;
     while (total == null || rows.length < total) {
       const res = await fetch(`${SUPABASE_URL}/rest/v1/${path}`, {
-        headers: {
-          apikey: SUPABASE_ANON_KEY,
-          Authorization: `Bearer ${SUPABASE_ANON_KEY}`,
-          Prefer: "count=exact",
-          Range: `${offset}-${offset + pageSize - 1}`,
-        },
+        headers: { apikey: SUPABASE_ANON_KEY, Authorization: `Bearer ${SUPABASE_ANON_KEY}`, Prefer: "count=exact", Range: `${offset}-${offset + pageSize - 1}` },
       });
       if (!res.ok) throw new Error(`Supabase error ${res.status}`);
       const page = await res.json();
       rows.push(...page);
-
       const contentRange = res.headers.get("content-range");
       const match = contentRange && contentRange.match(/\/(\d+)$/);
       if (match) total = Number(match[1]);
@@ -630,6 +495,7 @@
   }
 
   const statusClass = (s) => s === "PASS" ? "pass" : s === "NEAR_PASS" ? "near" : "fail";
+  const lifecycleStateClass = (s) => String(s || "").toLowerCase();
 
   function renderStats(rows) {
     const passFull = rows.filter(r => r.investability_status === "PASS" && r.tradability_status === "PASS");
@@ -645,48 +511,101 @@
     const tbody = document.getElementById("tbody");
     const emptyState = document.getElementById("emptyState");
     tbody.innerHTML = "";
-
     if (rows.length === 0) {
       document.getElementById("watchlistTable").style.display = "none";
       emptyState.style.display = "block";
       return;
     }
-
+    document.getElementById("watchlistTable").style.display = "table";
+    emptyState.style.display = "none";
     const sorted = [...rows].sort((a, b) => {
       const rank = { PASS: 2, NEAR_PASS: 1, FAIL: 0 };
-      return (rank[b.tradability_status] - rank[a.tradability_status])
-        || (rank[b.investability_status] - rank[a.investability_status]);
+      return (rank[b.tradability_status] - rank[a.tradability_status]) || (rank[b.investability_status] - rank[a.investability_status]);
     });
-
     for (const r of sorted) {
       const tr = document.createElement("tr");
-      tr.innerHTML = `
-        <td class="symbol">${r.symbol}</td>
-        <td class="price">$${Number(r.close_raw).toFixed(2)}</td>
-        <td><span class="badge ${statusClass(r.investability_status)}"><span class="badge-dot"></span>${r.investability_status}</span></td>
-        <td><span class="badge ${statusClass(r.tradability_status)}"><span class="badge-dot"></span>${r.tradability_status}</span></td>
-      `;
+      tr.innerHTML = `<td class="symbol">${r.symbol}</td><td class="price">$${Number(r.close_raw).toFixed(2)}</td><td><span class="badge ${statusClass(r.investability_status)}"><span class="badge-dot"></span>${r.investability_status}</span></td><td><span class="badge ${statusClass(r.tradability_status)}"><span class="badge-dot"></span>${r.tradability_status}</span></td>`;
       tr.addEventListener("click", () => openModal(r.explanation_text || "Belum ada detail."));
       tbody.appendChild(tr);
     }
   }
 
+  function buildLifecycle(history, latestRows, asOfDate) {
+    const bySymbol = new Map();
+    for (const row of history) {
+      if (!bySymbol.has(row.symbol)) bySymbol.set(row.symbol, []);
+      bySymbol.get(row.symbol).push(row);
+    }
+    const latestMap = new Map((latestRows || []).map(r => [r.symbol, r]));
+    const refDate = asOfDate ? new Date(`${asOfDate}T00:00:00Z`) : null;
+    const out = [];
+    for (const [symbol, rows] of bySymbol.entries()) {
+      rows.sort((a, b) => String(a.date).localeCompare(String(b.date)));
+      const first = rows[0];
+      const last = rows[rows.length - 1];
+      const current = latestMap.get(symbol) || null;
+      const currentState = !current ? "INVALIDATED" : (current.investability_status === "PASS" && current.tradability_status === "PASS" ? "ACTIONABLE" : "NEAR_TRIGGER");
+      const everNear = rows.some(r => r.tradability_status === "NEAR_PASS");
+      const everPass = rows.some(r => r.tradability_status === "PASS");
+      const everTradability = everPass ? (everNear ? "NEAR_PASS → PASS" : "PASS") : (everNear ? "NEAR_PASS" : (last.tradability_status || "—"));
+      const lastDate = new Date(`${last.date}T00:00:00Z`);
+      const daysSince = refDate ? Math.max(0, Math.round((refDate - lastDate) / 86400000)) : 0;
+      out.push({
+        symbol,
+        first_watch_date: first.date,
+        last_watch_date: last.date,
+        watch_days: new Set(rows.map(r => r.date)).size,
+        ever_tradability: everTradability,
+        current_investability: current?.investability_status ?? null,
+        current_tradability: current?.tradability_status ?? null,
+        current_state: currentState,
+        currently_monitored: Boolean(current),
+        days_since_last_watch: daysSince,
+        history: rows,
+      });
+    }
+    const stateRank = { ACTIONABLE: 0, NEAR_TRIGGER: 1, INVALIDATED: 2 };
+    return out.sort((a, b) => (stateRank[a.current_state] - stateRank[b.current_state]) || String(b.last_watch_date).localeCompare(String(a.last_watch_date)) || a.symbol.localeCompare(b.symbol));
+  }
+
+  function renderLifecycle(history, latestRows, asOfDate) {
+    const lifecycle = buildLifecycle(history, latestRows, asOfDate);
+    const tbody = document.getElementById("lifecycleTbody");
+    const empty = document.getElementById("lifecycleEmpty");
+    tbody.innerHTML = "";
+    const everNear = lifecycle.filter(r => r.history.some(x => x.tradability_status === "NEAR_PASS")).length;
+    const monitored = lifecycle.filter(r => r.currently_monitored).length;
+    const inactive = lifecycle.length - monitored;
+    document.getElementById("lifecycleStatHistorical").textContent = lifecycle.length;
+    document.getElementById("lifecycleStatNear").textContent = everNear;
+    document.getElementById("lifecycleStatMonitored").textContent = monitored;
+    document.getElementById("lifecycleStatInactive").textContent = inactive;
+    if (lifecycle.length === 0) {
+      document.getElementById("lifecycleTable").style.display = "none";
+      empty.style.display = "block";
+      return;
+    }
+    document.getElementById("lifecycleTable").style.display = "table";
+    empty.style.display = "none";
+    for (const r of lifecycle) {
+      const inv = r.current_investability ? `<span class="badge ${statusClass(r.current_investability)}">${r.current_investability}</span>` : `<span style="color:var(--text-faint)">—</span>`;
+      const trad = r.current_tradability ? `<span class="badge ${statusClass(r.current_tradability)}">${r.current_tradability}</span>` : `<span style="color:var(--text-faint)">—</span>`;
+      const tr = document.createElement("tr");
+      tr.innerHTML = `<td class="symbol">${r.symbol}</td><td class="price">${r.first_watch_date}</td><td class="price">${r.last_watch_date}</td><td class="price">${r.watch_days}</td><td>${r.ever_tradability}</td><td>${inv}</td><td>${trad}</td><td><span class="badge ${lifecycleStateClass(r.current_state)}"><span class="badge-dot"></span>${r.current_state}</span></td><td class="price">${r.days_since_last_watch}</td>`;
+      tr.addEventListener("click", () => openModal(JSON.stringify(r, null, 2)));
+      tbody.appendChild(tr);
+    }
+  }
+
   function openModal(text) {
-    const html = text
-      .replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;")
-      .replace(/\*\*(.+?)\*\*/g, "<strong>$1</strong>");
+    const html = String(text).replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/\*\*(.+?)\*\*/g, "<strong>$1</strong>");
     document.getElementById("modalContent").innerHTML = html;
     document.getElementById("modalBackdrop").classList.add("open");
   }
 
-  function closeModal() {
-    document.getElementById("modalBackdrop").classList.remove("open");
-  }
-
+  function closeModal() { document.getElementById("modalBackdrop").classList.remove("open"); }
   document.getElementById("modalClose").addEventListener("click", closeModal);
-  document.getElementById("modalBackdrop").addEventListener("click", (e) => {
-    if (e.target.id === "modalBackdrop") closeModal();
-  });
+  document.getElementById("modalBackdrop").addEventListener("click", (e) => { if (e.target.id === "modalBackdrop") closeModal(); });
   document.addEventListener("keydown", (e) => { if (e.key === "Escape") closeModal(); });
 
   function renderPosisiStats(rows) {
@@ -714,21 +633,11 @@
     tbody.innerHTML = "";
     if (rows.length === 0) { empty.style.display = "block"; return; }
     empty.style.display = "none";
-
     const refDate = asOfDate ? new Date(asOfDate) : new Date();
-
     for (const p of rows) {
-      // Kalender kasar dari entry_date ke tanggal pipeline TERAKHIR (bukan
-      // waktu real-time saat halaman dibuka) — hari bursa asli yang jadi
-      // dasar keputusan max_holding dihitung di backend, bisa beda dari
-      // angka ini (kalender vs bursa, dan weekend/libur tidak dikurangi).
       const daysElapsed = Math.floor((refDate - new Date(p.entry_date)) / 86400000);
-      const realisticPrice = p.realistic_entry_price != null
-        ? `$${Number(p.realistic_entry_price).toFixed(2)}`
-        : `<span style="color:var(--text-faint)">menunggu...</span>`;
-      const markPrice = p.mark_price != null
-        ? `$${Number(p.mark_price).toFixed(2)}`
-        : `<span style="color:var(--text-faint)">—</span>`;
+      const realisticPrice = p.realistic_entry_price != null ? `$${Number(p.realistic_entry_price).toFixed(2)}` : `<span style="color:var(--text-faint)">menunggu...</span>`;
+      const markPrice = p.mark_price != null ? `$${Number(p.mark_price).toFixed(2)}` : `<span style="color:var(--text-faint)">—</span>`;
       let floatingPnl = `<span style="color:var(--text-faint)">—</span>`;
       if (p.mark_price != null) {
         const basisPrice = p.realistic_entry_price ?? p.entry_price;
@@ -737,40 +646,17 @@
         const cls = pnl >= 0 ? "pnl-pos" : "pnl-neg";
         floatingPnl = `<span class="${cls}">${pnl >= 0 ? "+" : ""}${pnl.toFixed(1)}%${basisLabel}</span>`;
       }
-
-      const momentum = p.prev_close != null
-        ? formatSignedPct((p.entry_price - p.prev_close) / p.prev_close * 100)
-        : `<span style="color:var(--text-faint)">—</span>`;
-
-      const gapEntry = p.realistic_entry_price != null
-        ? formatSignedPct((p.realistic_entry_price - p.entry_price) / p.entry_price * 100)
-        : `<span style="color:var(--text-faint)">menunggu...</span>`;
-
+      const momentum = p.prev_close != null ? formatSignedPct((p.entry_price - p.prev_close) / p.prev_close * 100) : `<span style="color:var(--text-faint)">—</span>`;
+      const gapEntry = p.realistic_entry_price != null ? formatSignedPct((p.realistic_entry_price - p.entry_price) / p.entry_price * 100) : `<span style="color:var(--text-faint)">menunggu...</span>`;
       let mfeCell = `<span style="color:var(--text-faint)">—</span>`;
       let maeCell = `<span style="color:var(--text-faint)">—</span>`;
       if (p.max_close_since_entry != null && p.min_close_since_entry != null) {
         const basisPrice = p.realistic_entry_price ?? p.entry_price;
-        const mfe = (p.max_close_since_entry - basisPrice) / basisPrice * 100;
-        const mae = (p.min_close_since_entry - basisPrice) / basisPrice * 100;
-        mfeCell = formatSignedPct(mfe);
-        maeCell = formatSignedPct(mae);
+        mfeCell = formatSignedPct((p.max_close_since_entry - basisPrice) / basisPrice * 100);
+        maeCell = formatSignedPct((p.min_close_since_entry - basisPrice) / basisPrice * 100);
       }
-
       const tr = document.createElement("tr");
-      tr.innerHTML = `
-        <td class="price">${p.entry_date}</td>
-        <td class="symbol">${p.symbol}</td>
-        <td class="price">$${Number(p.entry_price).toFixed(2)}</td>
-        <td class="price">$${Number(p.stop_price).toFixed(2)}</td>
-        <td class="price">${realisticPrice}</td>
-        <td>${momentum}</td>
-        <td>${gapEntry}</td>
-        <td class="price">${markPrice}</td>
-        <td>${mfeCell}</td>
-        <td>${maeCell}</td>
-        <td>${floatingPnl}</td>
-        <td class="price">~${daysElapsed} hari kalender</td>
-      `;
+      tr.innerHTML = `<td class="price">${p.entry_date}</td><td class="symbol">${p.symbol}</td><td class="price">$${Number(p.entry_price).toFixed(2)}</td><td class="price">$${Number(p.stop_price).toFixed(2)}</td><td class="price">${realisticPrice}</td><td>${momentum}</td><td>${gapEntry}</td><td class="price">${markPrice}</td><td>${mfeCell}</td><td>${maeCell}</td><td>${floatingPnl}</td><td class="price">~${daysElapsed} hari kalender</td>`;
       tr.addEventListener("click", () => openModal(JSON.stringify(p, null, 2)));
       tbody.appendChild(tr);
     }
@@ -787,20 +673,12 @@
       const reason = p.status;
       if (!groups[reason]) groups[reason] = [];
       const basisPrice = p.realistic_entry_price ?? p.entry_price;
-      const pnl = (p.exit_price - basisPrice) / basisPrice * 100;
-      groups[reason].push(pnl);
+      groups[reason].push((p.exit_price - basisPrice) / basisPrice * 100);
     }
     const rows = [];
     for (const [reason, pnls] of Object.entries(groups)) {
-      const n = pnls.length;
-      const wins = pnls.filter((x) => x >= 0).length;
-      const total = pnls.reduce((a, b) => a + b, 0);
-      rows.push({
-        reason, n,
-        winRate: n ? (wins / n * 100) : 0,
-        avgPnl: n ? (total / n) : 0,
-        totalPnl: total,
-      });
+      const n = pnls.length, wins = pnls.filter(x => x >= 0).length, total = pnls.reduce((a, b) => a + b, 0);
+      rows.push({ reason, n, winRate: n ? wins / n * 100 : 0, avgPnl: n ? total / n : 0, totalPnl: total });
     }
     return rows.sort((a, b) => b.n - a.n);
   }
@@ -809,48 +687,31 @@
     const tbody = document.getElementById("breakdownTbody");
     tbody.innerHTML = "";
     const rows = computePerfBreakdown(history);
-    if (rows.length === 0) {
-      tbody.innerHTML = `<tr><td colspan="5" style="padding:16px; color:var(--text-faint);">Belum ada data.</td></tr>`;
-      return;
-    }
+    if (rows.length === 0) { tbody.innerHTML = `<tr><td colspan="5" style="padding:16px; color:var(--text-faint);">Belum ada data.</td></tr>`; return; }
     for (const r of rows) {
       const avgCls = r.avgPnl >= 0 ? "pnl-pos" : "pnl-neg";
       const totalCls = r.totalPnl >= 0 ? "pnl-pos" : "pnl-neg";
       const tr = document.createElement("tr");
-      tr.innerHTML = `
-        <td><span class="badge ${r.reason}">${r.reason}</span></td>
-        <td class="price">${r.n}</td>
-        <td class="price">${r.winRate.toFixed(1)}%</td>
-        <td class="${avgCls}">${r.avgPnl >= 0 ? "+" : ""}${r.avgPnl.toFixed(1)}%</td>
-        <td class="${totalCls}">${r.totalPnl >= 0 ? "+" : ""}${r.totalPnl.toFixed(1)}%</td>
-      `;
+      tr.innerHTML = `<td><span class="badge ${r.reason}">${r.reason}</span></td><td class="price">${r.n}</td><td class="price">${r.winRate.toFixed(1)}%</td><td class="${avgCls}">${r.avgPnl >= 0 ? "+" : ""}${r.avgPnl.toFixed(1)}%</td><td class="${totalCls}">${r.totalPnl >= 0 ? "+" : ""}${r.totalPnl.toFixed(1)}%</td>`;
       tbody.appendChild(tr);
     }
   }
 
   function computeEquityCurve(history) {
-    const sorted = [...history]
-      .filter((p) => p.exit_date)
-      .sort((a, b) => new Date(a.exit_date) - new Date(b.exit_date));
+    const sorted = [...history].filter(p => p.exit_date).sort((a, b) => new Date(a.exit_date) - new Date(b.exit_date));
     let cumulative = 0;
     const curve = [{ date: null, value: 0 }];
     for (const p of sorted) {
       const basisPrice = p.realistic_entry_price ?? p.entry_price;
-      const pnl = (p.exit_price - basisPrice) / basisPrice * 100;
-      cumulative += pnl;
+      cumulative += (p.exit_price - basisPrice) / basisPrice * 100;
       curve.push({ date: p.exit_date, value: cumulative, symbol: p.symbol });
     }
     return curve;
   }
 
   function computeMaxDrawdown(curve) {
-    let peak = curve[0] ? curve[0].value : 0;
-    let maxDd = 0;
-    for (const point of curve) {
-      if (point.value > peak) peak = point.value;
-      const dd = point.value - peak;
-      if (dd < maxDd) maxDd = dd;
-    }
+    let peak = curve[0] ? curve[0].value : 0, maxDd = 0;
+    for (const point of curve) { if (point.value > peak) peak = point.value; const dd = point.value - peak; if (dd < maxDd) maxDd = dd; }
     return maxDd;
   }
 
@@ -858,42 +719,14 @@
     const svg = document.getElementById("equityChart");
     const statsRow = document.getElementById("equityStatsRow");
     const curve = computeEquityCurve(history);
-
-    if (curve.length <= 1) {
-      svg.innerHTML = `<text x="400" y="120" text-anchor="middle" fill="var(--text-faint)" font-size="13">Belum ada posisi yang exit.</text>`;
-      statsRow.innerHTML = "";
-      return;
-    }
-
+    if (curve.length <= 1) { svg.innerHTML = `<text x="400" y="120" text-anchor="middle" fill="var(--text-faint)" font-size="13">Belum ada posisi yang exit.</text>`; statsRow.innerHTML = ""; return; }
     const W = 800, H = 240, PAD = 24;
-    const values = curve.map((p) => p.value);
-    const minV = Math.min(0, ...values);
-    const maxV = Math.max(0, ...values);
-    const range = (maxV - minV) || 1;
-
-    const xStep = (W - PAD * 2) / (curve.length - 1);
-    const yFor = (v) => H - PAD - ((v - minV) / range) * (H - PAD * 2);
-    const xFor = (i) => PAD + i * xStep;
-
-    const zeroY = yFor(0);
-    const points = curve.map((p, i) => `${xFor(i)},${yFor(p.value)}`).join(" ");
-    const last = curve[curve.length - 1];
-    const lineColor = last.value >= 0 ? "var(--pass)" : "var(--fail)";
-
-    svg.innerHTML = `
-      <line x1="${PAD}" y1="${zeroY}" x2="${W - PAD}" y2="${zeroY}" stroke="var(--border)" stroke-width="1" stroke-dasharray="4 4" />
-      <polyline points="${points}" fill="none" stroke="${lineColor}" stroke-width="2" />
-    `;
-
-    const maxDd = computeMaxDrawdown(curve);
-    const nTrades = curve.length - 1;
-    const avgPnl = nTrades > 0 ? last.value / nTrades : 0;
-    statsRow.innerHTML = `
-      <div><div class="equity-stat-label">Sum PnL (kumulatif)</div><div class="equity-stat-value" style="color:${last.value >= 0 ? "var(--pass)" : "var(--fail)"}">${last.value >= 0 ? "+" : ""}${last.value.toFixed(1)}%</div></div>
-      <div><div class="equity-stat-label">Avg PnL per Trade</div><div class="equity-stat-value" style="color:${avgPnl >= 0 ? "var(--pass)" : "var(--fail)"}">${avgPnl >= 0 ? "+" : ""}${avgPnl.toFixed(1)}%</div></div>
-      <div><div class="equity-stat-label">Max Drawdown</div><div class="equity-stat-value" style="color:var(--fail)">${maxDd.toFixed(1)}%</div></div>
-      <div><div class="equity-stat-label">Total Posisi Exit</div><div class="equity-stat-value">${nTrades}</div></div>
-    `;
+    const values = curve.map(p => p.value), minV = Math.min(0, ...values), maxV = Math.max(0, ...values), range = (maxV - minV) || 1;
+    const xStep = (W - PAD * 2) / (curve.length - 1), yFor = v => H - PAD - ((v - minV) / range) * (H - PAD * 2), xFor = i => PAD + i * xStep;
+    const zeroY = yFor(0), points = curve.map((p, i) => `${xFor(i)},${yFor(p.value)}`).join(" "), last = curve[curve.length - 1], lineColor = last.value >= 0 ? "var(--pass)" : "var(--fail)";
+    svg.innerHTML = `<line x1="${PAD}" y1="${zeroY}" x2="${W - PAD}" y2="${zeroY}" stroke="var(--border)" stroke-width="1" stroke-dasharray="4 4" /><polyline points="${points}" fill="none" stroke="${lineColor}" stroke-width="2" />`;
+    const maxDd = computeMaxDrawdown(curve), nTrades = curve.length - 1, avgPnl = nTrades > 0 ? last.value / nTrades : 0;
+    statsRow.innerHTML = `<div><div class="equity-stat-label">Sum PnL (kumulatif)</div><div class="equity-stat-value" style="color:${last.value >= 0 ? "var(--pass)" : "var(--fail)"}">${last.value >= 0 ? "+" : ""}${last.value.toFixed(1)}%</div></div><div><div class="equity-stat-label">Avg PnL per Trade</div><div class="equity-stat-value" style="color:${avgPnl >= 0 ? "var(--pass)" : "var(--fail)"}">${avgPnl >= 0 ? "+" : ""}${avgPnl.toFixed(1)}%</div></div><div><div class="equity-stat-label">Max Drawdown</div><div class="equity-stat-value" style="color:var(--fail)">${maxDd.toFixed(1)}%</div></div><div><div class="equity-stat-label">Total Posisi Exit</div><div class="equity-stat-value">${nTrades}</div></div>`;
   }
 
   function renderHistory(rows) {
@@ -902,178 +735,77 @@
     tbody.innerHTML = "";
     if (rows.length === 0) { empty.style.display = "block"; return; }
     empty.style.display = "none";
-
     for (const p of rows) {
-      const basisPrice = p.realistic_entry_price ?? p.entry_price;
-      const basisLabel = p.realistic_entry_price != null ? "" : "*";
-      const pnl = (p.exit_price - basisPrice) / basisPrice * 100;
-      const pnlClass = pnl >= 0 ? "pnl-pos" : "pnl-neg";
-
-      const realisticPrice = p.realistic_entry_price != null
-        ? `$${Number(p.realistic_entry_price).toFixed(2)}`
-        : `<span style="color:var(--text-faint)">*</span>`;
-      const momentum = p.prev_close != null
-        ? formatSignedPct((p.entry_price - p.prev_close) / p.prev_close * 100)
-        : `<span style="color:var(--text-faint)">—</span>`;
-      const gapEntry = p.realistic_entry_price != null
-        ? formatSignedPct((p.realistic_entry_price - p.entry_price) / p.entry_price * 100)
-        : `<span style="color:var(--text-faint)">—</span>`;
-
-      let mfeCell = `<span style="color:var(--text-faint)">—</span>`;
-      let maeCell = `<span style="color:var(--text-faint)">—</span>`;
-      if (p.max_close_since_entry != null && p.min_close_since_entry != null) {
-        const mfe = (p.max_close_since_entry - basisPrice) / basisPrice * 100;
-        const mae = (p.min_close_since_entry - basisPrice) / basisPrice * 100;
-        mfeCell = formatSignedPct(mfe);
-        maeCell = formatSignedPct(mae);
-      }
-
+      const basisPrice = p.realistic_entry_price ?? p.entry_price, basisLabel = p.realistic_entry_price != null ? "" : "*";
+      const pnl = (p.exit_price - basisPrice) / basisPrice * 100, pnlClass = pnl >= 0 ? "pnl-pos" : "pnl-neg";
+      const realisticPrice = p.realistic_entry_price != null ? `$${Number(p.realistic_entry_price).toFixed(2)}` : `<span style="color:var(--text-faint)">*</span>`;
+      const momentum = p.prev_close != null ? formatSignedPct((p.entry_price - p.prev_close) / p.prev_close * 100) : `<span style="color:var(--text-faint)">—</span>`;
+      const gapEntry = p.realistic_entry_price != null ? formatSignedPct((p.realistic_entry_price - p.entry_price) / p.entry_price * 100) : `<span style="color:var(--text-faint)">—</span>`;
+      let mfeCell = `<span style="color:var(--text-faint)">—</span>`, maeCell = `<span style="color:var(--text-faint)">—</span>`;
+      if (p.max_close_since_entry != null && p.min_close_since_entry != null) { mfeCell = formatSignedPct((p.max_close_since_entry - basisPrice) / basisPrice * 100); maeCell = formatSignedPct((p.min_close_since_entry - basisPrice) / basisPrice * 100); }
       const tr = document.createElement("tr");
-      tr.innerHTML = `
-        <td class="price">${p.entry_date}</td>
-        <td class="symbol">${p.symbol}</td>
-        <td class="price">$${Number(p.entry_price).toFixed(2)}</td>
-        <td class="price">$${Number(p.stop_price).toFixed(2)}</td>
-        <td class="price">${realisticPrice}</td>
-        <td>${momentum}</td>
-        <td>${gapEntry}</td>
-        <td class="price">$${Number(p.exit_price).toFixed(2)}</td>
-        <td>${mfeCell}</td>
-        <td>${maeCell}</td>
-        <td class="${pnlClass}">${pnl >= 0 ? "+" : ""}${pnl.toFixed(1)}%${basisLabel}</td>
-        <td class="price">${p.days_held ?? "—"} hari</td>
-        <td><span class="badge ${p.status}">${p.status}</span></td>
-      `;
+      tr.innerHTML = `<td class="price">${p.entry_date}</td><td class="symbol">${p.symbol}</td><td class="price">$${Number(p.entry_price).toFixed(2)}</td><td class="price">$${Number(p.stop_price).toFixed(2)}</td><td class="price">${realisticPrice}</td><td>${momentum}</td><td>${gapEntry}</td><td class="price">$${Number(p.exit_price).toFixed(2)}</td><td>${mfeCell}</td><td>${maeCell}</td><td class="${pnlClass}">${pnl >= 0 ? "+" : ""}${pnl.toFixed(1)}%${basisLabel}</td><td class="price">${p.days_held ?? "—"} hari</td><td><span class="badge ${p.status}">${p.status}</span></td>`;
       tr.addEventListener("click", () => openModal(JSON.stringify(p, null, 2)));
       tbody.appendChild(tr);
     }
   }
 
   const SIM_CAPITAL = 100_000;
-  const SIM_ALLOC_PCT = 0.01; // alokasi TETAP 1% modal per posisi (bukan risk-based dari jarak stop)
-  const SIM_MAX_CONCURRENT = 150; // buffer aman jauh di atas skala posisi kita sekarang (~15) — praktis tidak pernah kepicu
+  const SIM_ALLOC_PCT = 0.01;
+  const SIM_MAX_CONCURRENT = 150;
 
-  // Paper trading -- bukan modal riil, jadi TIDAK ADA konsep "cash kurang".
-  // Alokasi per posisi FLAT (SIM_CAPITAL * SIM_ALLOC_PCT), non-compounding —
-  // beda dari referensi Swing yang compounding dari equity saat itu (equityNow
-  // * PCT), karena itu butuh tahu nilai SEMUA posisi terbuka di TIAP tanggal
-  // historis -- kita tidak punya histori harga harian penuh per posisi
-  // (cuma snapshot entry/mark/exit), jadi tidak bisa hitung equityNow akurat
-  // di titik waktu manapun selain "sekarang". Non-compounding flat allocation
-  // adalah pendekatan paling jujur dengan data yang tersedia.
   function simulateCashConstrainedPortfolio(activePositions, historyPositions) {
     const all = [...activePositions, ...historyPositions].filter(p => p.entry_date && p.entry_price);
     if (all.length === 0) return null;
-
     const events = new Set();
-    all.forEach(p => {
-      events.add(p.entry_date);
-      if (p.exit_date) events.add(p.exit_date);
-    });
+    all.forEach(p => { events.add(p.entry_date); if (p.exit_date) events.add(p.exit_date); });
     const sortedDates = [...events].sort();
-
-    const SIZE = SIM_CAPITAL * SIM_ALLOC_PCT; // flat $ per posisi
-    let realizedPnl = 0;
-    let notTaken = 0;
-    const skippedList = []; // {symbol, entry_date, reason}
-    const openPos = []; // {pos, basisPrice}
-
+    const SIZE = SIM_CAPITAL * SIM_ALLOC_PCT;
+    let realizedPnl = 0, notTaken = 0;
+    const skippedList = [], openPos = [];
     for (const date of sortedDates) {
-      // proses EXIT dulu
       for (const p of all) {
         if (p.exit_date === date) {
           const idx = openPos.findIndex(op => op.pos === p);
           if (idx === -1) continue;
           const [op] = openPos.splice(idx, 1);
-          const finalValue = SIZE * (p.exit_price / op.basisPrice);
-          realizedPnl += finalValue - SIZE;
+          realizedPnl += SIZE * (p.exit_price / op.basisPrice) - SIZE;
         }
       }
-      // proses ENTRY baru -- satu-satunya alasan skip: slot kepenuhan
-      // (SIM_MAX_CONCURRENT), bukan cash, karena ini paper trading
       for (const p of all) {
         if (p.entry_date === date) {
-          if (openPos.some(op => op.pos === p)) continue; // guard
-          if (openPos.length >= SIM_MAX_CONCURRENT) {
-            notTaken++;
-            skippedList.push({ symbol: p.symbol, entry_date: p.entry_date, reason: `slot penuh (>${SIM_MAX_CONCURRENT} posisi)` });
-            continue;
-          }
-          const basisPrice = p.realistic_entry_price ?? p.entry_price;
-          openPos.push({ pos: p, basisPrice });
+          if (openPos.some(op => op.pos === p)) continue;
+          if (openPos.length >= SIM_MAX_CONCURRENT) { notTaken++; skippedList.push({ symbol: p.symbol, entry_date: p.entry_date, reason: `slot penuh (>${SIM_MAX_CONCURRENT} posisi)` }); continue; }
+          openPos.push({ pos: p, basisPrice: p.realistic_entry_price ?? p.entry_price });
         }
       }
     }
-
-    // Posisi yang masih terbuka di akhir (active, belum exit): mark ke harga terkini
     let floatingPnl = 0;
-    for (const op of openPos) {
-      if (op.pos.mark_price == null) continue;
-      const currentValue = SIZE * (op.pos.mark_price / op.basisPrice);
-      floatingPnl += currentValue - SIZE;
-    }
-
+    for (const op of openPos) { if (op.pos.mark_price == null) continue; floatingPnl += SIZE * (op.pos.mark_price / op.basisPrice) - SIZE; }
     const netPnl = realizedPnl + floatingPnl;
-    return {
-      realizedPnl, floatingPnl, netPnl,
-      netPnlPct: netPnl / SIM_CAPITAL * 100,
-      openCount: openPos.length, notTaken, skippedList,
-      allocPerTrade: SIZE,
-    };
+    return { realizedPnl, floatingPnl, netPnl, netPnlPct: netPnl / SIM_CAPITAL * 100, openCount: openPos.length, notTaken, skippedList, allocPerTrade: SIZE };
   }
 
   function renderInvestmentSummary(activePositions, historyPositions) {
     const sim = simulateCashConstrainedPortfolio(activePositions, historyPositions);
-
-    const fmt = (v) => `${v >= 0 ? "+" : "-"}$${Math.abs(v).toLocaleString("en-US", { maximumFractionDigits: 0 })}`;
-    const colorFor = (v) => v >= 0 ? "var(--pass)" : "var(--fail)";
-
-    if (!sim) {
-      ["investStatRealized", "investStatFloating", "investStatTotal", "investStatTotalPct", "investStatNotTaken"].forEach(id => {
-        document.getElementById(id).textContent = "—";
-      });
-      return;
-    }
-
-    const elRealized = document.getElementById("investStatRealized");
-    elRealized.textContent = fmt(sim.realizedPnl);
-    elRealized.style.color = colorFor(sim.realizedPnl);
-
-    const elFloating = document.getElementById("investStatFloating");
-    elFloating.textContent = fmt(sim.floatingPnl);
-    elFloating.style.color = colorFor(sim.floatingPnl);
-
-    const elTotal = document.getElementById("investStatTotal");
-    elTotal.textContent = fmt(sim.netPnl);
-    elTotal.style.color = colorFor(sim.netPnl);
-
-    const elTotalPct = document.getElementById("investStatTotalPct");
-    elTotalPct.textContent = `${sim.netPnlPct >= 0 ? "+" : ""}${sim.netPnlPct.toFixed(2)}%`;
-    elTotalPct.style.color = colorFor(sim.netPnlPct);
-
-    const elNotTaken = document.getElementById("investStatNotTaken");
-    elNotTaken.textContent = sim.notTaken;
-
-    const wrap = document.getElementById("skippedSignalsWrap");
-    const tbody = document.getElementById("skippedSignalsTbody");
-    if (sim.skippedList.length === 0) {
-      wrap.style.display = "none";
-    } else {
-      wrap.style.display = "block";
-      tbody.innerHTML = sim.skippedList.map(s => `
-        <tr>
-          <td class="price">${s.entry_date}</td>
-          <td class="symbol">${s.symbol}</td>
-          <td>${s.reason}</td>
-        </tr>
-      `).join("");
-    }
+    const fmt = v => `${v >= 0 ? "+" : "-"}$${Math.abs(v).toLocaleString("en-US", { maximumFractionDigits: 0 })}`;
+    const colorFor = v => v >= 0 ? "var(--pass)" : "var(--fail)";
+    if (!sim) { ["investStatRealized", "investStatFloating", "investStatTotal", "investStatTotalPct", "investStatNotTaken"].forEach(id => document.getElementById(id).textContent = "—"); return; }
+    const elRealized = document.getElementById("investStatRealized"); elRealized.textContent = fmt(sim.realizedPnl); elRealized.style.color = colorFor(sim.realizedPnl);
+    const elFloating = document.getElementById("investStatFloating"); elFloating.textContent = fmt(sim.floatingPnl); elFloating.style.color = colorFor(sim.floatingPnl);
+    const elTotal = document.getElementById("investStatTotal"); elTotal.textContent = fmt(sim.netPnl); elTotal.style.color = colorFor(sim.netPnl);
+    const elTotalPct = document.getElementById("investStatTotalPct"); elTotalPct.textContent = `${sim.netPnlPct >= 0 ? "+" : ""}${sim.netPnlPct.toFixed(2)}%`; elTotalPct.style.color = colorFor(sim.netPnlPct);
+    document.getElementById("investStatNotTaken").textContent = sim.notTaken;
+    const wrap = document.getElementById("skippedSignalsWrap"), tbody = document.getElementById("skippedSignalsTbody");
+    if (sim.skippedList.length === 0) wrap.style.display = "none";
+    else { wrap.style.display = "block"; tbody.innerHTML = sim.skippedList.map(s => `<tr><td class="price">${s.entry_date}</td><td class="symbol">${s.symbol}</td><td>${s.reason}</td></tr>`).join(""); }
   }
 
   async function load() {
     try {
       const latestDateRows = await sb("watchlist?select=date&order=date.desc&limit=1");
       let asOfDate = null;
+      let latestWatchlistRows = [];
       if (latestDateRows.length === 0) {
         document.getElementById("asOfDate").textContent = "belum ada data";
         renderTable([]);
@@ -1081,10 +813,13 @@
       } else {
         asOfDate = latestDateRows[0].date;
         document.getElementById("asOfDate").textContent = asOfDate;
-        const rows = await sb(`watchlist?select=*&date=eq.${asOfDate}`);
-        renderStats(rows);
-        renderTable(rows);
+        latestWatchlistRows = await sb(`watchlist?select=*&date=eq.${asOfDate}`);
+        renderStats(latestWatchlistRows);
+        renderTable(latestWatchlistRows);
       }
+
+      const watchlistHistory = await sbAll("watchlist?select=*&order=date.asc,symbol.asc");
+      renderLifecycle(watchlistHistory, latestWatchlistRows, asOfDate);
 
       const activePositions = await sbAll("positions?select=*&status=eq.active&order=entry_date.desc");
       renderPositions(activePositions, asOfDate);
@@ -1093,7 +828,6 @@
       renderHistory([...historyForCharts].reverse());
       renderPerfBreakdown(historyForCharts);
       renderEquityChart(historyForCharts);
-
       renderInvestmentSummary(activePositions, historyForCharts);
     } catch (err) {
       document.getElementById("asOfDate").textContent = "gagal memuat";
@@ -1101,10 +835,10 @@
     }
   }
 
-  document.querySelectorAll(".tab-btn").forEach((btn) => {
+  document.querySelectorAll(".tab-btn").forEach(btn => {
     btn.addEventListener("click", () => {
-      document.querySelectorAll(".tab-btn").forEach((b) => b.classList.remove("active"));
-      document.querySelectorAll(".tab-content").forEach((c) => c.classList.remove("active"));
+      document.querySelectorAll(".tab-btn").forEach(b => b.classList.remove("active"));
+      document.querySelectorAll(".tab-content").forEach(c => c.classList.remove("active"));
       btn.classList.add("active");
       document.getElementById(`tab-${btn.dataset.tab}`).classList.add("active");
     });
@@ -1117,5 +851,6 @@
 </html>
 <!--
   changelog:
+  v3.3 - 2026-09-14 - Tambah tab Candidate Lifecycle dari histori watchlist; kandidat lama tetap terlihat sebagai INVALIDATED bila keluar dari snapshot terbaru.
   v3.2 - 2026-08-01 - Hapus limit=20 di query tabel Riwayat Exit -- sebelumnya bisa bikin posisi lama "ada di data tapi tidak kelihatan di tabel"
 -->
