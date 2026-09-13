@@ -5,12 +5,14 @@ from decision_layer import compute_decision_layer, explain_candidate
 from sector_cache import get_sector_map
 from alert_state import compute_alert_transitions
 from near_trigger_shadow import add_near_trigger_shadow
+from candidate_lifecycle import write_candidate_lifecycle
 from r2_ready import load_ready_dataset
 from r2_feature_engine import build_feature_store_from_r2
 import database, notify, positions
 
 
 SHADOW_ARTIFACT_PATH = "near_trigger_shadow_snapshot.csv"
+LIFECYCLE_ARTIFACT_PATH = "candidate_lifecycle.csv"
 
 
 def _write_near_trigger_shadow_snapshot(latest: pd.DataFrame, as_of_date):
@@ -68,6 +70,13 @@ def main():
         print(f"[alert] {e['event']}: {e['symbol']} ({e['previous_state']} -> {e['current_state']})")
     explanations = {r["symbol"]: explain_candidate(r) for _, r in candidates.iterrows()}
     database.upsert_watchlist(client, candidates, explanations)
+
+    # Persistent lifecycle: history watchlist tidak dihapus. Setelah snapshot
+    # hari ini tersimpan, rebuild ringkasan seluruh perjalanan kandidat sehingga
+    # ticker NEAR_PASS tetap terlacak walaupun besok keluar dari watchlist latest.
+    watchlist_history = database.get_watchlist_history(client)
+    write_candidate_lifecycle(watchlist_history, latest, LIFECYCLE_ARTIFACT_PATH)
+
     if transitions:
         notify.send_watchlist_summary(candidates, as_of_date)
     else:
