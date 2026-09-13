@@ -17,7 +17,11 @@ def main():
         raise RuntimeError("R2 ready universe kosong")
     print(f"[R2] snapshot={manifest.get('snapshot_date')} securities={len(universe)} rows={len(ready)}")
     sector_map = get_sector_map(client, universe)
-    features = build_feature_store_from_r2(sector_map=sector_map)["features"]
+    features = build_feature_store_from_r2(
+        sector_map=sector_map,
+        ready=ready,
+        manifest=manifest,
+    )["features"]
     filtered = compute_hard_filter(features)
     decided = compute_decision_layer(filtered).sort_values(["symbol", "date"])
     decided["prev_close"] = decided.groupby("symbol")["close_raw"].shift(1)
