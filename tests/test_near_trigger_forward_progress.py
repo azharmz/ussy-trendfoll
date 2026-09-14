@@ -55,3 +55,18 @@ def test_invalidation_matures_episode_early():
     assert len(episodes) == 1
     assert bool(episodes.iloc[0]["invalidation_before_breakout"])
     assert metrics["shadow_breakouts_5d"] == 0
+
+
+def test_consecutive_control_days_count_as_one_control_episode():
+    rows = [
+        _row("DDD", "2026-09-14", 0.5),
+        _row("DDD", "2026-09-15", 0.8),
+        _row("DDD", "2026-09-16", 0.9),
+        _row("DDD", "2026-09-17", 1.0),
+        _row("DDD", "2026-09-18", 1.1),
+        _row("DDD", "2026-09-21", 1.2),
+        _row("DDD", "2026-09-22", 1.3),
+    ]
+    episodes, controls, metrics = collect_forward_validation(pd.DataFrame(rows))
+    assert len(controls) == 1
+    assert metrics["control_episodes"] == 1
