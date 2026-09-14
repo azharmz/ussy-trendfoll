@@ -42,6 +42,7 @@ Rules:
 | PROB-014 | OPEN DIAGNOSIS | Medium-High | How regime-dependent are signal and executable-entry outcomes? | Segment DIAG-001 outcomes by frozen regime labels. |
 | PROB-015 | OPEN DIAGNOSIS | Medium | Which Investability components actually contribute outcome separation? | Component-level descriptive attribution; no threshold tuning. |
 | PROB-016 | GOVERNED VALIDATION | High | <=0.60 ATR proximity has development evidence for near-term breakout onset, but not untouched production validation and not profitability evidence. | Continue frozen Cycle 1 forward validation independently. |
+| PROB-017 | ENGINEERING DEBT | High | Supabase position history contains a duplicate `(symbol, entry_date)` key (`ANF`, `2026-08-26`) with conflicting state/outcome rows, which can contaminate forward attribution. | Audit position lifecycle history and enforce/verify canonical uniqueness semantics. |
 
 ## Diagnostic work order
 
@@ -50,7 +51,7 @@ Rules:
 3. Exit behavior: PROB-013.
 4. Regime and Investability segmentation: PROB-014/015.
 5. Continue PROB-016 frozen validation in parallel; it must not be tuned from DIAG-001.
-6. Engineering debt PROB-003/004/005 can be hardened without changing trading semantics.
+6. Engineering debt PROB-003/004/005/017 can be hardened without changing trading semantics.
 
 ## Decision discipline
 
