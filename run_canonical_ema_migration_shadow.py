@@ -12,6 +12,7 @@ from pathlib import Path
 
 import pandas as pd
 
+import feature_engine as fe
 from decision_layer import compute_decision_layer
 from hard_filter import STATUS_RANK, compute_hard_filter
 from r2_feature_engine import build_feature_store_from_r2
@@ -75,7 +76,17 @@ def main() -> None:
         "industry": [None] * len(universe),
         "sector_benchmark": [None] * len(universe),
     })
-    built = build_feature_store_from_r2(sector_map=sector_map, ready=ready, manifest=manifest)
+
+    # Earnings metadata is not part of the hard-filter/decision path under this
+    # migration. Disable it only in the shadow so the audit depends on R2 +
+    # benchmark inputs, not 1,226 auxiliary external lookups.
+    original_earnings = fe.compute_days_to_next_earnings
+    fe.compute_days_to_next_earnings = lambda *args, **kwargs: None
+    try:
+        built = build_feature_store_from_r2(sector_map=sector_map, ready=ready, manifest=manifest)
+    finally:
+        fe.compute_days_to_next_earnings = original_earnings
+
     canonical_features = built["features"].copy()
     legacy_features = _replace_terminal(canonical_features, _legacy_terminal_state(ready))
 
