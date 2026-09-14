@@ -1,0 +1,56 @@
+name: DIAG-001 research-history rebuild
+
+on:
+  workflow_dispatch:
+  push:
+    branches:
+      - diagnostic/diag001-research-history
+    paths:
+      - run_diag001_research_history.py
+      - signal_path_diagnostic.py
+      - research_history.py
+      - hard_filter.py
+      - decision_layer.py
+      - feature_engine.py
+      - .github/workflows/diag001-research-history.yml
+
+jobs:
+  diagnostic:
+    runs-on: ubuntu-latest
+    env:
+      R2_ACCESS_KEY_ID: ${{ secrets.R2_ACCESS_KEY_ID }}
+      R2_SECRET_ACCESS_KEY: ${{ secrets.R2_SECRET_ACCESS_KEY }}
+      R2_ENDPOINT: ${{ secrets.R2_ENDPOINT }}
+      R2_BUCKET_NAME: ${{ secrets.R2_BUCKET_NAME }}
+      PYTHONUNBUFFERED: '1'
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+          cache: pip
+      - name: Install dependencies
+        run: python -m pip install --disable-pip-version-check -r requirements.txt boto3 pyarrow
+      - name: Run repository tests
+        run: python -m unittest discover -s tests
+      - name: Run DIAG-001 rebuild
+        run: python run_diag001_research_history.py
+      - name: Publish summary
+        if: always()
+        run: |
+          if [ -f diag001_research_history_summary.json ]; then
+            echo '## DIAG-001 research-history rebuild' >> "$GITHUB_STEP_SUMMARY"
+            echo '```json' >> "$GITHUB_STEP_SUMMARY"
+            cat diag001_research_history_summary.json >> "$GITHUB_STEP_SUMMARY"
+            echo '```' >> "$GITHUB_STEP_SUMMARY"
+          fi
+      - name: Upload diagnostic evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: diag001-research-history-${{ github.run_number }}
+          path: |
+            diag001_research_history_summary.json
+            diag001_research_history_events.csv
+          if-no-files-found: warn
+          retention-days: 90
