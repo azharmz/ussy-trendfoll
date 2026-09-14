@@ -1,0 +1,47 @@
+name: DIAG-001 Signal Path Evidence
+
+on:
+  push:
+    paths:
+      - "signal_path_diagnostic.py"
+      - "run_signal_path_diagnostic.py"
+      - "tests/test_signal_path_diagnostic.py"
+      - ".github/workflows/diagnose-signal-path.yml"
+  workflow_dispatch: {}
+
+jobs:
+  diagnose:
+    runs-on: ubuntu-latest
+    timeout-minutes: 60
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - name: Install dependencies
+        run: |
+          pip install -r requirements.txt
+          pip install boto3 pyarrow pytest
+      - name: Run DIAG-001 unit tests
+        env:
+          PYTHONPATH: ${{ github.workspace }}
+        run: pytest -q tests/test_signal_path_diagnostic.py
+      - name: Build DIAG-001 evidence
+        env:
+          SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
+          SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
+          R2_ENDPOINT: ${{ secrets.R2_ENDPOINT }}
+          R2_ACCESS_KEY_ID: ${{ secrets.R2_ACCESS_KEY_ID }}
+          R2_SECRET_ACCESS_KEY: ${{ secrets.R2_SECRET_ACCESS_KEY }}
+          R2_BUCKET_NAME: ${{ secrets.R2_BUCKET_NAME }}
+        run: python run_signal_path_diagnostic.py
+      - name: Upload DIAG-001 evidence
+        uses: actions/upload-artifact@v4
+        with:
+          name: diag-001-signal-path-${{ github.run_number }}
+          path: |
+            signal_path_events.csv
+            signal_path_summary.json
+            signal_path_position_duplicates.csv
+          if-no-files-found: warn
+          retention-days: 90
