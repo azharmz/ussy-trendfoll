@@ -1,4 +1,4 @@
-"""Strict reader for the governed shared EMA state published by ussy-data."""
+"""Strict reader for the governed close-basis shared EMA state published by ussy-data."""
 from __future__ import annotations
 
 import hashlib
@@ -10,10 +10,11 @@ import pandas as pd
 
 from r2_ready import make_r2_client
 
-EMA_POINTER = "production/indicators/ema/current.json"
-EMA_PREFIX = "production/indicators/ema/runs/"
+EMA_POINTER = "production/indicators/ema-close/current.json"
+EMA_PREFIX = "production/indicators/ema-close/runs/"
 PROMOTION_POLICY = "candidate_then_equivalence_then_immutable_run_then_current_pointer_last_v1"
 PERIODS = (20, 50, 150, 200)
+PRICE_BASIS = "close"
 
 
 def load_shared_ema_state(s3=None, bucket: str | None = None):
@@ -25,6 +26,8 @@ def load_shared_ema_state(s3=None, bucket: str | None = None):
     eq = manifest.get("equivalence")
     if manifest.get("schema_version") != 1:
         raise ValueError("Unsupported shared EMA schema")
+    if manifest.get("price_basis") != PRICE_BASIS:
+        raise ValueError("Shared EMA price basis is incompatible with TrendFoll")
     if list(manifest.get("periods", [])) != list(PERIODS):
         raise ValueError("Unexpected shared EMA periods")
     if not isinstance(key, str) or not key.startswith(EMA_PREFIX):
@@ -33,6 +36,8 @@ def load_shared_ema_state(s3=None, bucket: str | None = None):
         raise ValueError("Shared EMA state lacks approved promotion policy")
     if not isinstance(eq, dict) or eq.get("numeric_failures") != 0 or eq.get("classification_mismatches") != 0:
         raise ValueError("Shared EMA equivalence evidence did not pass")
+    if not isinstance(eq.get("verified"), int) or eq["verified"] < 1:
+        raise ValueError("Shared EMA equivalence coverage is invalid")
 
     body = s3.get_object(Bucket=bucket, Key=key)["Body"].read()
     if hashlib.sha256(body).hexdigest() != manifest.get("sha256"):
