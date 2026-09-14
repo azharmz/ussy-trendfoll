@@ -70,6 +70,7 @@ The purpose of forward validation is only to determine whether the frozen 0.60 A
 Only genuinely new market bars after the development boundary may contribute to the one-shot validation verdict.
 
 - Development R2 snapshot boundary: `2026-08-28`.
+- Formal Cycle 1 accumulation starts on **2026-09-15**.
 - Any observation whose required forward outcome window overlaps already-inspected development data is excluded.
 - Once the validation outcome set is opened for formal verdict calculation, the 0.60 ATR rule and the criteria below may not be changed within that cycle.
 
@@ -107,15 +108,24 @@ Breakout onset remains frozen as:
 
 Also record whether the setup becomes no longer monitored before any breakout onset. This is the `invalidation_before_breakout` diagnostic.
 
-## 4. Control population
+## 4. Control population: independent control episodes
 
-The primary control is composed of monitored, non-breakout observations on the same forward-validation period with:
+The primary control is defined at the **episode level**, not as repeated daily bars, so the lift denominator is comparable to the shadow-episode numerator.
 
-`distance_to_prev_pivot_atr > 0.60`
+A new control episode begins only when a symbol changes from not being in the eligible farther-distance state to being in that state:
 
-Control rows must otherwise satisfy the same Investability and non-breakout eligibility conditions.
+`control_state == False → True`
 
-For diagnostics, control observations should additionally be stratified into:
+where `control_state` requires:
+
+- Investability >= `NEAR_PASS`
+- `has_breakout == False`
+- non-null ATR-normalized pivot distance
+- `distance_to_prev_pivot_atr > 0.60`
+
+Consecutive days in the farther-distance control state count as one control episode. A later control episode for the same symbol requires leaving the state and subsequently re-entering it.
+
+For diagnostics, control episodes should additionally be stratified by their start distance into:
 
 - `(0.60, 1.10] ATR`
 - `(1.10, 1.59] ATR`
@@ -124,6 +134,8 @@ For diagnostics, control observations should additionally be stratified into:
 
 These boundaries are inherited from the already-inspected development quintiles and are not to be refit on validation data.
 
+**Pre-start governance correction:** the initial implementation counted shadow states as independent episodes but farther-distance controls as daily rows. That creates a non-comparable lift denominator. This was corrected to independent control episodes on **2026-09-14**, before the formal Cycle 1 start date and before any Cycle 1 outcomes were available. The correction therefore does not contaminate the untouched validation period.
+
 ## 5. Minimum evidence before verdict
 
 Do **not** issue PASS/FAIL until all of these are met:
@@ -131,6 +143,7 @@ Do **not** issue PASS/FAIL until all of these are met:
 - at least **150 independent shadow episodes**
 - at least **75 unique symbols** represented among shadow episodes
 - at least **40 independent breakout onsets within 5 trading days** among those episodes
+- at least one matured independent control episode is available for lift calculation
 - every episode included in the verdict has a complete 5-trading-day forward observation window unless an onset or invalidation occurs earlier
 
 Until all conditions are met, status remains:
@@ -143,8 +156,8 @@ Promotion requires **all** primary criteria below:
 
 1. **3-day absolute onset rate >= 20%** for independent shadow episodes.
 2. **5-day absolute onset rate >= 30%** for independent shadow episodes.
-3. **3-day lift >= 1.50x** versus the eligible farther-distance control population.
-4. **5-day lift >= 1.50x** versus the eligible farther-distance control population.
+3. **3-day lift >= 1.50x** versus eligible independent farther-distance control episodes.
+4. **5-day lift >= 1.50x** versus eligible independent farther-distance control episodes.
 
 The absolute-rate floors are deliberately below the development estimates (43.12% at 3d and 51.57% at 5d) so validation tests persistence of useful separation rather than exact replication of development magnitude.
 
@@ -211,12 +224,13 @@ The current production `alert_state.py` still uses `NEAR_TRIGGER` as a broad mon
 The following are frozen for this validation cycle:
 
 - 0.60 ATR boundary
-- episode-start definition
+- shadow episode-start definition
+- independent control episode definition
 - breakout-onset definition
 - 1/2/3/5-day horizons
 - minimum evidence requirements
 - 3-day and 5-day absolute-rate floors
 - 1.50x lift gates
-- control definition and diagnostic ATR strata
+- control-distance definition and diagnostic ATR strata
 
 Changing any of these after formal outcome inspection invalidates the cycle as untouched validation.
