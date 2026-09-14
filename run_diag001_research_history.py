@@ -54,6 +54,12 @@ def _quartile_table(events: pd.DataFrame, source: str) -> list[dict]:
     return rows
 
 
+def _spearman_no_scipy(left: pd.Series, right: pd.Series) -> float:
+    # Spearman rho = Pearson correlation of ranks. Using average ranks matches
+    # the standard tied-value convention without introducing a SciPy dependency.
+    return float(left.rank(method="average").corr(right.rank(method="average")))
+
+
 def main() -> None:
     ready, manifest = load_ready_dataset()
     sample_ids = _sample_security_ids(ready)
@@ -102,9 +108,9 @@ def main() -> None:
     mature = events.dropna(subset=["ret_tminus1_t0", "ret_t1open_t5close", "mfe_high_t5", "mae_low_t5"])
     if len(mature) >= 3:
         summary["spearman"] = {
-            "ret_tminus1_t0_vs_t5": float(mature["ret_tminus1_t0"].corr(mature["ret_t1open_t5close"], method="spearman")),
-            "ret_tminus1_t0_vs_mfe5": float(mature["ret_tminus1_t0"].corr(mature["mfe_high_t5"], method="spearman")),
-            "ret_tminus1_t0_vs_mae5": float(mature["ret_tminus1_t0"].corr(mature["mae_low_t5"], method="spearman")),
+            "ret_tminus1_t0_vs_t5": _spearman_no_scipy(mature["ret_tminus1_t0"], mature["ret_t1open_t5close"]),
+            "ret_tminus1_t0_vs_mfe5": _spearman_no_scipy(mature["ret_tminus1_t0"], mature["mfe_high_t5"]),
+            "ret_tminus1_t0_vs_mae5": _spearman_no_scipy(mature["ret_tminus1_t0"], mature["mae_low_t5"]),
         }
 
     events.to_csv(EVENT_PATH, index=False)
