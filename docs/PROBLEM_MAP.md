@@ -37,31 +37,41 @@ Rules:
 | PROB-009 | OPEN DIAGNOSIS | Highest | Does strong T-1 -> T0 momentum/extension make the signal overextended before an executable T+1 entry? | DIAG-001: T-1/T0 extension and subsequent path. |
 | PROB-010 | OPEN DIAGNOSIS | Highest | Does edge decay between T0 breakout and T+1 executable entry through overnight gap or early fade? | DIAG-001: T0 -> T+1 open/close -> T+2/T+3/T+5. |
 | PROB-011 | OPEN DIAGNOSIS | Highest | When outcomes disappoint, is the dominant failure in selection, breakout quality, execution timing, regime, risk, or exit? | DIAG-001 end-to-end funnel and later attribution diagnostics. |
-| PROB-012 | OPEN DIAGNOSIS | High | Which entry components provide separation: breakout onset/repeat, volume confirmation, tightness, Investability components, or regime? | Follow-up attribution diagnostic after DIAG-001. |
-| PROB-013 | OPEN DIAGNOSIS | **High** | Is the current exit contract (2 ATR stop anchored to filled T+1 entry, EMA20 trend exit, 45 trading-day maximum) aligned with a short-to-medium swing system adapted from the CAN SLIM/O'Neil family? The 45-day hard maximum is now formally challenged: the reviewed CAN SLIM/IBD methodology emphasizes failed-breakout defense, disciplined loss cutting, profit-taking into strength, exceptional-winner hold exceptions, and technical/market deterioration rather than a universal fixed-age exit. | Use `docs/CANSLIM_EXIT_AUDIT.md` as methodology baseline. DIAG-003 must measure early failure, current 2 ATR behavior, time-to-MFE, MFE/MAE, give-back, EMA20-loss timing, and a day-45 counterfactual including what still-healthy positions did after day 45. Do not delete or replace the 45-day rule before evidence. |
-| PROB-014 | OPEN DIAGNOSIS | Medium-High | How regime-dependent are signal and executable-entry outcomes? | Segment DIAG-001 outcomes by frozen regime labels. |
+| PROB-012 | OPEN DIAGNOSIS | High | Which entry components provide separation: breakout onset/repeat, volume confirmation, tightness, Investability components, or regime? | Follow-up attribution diagnostic after valid research-history contract is available. |
+| PROB-013 | OPEN DIAGNOSIS | **High** | Is the current exit contract (2 ATR stop anchored to filled T+1 entry, EMA20 trend exit, 45 trading-day maximum) aligned with a short-to-medium swing system adapted from the CAN SLIM/O'Neil family? The 45-day hard maximum is formally challenged. | Use `docs/CANSLIM_EXIT_AUDIT.md` as methodology baseline. DIAG-003 must measure early failure, current 2 ATR behavior, time-to-MFE, MFE/MAE, give-back, EMA20-loss timing, and a day-45 counterfactual. |
+| PROB-014 | OPEN DIAGNOSIS | Medium-High | How regime-dependent are signal and executable-entry outcomes? | Segment outcomes by frozen regime labels once valid research history exists. |
 | PROB-015 | OPEN DIAGNOSIS | Medium | Which Investability components actually contribute outcome separation? | Component-level descriptive attribution; no threshold tuning. |
 | PROB-016 | GOVERNED VALIDATION | High | <=0.60 ATR proximity has development evidence for near-term breakout onset, but not untouched production validation and not profitability evidence. | Continue frozen Cycle 1 forward validation independently. |
 | PROB-017 | ENGINEERING DEBT | High | Supabase position history contains a duplicate `(symbol, entry_date)` key (`ANF`, `2026-08-26`) with conflicting state/outcome rows, which can contaminate forward attribution. | Audit position lifecycle history and enforce/verify canonical uniqueness semantics. |
-| PROB-018 | OPEN DIAGNOSIS | **Highest / VALIDITY GATE** | The R2 stock dataset provides only about 300 daily bars per security, while the current trend contract uses EMA20/50/150/200 plus a 30-week stage MA. Long-period recursive EMA values and weekly stage classification may be affected by finite-history warm-up, and the usable historical test window is materially shorter than the raw 300 bars. Until quantified, feature validity—especially EMA150/EMA200, `ema_stack_aligned`, Stage2 and downstream Trend PASS—cannot be assumed equivalent to a long-history reference calculation. | Before DIAG-002 or development backtesting, compare R2-window features against the same-date features computed from substantially longer OHLCV history. Measure numeric EMA error and, more importantly, disagreement rates for `ema_stack_aligned`, Stage2 and `trend_status`. Establish a documented safe warm-up / usable-window contract. Do not discard or retune EMA thresholds before evidence. |
+| PROB-018 | **CONFIRMED / RESOLVED DIAGNOSIS** | **Highest / VALIDITY GATE** | The ~300-bar R2 window is adequate for the current-end trend classification in the audited deterministic 100-symbol sample, but is **not** valid as a full historical feature/backtest window. Run #1 found 0% latest EMA-stack/Stage/trend-status disagreement, while historical trend-status disagreement was 15.64–21.76% in bars 1–150, 5.68% in 151–200, 2.14% in 201–250, and 0.96% at 251+. | Evidence locked in `docs/EVIDENCE_PROB_018.md`. Do not retune MAs. Introduce a research-history/pre-roll contract before further historical attribution/backtesting. |
+| PROB-019 | CONFIRMED | **Highest / ARCHITECTURE GATE** | Research/backtest jobs need historical OHLCV before the evaluated window so EMA150/EMA200 and 30-week Stage are initialized from pre-roll rather than from the first evaluated R2 bar. A conservative warm-up inside a 300-bar dataset would consume most of the usable sample. | Define and implement a **feature pre-roll / research history contract**: preserve R2 readiness as the universe, obtain sufficiently long prior OHLCV for feature initialization, exclude pre-roll from evaluation, enforce no look-ahead, record source/provenance, and verify same-date feature agreement before DIAG-002/DIAG-003/backtests. |
 
 ## Diagnostic work order
 
-0. **DATA/FEATURE VALIDITY GATE — PROB-018**: audit 300-bar R2 warm-up against long-history reference. This now blocks interpretation of further feature-attribution diagnostics and development backtests until resolved.
-1. **DIAG-001 — Signal-to-Outcome Funnel**: PROB-008/009/010/011. Existing evidence remains diagnostic, but its trend-filter-dependent interpretation must be revisited if PROB-018 finds material classification disagreement.
-2. Entry attribution: PROB-012, only after PROB-018 validity gate.
-3. **DIAG-003 — Exit Conversion / Give-back**: PROB-013, using the CAN SLIM/O'Neil exit audit as methodology context and explicitly testing the 45-day counterfactual rather than assuming it is valid.
-4. Regime and Investability segmentation: PROB-014/015.
-5. Continue PROB-016 frozen validation in parallel; it must not be tuned from DIAG-001.
-6. Engineering debt PROB-003/004/005/017 can be hardened without changing trading semantics.
+0. **PROB-018 completed** — audit evidence is in `docs/EVIDENCE_PROB_018.md`. Current-end scanning is supported by the sample; full-window historical research is not.
+1. **PROB-019 — RESEARCH HISTORY / PRE-ROLL ARCHITECTURE GATE**: implement valid feature initialization history while keeping R2 readiness as the universe. This now blocks new historical attribution and development backtests.
+2. Rebuild/verify DIAG-001 where relevant under the valid history contract.
+3. DIAG-002 Entry Attribution: PROB-012.
+4. DIAG-003 Exit Conversion / Give-back: PROB-013, including the 45-day counterfactual.
+5. Regime and Investability segmentation: PROB-014/015.
+6. Continue PROB-016 frozen validation in parallel; it must not be tuned from these diagnostics.
+7. Engineering debt PROB-003/004/005/017 can be hardened without changing trading semantics.
 
-## PROB-018 validity protocol boundary
+## PROB-018 evidence boundary
 
-The purpose of the R2 warm-up audit is **not** to search for a better moving-average combination. The current production formulas remain the object under test. For the same symbol/date, compute the existing EMA20/50/150/200 and 30-week Stage features using (a) the R2-limited history and (b) a substantially longer reference history. Report absolute/relative numeric differences by available-history age and classification disagreement for `ema_stack_aligned`, `stage`, `trend_status`, and where practical `hard_filter_status`.
+The audit used the current EMA20/50/150/200 and weekly Stage formulas, a deterministic 100-symbol R2 sample, and a 5-year yfinance reference. Of 29,901 overlapping observations, 29,900 passed the raw-close compatibility guard. The latest observation for all 100 sampled symbols had 0% disagreement for EMA-stack, Stage, and `trend_status`.
 
-A small numeric EMA difference is operationally acceptable only if it does not materially change downstream classification. Conversely, even modest numeric error is material if it changes PASS/NEAR_PASS/FAIL decisions. The audit must therefore prioritize **decision agreement**, not cosmetic numerical equality.
+However, early historical bars were materially contaminated by finite-history initialization. In particular, the weekly 30-week Stage could not be equivalent to a long-history reference during much of the first ~150 bars, and EMA150/EMA200 convergence remained materially slower than EMA20/EMA50. See `docs/EVIDENCE_PROB_018.md` for the full table and provenance.
 
-No development backtest should use the early portion of a finite R2 window merely because an indicator returns a number. The audit must establish the earliest history age at which the current feature contract is sufficiently stable, or conclude that the current R2 history contract is insufficient for the current trend feature contract.
+This evidence supports continuing the current latest-day scanner; it does **not** authorize using all 300 R2 bars as a historical backtest window.
+
+## PROB-019 contract principles
+
+The preferred architecture is not to shrink the model merely to fit the available history. Research should use:
+
+`R2 readiness universe -> historical pre-roll OHLCV -> feature initialization -> evaluation start -> signal/outcome study`
+
+The pre-roll portion is feature context only and must never count as evaluated observations, trades, or validation outcomes. Source provenance and same-date compatibility checks must be retained so warm-up differences are not confused with vendor-data differences. Any implementation must prevent future data from leaking into earlier feature states.
 
 ## Decision discipline
 
