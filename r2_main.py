@@ -5,6 +5,7 @@ from decision_layer import compute_decision_layer, explain_candidate
 from sector_cache import get_sector_map
 from alert_state import compute_alert_transitions
 from near_trigger_shadow import add_near_trigger_shadow
+from near_trigger_forward_progress import write_forward_validation_progress
 from candidate_lifecycle import write_candidate_lifecycle
 from r2_ready import load_ready_dataset
 from r2_feature_engine import build_feature_store_from_r2
@@ -13,6 +14,8 @@ import database, notify, positions
 
 SHADOW_ARTIFACT_PATH = "near_trigger_shadow_snapshot.csv"
 LIFECYCLE_ARTIFACT_PATH = "candidate_lifecycle.csv"
+VALIDATION_PROGRESS_PATH = "near_trigger_validation_progress.json"
+VALIDATION_EPISODES_PATH = "near_trigger_validation_episodes.csv"
 
 
 def _write_near_trigger_shadow_snapshot(latest: pd.DataFrame, as_of_date):
@@ -62,6 +65,11 @@ def main():
     # Shadow-only evidence. Tidak memengaruhi Investability, Tradability,
     # Telegram state, posisi, entry, atau exit.
     _write_near_trigger_shadow_snapshot(latest, as_of_date)
+    write_forward_validation_progress(
+        decided,
+        progress_path=VALIDATION_PROGRESS_PATH,
+        episode_path=VALIDATION_EPISODES_PATH,
+    )
 
     positions.validate_active_position_coverage(client, latest)
     previous = database.get_previous_watchlist(client, as_of_date)
