@@ -1,0 +1,48 @@
+name: Shared EMA Migration Audit
+
+on:
+  workflow_dispatch: {}
+  push:
+    branches:
+      - audit/shared-ema-migration
+    paths:
+      - 'shared_ema_state.py'
+      - 'run_shared_ema_migration_audit.py'
+      - '.github/workflows/audit-shared-ema-migration.yml'
+
+jobs:
+  audit:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - name: Install dependencies
+        run: pip install -r requirements.txt boto3 pyarrow
+      - name: Audit shared EMA migration parity
+        env:
+          R2_ENDPOINT: ${{ secrets.R2_ENDPOINT }}
+          R2_ACCESS_KEY_ID: ${{ secrets.R2_ACCESS_KEY_ID }}
+          R2_SECRET_ACCESS_KEY: ${{ secrets.R2_SECRET_ACCESS_KEY }}
+          R2_BUCKET_NAME: ${{ secrets.R2_BUCKET_NAME }}
+        run: python run_shared_ema_migration_audit.py
+      - name: Publish summary
+        if: always()
+        run: |
+          if [ -f shared_ema_migration_audit.json ]; then
+            echo '## Shared EMA Migration Audit' >> "$GITHUB_STEP_SUMMARY"
+            echo '```json' >> "$GITHUB_STEP_SUMMARY"
+            cat shared_ema_migration_audit.json >> "$GITHUB_STEP_SUMMARY"
+            echo '```' >> "$GITHUB_STEP_SUMMARY"
+          fi
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: shared-ema-migration-audit-${{ github.run_number }}
+          path: |
+            shared_ema_migration_audit.json
+            shared_ema_migration_rows.csv
+          retention-days: 90
+          if-no-files-found: error
