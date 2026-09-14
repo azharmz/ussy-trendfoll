@@ -115,11 +115,7 @@ def load_research_history(
     ready = ready.copy()
     ready["security_id"] = ready["security_id"].astype(str)
 
-    authority = (
-        ready[["security_id", "ticker"]]
-        .drop_duplicates()
-        .sort_values(["security_id", "ticker"])
-    )
+    authority = ready[["security_id", "ticker"]].drop_duplicates().sort_values(["security_id", "ticker"])
     if authority["security_id"].duplicated().any():
         raise ValueError("Ready universe maps one security_id to multiple tickers")
 
@@ -146,7 +142,6 @@ def load_research_history(
         key = f"{HISTORY_PREFIX}{sid}.parquet"
         body = s3.get_object(Bucket=bucket, Key=key)["Body"].read()
         history = _validate_history_frame(pd.read_parquet(io.BytesIO(body)), sid, allowed[sid])
-        # Prevent any row after the research horizon from entering feature state.
         if end is not None:
             history = history.loc[history["date"] <= end].copy()
         if history.empty:
@@ -196,12 +191,7 @@ def to_feature_contract(history: pd.DataFrame) -> pd.DataFrame:
 
 
 def apply_canonical_research_ema(features: pd.DataFrame) -> pd.DataFrame:
-    """Replace only EMA semantics with the canonical production basis.
-
-    Stage2 and every non-EMA feature remain exactly as produced by the existing
-    feature engine. EMA stack uses adjusted close, matching the governed shared
-    production EMA contract.
-    """
+    """Replace only EMA semantics with the canonical production basis."""
     out = features.sort_values(["symbol", "date"]).copy()
     for period in CANONICAL_EMA_PERIODS:
         out[f"ema{period}"] = out.groupby("symbol", sort=False)["close_adj"].transform(
@@ -216,18 +206,10 @@ def apply_canonical_research_ema(features: pd.DataFrame) -> pd.DataFrame:
     return out
 
 
-def build_research_feature_store(
-    history: pd.DataFrame,
-    *,
-    sector_map: pd.DataFrame | None = None,
-) -> dict:
-    """Build features from full R2 history, then retain the eligibility mask.
-
-    Benchmark/regime inputs remain the existing auxiliary source boundary.
-    Earnings lookup is disabled because it is not part of the frozen hard-filter
-    path and is not point-in-time safe for historical research.
-    """
+def build_research_feature_store(history: pd.DataFrame, *, sector_map: pd.DataFrame | None = None) -> dict:
+    """Build features on full preceding history, then retain eligibility mask."""
     raw = to_feature_contract(history)
+    raw["date"] = pd.to_datetime(raw["date"]).astype("datetime64[ns]")
     universe = sorted(raw["symbol"].unique().tolist())
     if sector_map is None:
         sector_map = pd.DataFrame({
@@ -241,13 +223,24 @@ def build_research_feature_store(
     eligibility = raw[["symbol", "date", "security_id", "bar_age", "research_eligible"]].copy()
 
     original_download_universe = fe.download_universe
+    original_download_raw_ohlcv = fe.download_raw_ohlcv
     original_earnings = fe.compute_days_to_next_earnings
+
+    def _download_raw_ohlcv_ns(*args, **kwargs):
+        df = original_download_raw_ohlcv(*args, **kwargs)
+        if not df.empty and "date" in df.columns:
+            df = df.copy()
+            df["date"] = pd.to_datetime(df["date"]).astype("datetime64[ns]")
+        return df
+
     try:
         fe.download_universe = lambda symbols: engine_raw.copy()
+        fe.download_raw_ohlcv = _download_raw_ohlcv_ns
         fe.compute_days_to_next_earnings = lambda *args, **kwargs: None
         built = fe.build_feature_store(universe, sector_map=sector_map)
     finally:
         fe.download_universe = original_download_universe
+        fe.download_raw_ohlcv = original_download_raw_ohlcv
         fe.compute_days_to_next_earnings = original_earnings
 
     features = built["features"].copy()
