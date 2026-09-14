@@ -1,0 +1,69 @@
+name: PROB-018 Trend Warmup Audit
+
+on:
+  workflow_dispatch: {}
+  push:
+    paths:
+      - "run_trend_warmup_audit.py"
+      - ".github/workflows/audit-trend-warmup.yml"
+
+jobs:
+  audit:
+    runs-on: ubuntu-latest
+    timeout-minutes: 90
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - name: Install dependencies
+        run: |
+          pip install -r requirements.txt
+          pip install boto3 pyarrow
+      - name: Run PROB-018 warmup audit
+        env:
+          R2_ENDPOINT: ${{ secrets.R2_ENDPOINT }}
+          R2_ACCESS_KEY_ID: ${{ secrets.R2_ACCESS_KEY_ID }}
+          R2_SECRET_ACCESS_KEY: ${{ secrets.R2_SECRET_ACCESS_KEY }}
+          R2_BUCKET_NAME: ${{ secrets.R2_BUCKET_NAME }}
+        run: python run_trend_warmup_audit.py
+      - name: Write audit summary
+        if: success()
+        run: |
+          python - <<'PY'
+          import json, os
+          from pathlib import Path
+          s = json.loads(Path("trend_warmup_audit_summary.json").read_text())
+          lines = [
+              "## PROB-018 — R2 Trend Warm-up Validity",
+              "",
+              f"R2 snapshot: **{s.get('r2_snapshot_date')}**",
+              f"Reference: **{s.get('reference_source')} / {s.get('reference_period')}**",
+              f"Successful sample: **{s.get('sample_successful')} / {s.get('sample_requested')}**",
+              f"Source-matched observations: **{s.get('source_matched_observations')}**",
+              "",
+              "### Latest comparable bar per symbol",
+              "",
+              f"- EMA-stack disagreement: **{(s.get('latest_ema_stack_disagreement_rate') or 0):.2%}**",
+              f"- Stage disagreement: **{(s.get('latest_stage_disagreement_rate') or 0):.2%}**",
+              f"- Trend-status disagreement: **{(s.get('latest_trend_status_disagreement_rate') or 0):.2%}**",
+              f"- EMA200 median abs error: **{(s.get('latest_ema200_median_abs_error_pct') or 0):.3f}%**",
+              f"- EMA200 p95 abs error: **{(s.get('latest_ema200_p95_abs_error_pct') or 0):.3f}%**",
+              "",
+              "Observational only. No production rule is changed by this audit.",
+          ]
+          with open(os.environ["GITHUB_STEP_SUMMARY"], "a", encoding="utf-8") as f:
+              f.write("\n".join(lines) + "\n")
+          PY
+      - name: Upload PROB-018 evidence
+        if: success()
+        uses: actions/upload-artifact@v4
+        with:
+          name: prob-018-trend-warmup-${{ github.run_number }}
+          path: |
+            trend_warmup_audit_summary.json
+            trend_warmup_audit_by_age.csv
+            trend_warmup_audit_observations.csv
+            trend_warmup_audit_failures.csv
+          if-no-files-found: error
+          retention-days: 90
