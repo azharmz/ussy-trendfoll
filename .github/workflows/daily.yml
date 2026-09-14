@@ -29,6 +29,46 @@ jobs:
           R2_SECRET_ACCESS_KEY: ${{ secrets.R2_SECRET_ACCESS_KEY }}
           R2_BUCKET_NAME: ${{ secrets.R2_BUCKET_NAME }}
         run: python r2_main.py
+      - name: Summarize NEAR_TRIGGER validation
+        if: success()
+        run: |
+          python - <<'PY'
+          import json
+          import os
+          from pathlib import Path
+
+          metrics = json.loads(Path("near_trigger_validation_progress.json").read_text(encoding="utf-8"))
+          verdict = metrics.get("verdict") or {}
+          status = metrics.get("status", "UNKNOWN")
+          lines = [
+              "## NEAR_TRIGGER Cycle 1",
+              "",
+              f"**Status:** {status}",
+              "",
+              "| Evidence | Progress |",
+              "|---|---:|",
+              f"| Independent shadow episodes | {metrics.get('shadow_episodes', 0)} / {metrics.get('episode_target', 150)} |",
+              f"| Unique tickers | {metrics.get('unique_symbols', 0)} / {metrics.get('unique_symbol_target', 75)} |",
+              f"| Breakout onsets ≤ T+5 | {metrics.get('shadow_breakouts_5d', 0)} / {metrics.get('breakout_5d_target', 40)} |",
+              f"| Control observations | {metrics.get('control_episodes', 0)} |",
+              "",
+              f"Validation starts from **{metrics.get('validation_start_date', '2026-09-15')}**. Threshold remains frozen at **0.60 ATR**.",
+          ]
+          if verdict:
+              lift3 = verdict.get("lift_3d")
+              lift5 = verdict.get("lift_5d")
+              lines += [
+                  "",
+                  "### One-shot verdict metrics",
+                  "",
+                  f"- 3-day onset rate: {verdict.get('shadow_onset_rate_3d', 0):.1%}",
+                  f"- 5-day onset rate: {verdict.get('shadow_onset_rate_5d', 0):.1%}",
+                  f"- 3-day lift vs control: {lift3:.2f}x" if isinstance(lift3, (int, float)) else "- 3-day lift vs control: n/a",
+                  f"- 5-day lift vs control: {lift5:.2f}x" if isinstance(lift5, (int, float)) else "- 5-day lift vs control: n/a",
+              ]
+          with open(os.environ["GITHUB_STEP_SUMMARY"], "a", encoding="utf-8") as fh:
+              fh.write("\n".join(lines) + "\n")
+          PY
       - name: Upload NEAR_TRIGGER shadow snapshot
         if: success()
         uses: actions/upload-artifact@v4
