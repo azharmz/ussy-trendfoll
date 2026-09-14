@@ -38,7 +38,7 @@ Rules:
 | PROB-010 | OPEN DIAGNOSIS | Highest | Does edge decay between T0 breakout and T+1 executable entry through overnight gap or early fade? | DIAG-001: T0 -> T+1 open/close -> T+2/T+3/T+5. |
 | PROB-011 | OPEN DIAGNOSIS | Highest | When outcomes disappoint, is the dominant failure in selection, breakout quality, execution timing, regime, risk, or exit? | DIAG-001 end-to-end funnel and later attribution diagnostics. |
 | PROB-012 | OPEN DIAGNOSIS | High | Which entry components provide separation: breakout onset/repeat, volume confirmation, tightness, Investability components, or regime? | Follow-up attribution diagnostic after DIAG-001. |
-| PROB-013 | OPEN DIAGNOSIS | High | Is the current exit contract (2 ATR stop anchored to filled T+1 entry, EMA20 trend exit, 45 trading-day maximum) aligned with the intended short-to-medium swing objective? | Exit reason, MFE/MAE, give-back, recovery and time-to-MFE analysis. |
+| PROB-013 | OPEN DIAGNOSIS | **High** | Is the current exit contract (2 ATR stop anchored to filled T+1 entry, EMA20 trend exit, 45 trading-day maximum) aligned with a short-to-medium swing system adapted from the CAN SLIM/O'Neil family? The 45-day hard maximum is now formally challenged: the reviewed CAN SLIM/IBD methodology emphasizes failed-breakout defense, disciplined loss cutting, profit-taking into strength, exceptional-winner hold exceptions, and technical/market deterioration rather than a universal fixed-age exit. | Use `docs/CANSLIM_EXIT_AUDIT.md` as methodology baseline. DIAG-003 must measure early failure, current 2 ATR behavior, time-to-MFE, MFE/MAE, give-back, EMA20-loss timing, and a day-45 counterfactual including what still-healthy positions did after day 45. Do not delete or replace the 45-day rule before evidence. |
 | PROB-014 | OPEN DIAGNOSIS | Medium-High | How regime-dependent are signal and executable-entry outcomes? | Segment DIAG-001 outcomes by frozen regime labels. |
 | PROB-015 | OPEN DIAGNOSIS | Medium | Which Investability components actually contribute outcome separation? | Component-level descriptive attribution; no threshold tuning. |
 | PROB-016 | GOVERNED VALIDATION | High | <=0.60 ATR proximity has development evidence for near-term breakout onset, but not untouched production validation and not profitability evidence. | Continue frozen Cycle 1 forward validation independently. |
@@ -50,7 +50,7 @@ Rules:
 0. **DATA/FEATURE VALIDITY GATE — PROB-018**: audit 300-bar R2 warm-up against long-history reference. This now blocks interpretation of further feature-attribution diagnostics and development backtests until resolved.
 1. **DIAG-001 — Signal-to-Outcome Funnel**: PROB-008/009/010/011. Existing evidence remains diagnostic, but its trend-filter-dependent interpretation must be revisited if PROB-018 finds material classification disagreement.
 2. Entry attribution: PROB-012, only after PROB-018 validity gate.
-3. Exit behavior: PROB-013.
+3. **DIAG-003 — Exit Conversion / Give-back**: PROB-013, using the CAN SLIM/O'Neil exit audit as methodology context and explicitly testing the 45-day counterfactual rather than assuming it is valid.
 4. Regime and Investability segmentation: PROB-014/015.
 5. Continue PROB-016 frozen validation in parallel; it must not be tuned from DIAG-001.
 6. Engineering debt PROB-003/004/005/017 can be hardened without changing trading semantics.
