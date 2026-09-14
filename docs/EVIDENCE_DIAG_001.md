@@ -1,6 +1,8 @@
 # EVIDENCE — DIAG-001 Signal-to-Outcome Funnel
 
-Status: **OBSERVATIONAL EVIDENCE / NO PRODUCTION CHANGE AUTHORIZED**
+> **Historical record / superseded for causal interpretation.** This run used the rolling ~300-bar feature history before PROB-019 was resolved. The governed valid-history rebuild is `docs/EVIDENCE_DIAG_001_RESEARCH_HISTORY.md` and must be used for current historical interpretation. This file is retained for provenance and comparison only.
+
+Status: **OBSERVATIONAL EVIDENCE / SUPERSEDED BY VALID-HISTORY REBUILD / NO PRODUCTION CHANGE AUTHORIZED**
 
 Source run: GitHub Actions `DIAG-001 Signal Path Evidence` run #1, run id `34803838276`.
 R2 ready snapshot: `2026-08-28`.
@@ -43,7 +45,7 @@ These are descriptive quantiles only; they are **not production thresholds**.
 | Q3 | +7.17% | -0.63% | 44.0% | +4.91% | -5.59% |
 | Q4 | +13.82% | -1.12% | 44.5% | +6.50% | -7.92% |
 
-Interpretation: stronger T-1 -> T0 moves are associated with larger subsequent excursion in **both** directions. Upside opportunity increases, but downside excursion deteriorates more strongly; median T+5 return turns negative in the upper half of the momentum distribution.
+Interpretation recorded at the time: stronger T-1 -> T0 moves appeared associated with larger subsequent excursion in both directions and negative median T+5 in the upper half. **This directional T+5 interpretation is not reproduced by the governed valid-history rebuild and is superseded.**
 
 ## Descriptive T0 -> T+1 opening-gap quartiles
 
@@ -56,7 +58,7 @@ Again, these are descriptive quantiles only.
 | Q3, mild gap-up | +0.45% | +0.46% | 53.1% | -3.50% |
 | Q4, largest gap-up | +1.93% | -0.97% | 43.5% | -6.11% |
 
-Interpretation: both gap extremes look weaker than the middle buckets. This is evidence for a possible execution-quality effect, but not enough to define a cutoff.
+The original symmetric extreme-gap interpretation is also not reproduced by the governed rebuild. See `docs/EVIDENCE_DIAG_001_RESEARCH_HISTORY.md`.
 
 ## Regime limitation
 
@@ -64,10 +66,4 @@ All DIAG-001 entry-ready events in this historical sample were `Bullish / PASS` 
 
 ## Governance conclusion
 
-DIAG-001 supports continuing diagnosis around:
-- signal-day overextension / volatility expansion,
-- early post-entry fade between T+1 and T+5,
-- execution quality at extreme overnight gaps,
-- exit behavior for the forward-position subset.
-
-It does **not** authorize a new momentum threshold, gap threshold, entry delay, stop change, or exit change.
+This file no longer supports current causal conclusions about historical signal-day momentum or T+5 decay. It remains useful only as evidence of why PROB-018/019 mattered and as provenance for the diagnostic evolution.
