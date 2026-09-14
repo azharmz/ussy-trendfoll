@@ -1,0 +1,44 @@
+name: Trend Filter Event Comparison
+
+on:
+  workflow_dispatch: {}
+  push:
+    paths:
+      - 'run_trend_filter_event_comparison.py'
+      - '.github/workflows/compare-trend-filter-events.yml'
+
+jobs:
+  compare-events:
+    runs-on: ubuntu-latest
+    timeout-minutes: 90
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - run: pip install -r requirements.txt boto3 pyarrow
+      - name: Run governed event comparison
+        env:
+          R2_ENDPOINT: ${{ secrets.R2_ENDPOINT }}
+          R2_ACCESS_KEY_ID: ${{ secrets.R2_ACCESS_KEY_ID }}
+          R2_SECRET_ACCESS_KEY: ${{ secrets.R2_SECRET_ACCESS_KEY }}
+          R2_BUCKET_NAME: ${{ secrets.R2_BUCKET_NAME }}
+        run: python run_trend_filter_event_comparison.py
+      - name: Summary
+        if: always()
+        run: |
+          if [ -f trend_filter_event_comparison_summary.json ]; then
+            echo '## Trend Filter Event Comparison' >> "$GITHUB_STEP_SUMMARY"
+            echo '```json' >> "$GITHUB_STEP_SUMMARY"
+            cat trend_filter_event_comparison_summary.json >> "$GITHUB_STEP_SUMMARY"
+            echo '```' >> "$GITHUB_STEP_SUMMARY"
+          fi
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: trend-filter-event-comparison-${{ github.run_number }}
+          path: |
+            trend_filter_event_comparison_summary.json
+            trend_filter_event_comparison_events.csv
+          retention-days: 90
+          if-no-files-found: warn
