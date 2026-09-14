@@ -9,6 +9,7 @@ on:
       - 'shared_ema_state.py'
       - 'run_shared_ema_migration_audit.py'
       - 'run_shared_ema_downstream_impact.py'
+      - 'run_ema_price_basis_audit.py'
       - '.github/workflows/audit-shared-ema-migration.yml'
 
 jobs:
@@ -36,6 +37,13 @@ jobs:
           R2_SECRET_ACCESS_KEY: ${{ secrets.R2_SECRET_ACCESS_KEY }}
           R2_BUCKET_NAME: ${{ secrets.R2_BUCKET_NAME }}
         run: python run_shared_ema_downstream_impact.py
+      - name: Audit EMA price basis on long-history signals
+        env:
+          R2_ENDPOINT: ${{ secrets.R2_ENDPOINT }}
+          R2_ACCESS_KEY_ID: ${{ secrets.R2_ACCESS_KEY_ID }}
+          R2_SECRET_ACCESS_KEY: ${{ secrets.R2_SECRET_ACCESS_KEY }}
+          R2_BUCKET_NAME: ${{ secrets.R2_BUCKET_NAME }}
+        run: python run_ema_price_basis_audit.py
       - name: Publish summary
         if: always()
         run: |
@@ -51,6 +59,12 @@ jobs:
             cat shared_ema_downstream_impact.json >> "$GITHUB_STEP_SUMMARY"
             echo '```' >> "$GITHUB_STEP_SUMMARY"
           fi
+          if [ -f ema_price_basis_audit_summary.json ]; then
+            echo '## EMA Price Basis Audit' >> "$GITHUB_STEP_SUMMARY"
+            echo '```json' >> "$GITHUB_STEP_SUMMARY"
+            cat ema_price_basis_audit_summary.json >> "$GITHUB_STEP_SUMMARY"
+            echo '```' >> "$GITHUB_STEP_SUMMARY"
+          fi
       - uses: actions/upload-artifact@v4
         if: always()
         with:
@@ -60,5 +74,8 @@ jobs:
             shared_ema_migration_rows.csv
             shared_ema_downstream_impact.json
             shared_ema_downstream_impact_rows.csv
+            ema_price_basis_audit_summary.json
+            ema_price_basis_audit_events.csv
+            ema_price_basis_audit_rows.csv
           retention-days: 90
           if-no-files-found: warn
