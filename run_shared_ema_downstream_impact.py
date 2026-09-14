@@ -23,10 +23,7 @@ def _latest_view(decided: pd.DataFrame) -> pd.DataFrame:
     as_of = decided["date"].max()
     latest = decided.loc[decided["date"] == as_of].copy()
     latest["candidate"] = latest["investability_status"].map(STATUS_RANK) >= STATUS_RANK["NEAR_PASS"]
-    latest["actionable"] = (
-        latest["investability_status"].eq("PASS")
-        & latest["tradability_status"].eq("PASS")
-    )
+    latest["actionable"] = latest["investability_status"].eq("PASS") & latest["tradability_status"].eq("PASS")
     return latest
 
 
@@ -39,9 +36,16 @@ def main() -> None:
     ):
         raise RuntimeError("Shared EMA lineage does not match current ready dataset")
 
-    # Empty sector map is intentional: current hard filter / investability uses rs_spy,
-    # not rs_sector. Benchmark/regime and all production formulas remain unchanged.
-    built = build_feature_store_from_r2(sector_map={}, ready=ready, manifest=ready_manifest)
+    # Sector RS is not a current hard-filter/investability criterion, but the feature
+    # engine expects a DataFrame contract. Provide one row per symbol with no sector
+    # benchmark so all non-sector production formulas remain identical.
+    sector_map = pd.DataFrame({
+        "symbol": sorted(ready["ticker"].astype(str).unique()),
+        "sector": None,
+        "industry": None,
+        "sector_benchmark": None,
+    })
+    built = build_feature_store_from_r2(sector_map=sector_map, ready=ready, manifest=ready_manifest)
     features = built["features"].sort_values(["symbol", "date"]).reset_index(drop=True)
 
     baseline_decided = compute_decision_layer(compute_hard_filter(features))
@@ -57,8 +61,6 @@ def main() -> None:
     patched = features.copy()
     latest_mask = patched["date"].eq(as_of)
     latest_rows = patched.loc[latest_mask].copy()
-    # r2 feature contract does not retain security_id, so symbol is the join key here.
-    # Guard one-to-one ticker uniqueness before patching.
     if state["symbol"].duplicated().any():
         raise RuntimeError("Shared EMA ticker is not unique")
     latest_rows = latest_rows.merge(state.drop(columns="security_id"), on="symbol", how="left", validate="one_to_one")
