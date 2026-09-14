@@ -5,6 +5,7 @@ import pandas as pd
 
 import feature_engine as fe
 from r2_ready import load_ready_dataset, to_feature_contract
+from r2_shared_ema import apply_shared_ema_terminal
 
 
 def build_feature_store_from_r2(sector_map=None, ready=None, manifest=None) -> dict:
@@ -44,6 +45,18 @@ def build_feature_store_from_r2(sector_map=None, ready=None, manifest=None) -> d
         fe.download_universe = original_download_universe
         fe.download_raw_ohlcv = original_download_raw_ohlcv
 
+    migrated, ema_report = apply_shared_ema_terminal(
+        result["features"],
+        ready,
+        manifest,
+    )
+    result["features"] = migrated
+    result["shared_ema_report"] = ema_report
     result["ready_manifest"] = manifest
     result["universe"] = universe
+    print(
+        "[shared EMA] canonical adj_close state applied to "
+        f"{ema_report['terminal_rows_replaced']} terminal rows; "
+        f"equivalence_verified={ema_report['equivalence_verified']}"
+    )
     return result
