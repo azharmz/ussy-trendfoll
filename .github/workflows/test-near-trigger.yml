@@ -1,0 +1,26 @@
+name: NEAR_TRIGGER Tests
+
+on:
+  push:
+    paths:
+      - "near_trigger_*.py"
+      - "tests/test_near_trigger*.py"
+      - ".github/workflows/test-near-trigger.yml"
+  pull_request:
+    paths:
+      - "near_trigger_*.py"
+      - "tests/test_near_trigger*.py"
+  workflow_dispatch: {}
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - name: Install test dependencies
+        run: pip install pandas numpy pytest
+      - name: Run NEAR_TRIGGER tests
+        run: pytest -q tests/test_near_trigger_shadow.py tests/test_near_trigger_validation.py tests/test_near_trigger_forward_progress.py
