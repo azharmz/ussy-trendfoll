@@ -23,4 +23,6 @@ jobs:
       - name: Install test dependencies
         run: pip install pandas numpy pytest
       - name: Run NEAR_TRIGGER tests
+        env:
+          PYTHONPATH: ${{ github.workspace }}
         run: pytest -q tests/test_near_trigger_shadow.py tests/test_near_trigger_validation.py tests/test_near_trigger_forward_progress.py
