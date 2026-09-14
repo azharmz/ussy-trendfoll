@@ -43,15 +43,25 @@ Rules:
 | PROB-015 | OPEN DIAGNOSIS | Medium | Which Investability components actually contribute outcome separation? | Component-level descriptive attribution; no threshold tuning. |
 | PROB-016 | GOVERNED VALIDATION | High | <=0.60 ATR proximity has development evidence for near-term breakout onset, but not untouched production validation and not profitability evidence. | Continue frozen Cycle 1 forward validation independently. |
 | PROB-017 | ENGINEERING DEBT | High | Supabase position history contains a duplicate `(symbol, entry_date)` key (`ANF`, `2026-08-26`) with conflicting state/outcome rows, which can contaminate forward attribution. | Audit position lifecycle history and enforce/verify canonical uniqueness semantics. |
+| PROB-018 | OPEN DIAGNOSIS | **Highest / VALIDITY GATE** | The R2 stock dataset provides only about 300 daily bars per security, while the current trend contract uses EMA20/50/150/200 plus a 30-week stage MA. Long-period recursive EMA values and weekly stage classification may be affected by finite-history warm-up, and the usable historical test window is materially shorter than the raw 300 bars. Until quantified, feature validity—especially EMA150/EMA200, `ema_stack_aligned`, Stage2 and downstream Trend PASS—cannot be assumed equivalent to a long-history reference calculation. | Before DIAG-002 or development backtesting, compare R2-window features against the same-date features computed from substantially longer OHLCV history. Measure numeric EMA error and, more importantly, disagreement rates for `ema_stack_aligned`, Stage2 and `trend_status`. Establish a documented safe warm-up / usable-window contract. Do not discard or retune EMA thresholds before evidence. |
 
 ## Diagnostic work order
 
-1. **DIAG-001 — Signal-to-Outcome Funnel**: PROB-008/009/010/011.
-2. Entry attribution: PROB-012.
+0. **DATA/FEATURE VALIDITY GATE — PROB-018**: audit 300-bar R2 warm-up against long-history reference. This now blocks interpretation of further feature-attribution diagnostics and development backtests until resolved.
+1. **DIAG-001 — Signal-to-Outcome Funnel**: PROB-008/009/010/011. Existing evidence remains diagnostic, but its trend-filter-dependent interpretation must be revisited if PROB-018 finds material classification disagreement.
+2. Entry attribution: PROB-012, only after PROB-018 validity gate.
 3. Exit behavior: PROB-013.
 4. Regime and Investability segmentation: PROB-014/015.
 5. Continue PROB-016 frozen validation in parallel; it must not be tuned from DIAG-001.
 6. Engineering debt PROB-003/004/005/017 can be hardened without changing trading semantics.
+
+## PROB-018 validity protocol boundary
+
+The purpose of the R2 warm-up audit is **not** to search for a better moving-average combination. The current production formulas remain the object under test. For the same symbol/date, compute the existing EMA20/50/150/200 and 30-week Stage features using (a) the R2-limited history and (b) a substantially longer reference history. Report absolute/relative numeric differences by available-history age and classification disagreement for `ema_stack_aligned`, `stage`, `trend_status`, and where practical `hard_filter_status`.
+
+A small numeric EMA difference is operationally acceptable only if it does not materially change downstream classification. Conversely, even modest numeric error is material if it changes PASS/NEAR_PASS/FAIL decisions. The audit must therefore prioritize **decision agreement**, not cosmetic numerical equality.
+
+No development backtest should use the early portion of a finite R2 window merely because an indicator returns a number. The audit must establish the earliest history age at which the current feature contract is sufficiently stable, or conclude that the current R2 history contract is insufficient for the current trend feature contract.
 
 ## Decision discipline
 
