@@ -6,7 +6,6 @@ and never changes Investability, Tradability, alerts, entry, or exits.
 from __future__ import annotations
 
 import json
-from dataclasses import asdict
 from pathlib import Path
 
 import pandas as pd
@@ -83,8 +82,18 @@ def collect_forward_validation(decided: pd.DataFrame) -> tuple[pd.DataFrame, pd.
     for symbol, group in work.groupby("symbol", sort=False):
         g = group.sort_values("date").reset_index(drop=True).copy()
         g["breakout_onset"] = _independent_breakout_onset(g)
+
         previous_shadow = g["near_trigger_shadow"].shift(1, fill_value=False).astype(bool)
         g["shadow_episode_start"] = g["near_trigger_shadow"].astype(bool) & (~previous_shadow)
+
+        g["control_state"] = (
+            g["eligible_monitored"].astype(bool)
+            & (~g["has_breakout"].fillna(False).astype(bool))
+            & g["distance_to_prev_pivot_atr"].notna()
+            & (g["distance_to_prev_pivot_atr"] > 0.60)
+        )
+        previous_control = g["control_state"].shift(1, fill_value=False).astype(bool)
+        g["control_episode_start"] = g["control_state"].astype(bool) & (~previous_control)
 
         for pos, row in g.iterrows():
             if row["date"] < VALIDATION_START_DATE:
@@ -101,16 +110,10 @@ def collect_forward_validation(decided: pd.DataFrame) -> tuple[pd.DataFrame, pd.
                     **result,
                 })
 
-            is_control = (
-                bool(row["eligible_monitored"])
-                and not bool(row["has_breakout"])
-                and pd.notna(row["distance_to_prev_pivot_atr"])
-                and float(row["distance_to_prev_pivot_atr"]) > 0.60
-            )
-            if is_control:
+            if bool(row["control_episode_start"]):
                 control_rows.append({
                     "symbol": symbol,
-                    "date": row["date"].date().isoformat(),
+                    "episode_start_date": row["date"].date().isoformat(),
                     "distance_to_prev_pivot_atr": float(row["distance_to_prev_pivot_atr"]),
                     **result,
                 })
@@ -172,6 +175,7 @@ def write_forward_validation_progress(
         f"{metrics['shadow_episodes']}/{MIN_EPISODES} episodes · "
         f"{metrics['unique_symbols']}/{MIN_UNIQUE_SYMBOLS} tickers · "
         f"{metrics['shadow_breakouts_5d']}/{MIN_BREAKOUTS_5D} onsets<=5d · "
+        f"control_episodes={metrics['control_episodes']} · "
         f"status={metrics['status']}"
     )
     return metrics
