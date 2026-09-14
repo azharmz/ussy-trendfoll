@@ -1,6 +1,6 @@
 # Trend Filter Methodology Audit — O'Neil / CAN SLIM Adaptation
 
-Status: **RESEARCH NOTE / DEVELOPMENT INPUT / NO PRODUCTION CHANGE**
+Status: **RESEARCH NOTE / DEVELOPMENT-FROZEN CANDIDATE / NO PRODUCTION CHANGE**
 
 ## Research question
 
@@ -38,19 +38,26 @@ This remains the production baseline. This audit does not authorize its replacem
 
 ### Candidate TF-SMA-STRUCT-01 — structural qualification
 
-A deliberately minimal O'Neil-aligned structural candidate for development testing:
+Frozen development candidate:
 
 1. `close > SMA50`
 2. `SMA50 > SMA200`
-3. `SMA200 slope > 0`
 
-The slope must be specified before testing using a fixed, non-optimized lookback. It must not be selected by searching multiple slope windows for performance.
+Equivalent expression:
 
-Rationale:
+`close > SMA50 > SMA200`
 
-- 50-DMA and 200-DMA are repeatedly used by O'Neil/IBD as intermediate and long-term structural levels.
-- Requiring price above 50-DMA, 50-DMA above 200-DMA, and a rising 200-DMA represents a mature structural uptrend without importing the current EMA20/50/150/200 stack.
-- SMA200 is finite-window deterministic: once 200 observations exist, earlier history cannot change the same-date SMA200 value.
+This candidate is deliberately minimal. It uses only structural relationships that are directly and repeatedly supported by O'Neil/IBD methodology.
+
+### Why `SMA200 rising` is NOT a gate
+
+The initial research note proposed adding `SMA200 slope > 0`, with the slope lookback to be frozen before testing. Further methodology audit did not identify an authoritative O'Neil/IBD rule that specifies an exact lookback such as 5, 10, 20, or 30 trading days for a rising 200-DMA requirement.
+
+Therefore no slope lookback will be invented or selected from performance results. `SMA200 rising` is removed from the candidate gate rather than assigning an arbitrary window.
+
+If later authoritative evidence specifies a slope rule, it must enter as a new evidence-backed candidate and go through a separate development/validation cycle.
+
+This is a governance decision: **absence of an exact source rule is not permission to optimize one.**
 
 ### Tactical lines are NOT part of TF-SMA-STRUCT-01
 
@@ -71,18 +78,20 @@ A 40-week line is approximately the weekly analogue of a 200-day line, but no re
 
 ## Development comparison design
 
-The first governed comparison should be small and interpretable:
+The first governed comparison is frozen as:
 
 - **Baseline:** current production `EMA20/50/150/200 + Stage2` trend gate.
-- **Candidate:** `TF-SMA-STRUCT-01`.
+- **Candidate:** `TF-SMA-STRUCT-01 = close > SMA50 > SMA200`.
 
-Do not add a grid of SMA20/50/100/150/200, EMA variants, or crossover permutations.
+Do not add a grid of SMA20/50/100/150/200, EMA variants, crossover permutations, or slope lookbacks.
+
+Hold all non-trend logic constant wherever the comparison reaches full signal construction. The trend representation is the treatment variable.
 
 Evaluate at minimum:
 
 1. coverage / selectivity,
 2. overlap and disagreement with current production Trend PASS,
-3. independent entry-ready onset count,
+3. independent entry-ready onset count with all non-trend conditions held constant,
 4. T+1 executable path,
 5. T+3 / T+5 path,
 6. MFE / MAE,
@@ -92,24 +101,36 @@ Evaluate at minimum:
 
 The objective is not to maximize CAGR on the development sample. The candidate must show coherent structural behavior and robustness before it can be frozen for untouched validation.
 
+## Historical-data contract for comparison
+
+The development comparison must use long-history OHLCV with a proper warm-up. It must not use the 300-bar R2 readiness window as the complete historical backtest dataset.
+
+Required separation:
+
+`long-history OHLCV -> feature warm-up -> evaluation start -> signal/outcome comparison`
+
+Pre-evaluation history is context only and must not count as evaluated trades or outcomes.
+
 ## Production/readiness implication
 
 If TF-SMA-STRUCT-01 eventually survives development and untouched validation, it has an architectural advantage for the current R2 readiness contract:
 
-- SMA50 requires exactly 50 prior closes.
-- SMA200 requires exactly 200 prior closes.
-- A 300-bar production readiness window can therefore compute these levels without recursive initialization ambiguity, subject to whatever fixed SMA200-slope lookback is frozen.
+- SMA50 requires exactly 50 closes.
+- SMA200 requires exactly 200 closes.
+- A 300-bar production readiness window can therefore compute both levels exactly from the same final 200 observations as a much longer history, assuming identical adjusted/raw price treatment.
 
 This is a secondary engineering benefit, **not the reason to choose the strategy**. Methodological and empirical validation comes first.
 
 ## Governance decision
 
 - Current EMA contract: **UNCHANGED / PRODUCTION BASELINE**.
-- TF-SMA-STRUCT-01: **METHODOLOGY-SUPPORTED DEVELOPMENT CANDIDATE / NOT VALIDATED**.
+- TF-SMA-STRUCT-01: **DEVELOPMENT-FROZEN / METHODOLOGY-SUPPORTED / NOT VALIDATED**.
+- Frozen candidate: **`close > SMA50 > SMA200`**.
+- `SMA200 rising`: **NOT INCLUDED — exact slope horizon not established by authoritative evidence**.
 - 10-SMA / 21-EMA: **TACTICAL RESEARCH VARIABLES, NOT STRUCTURAL GATE**.
 - No brute-force moving-average optimization is authorized.
 - No production change is authorized from this audit.
 
 ## Next evidence
 
-Before development backtesting, freeze the exact SMA200 slope definition from a methodological rationale rather than performance optimization. Then run one baseline-vs-candidate development comparison using long-history OHLCV with proper warm-up and T+1-executable outcome measurement.
+Implement one baseline-vs-candidate development comparison using long-history OHLCV with proper warm-up and T+1-executable outcome measurement. Do not change the frozen SMA candidate after viewing development results; any materially different candidate requires a new hypothesis and evidence trail.
