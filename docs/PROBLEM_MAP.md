@@ -37,20 +37,20 @@ Rules:
 | PROB-009 | OPEN DIAGNOSIS | Highest | Does strong T-1 -> T0 momentum/extension make the signal overextended before an executable T+1 entry? | DIAG-001: T-1/T0 extension and subsequent path. |
 | PROB-010 | OPEN DIAGNOSIS | Highest | Does edge decay between T0 breakout and T+1 executable entry through overnight gap or early fade? | DIAG-001: T0 -> T+1 open/close -> T+2/T+3/T+5. |
 | PROB-011 | OPEN DIAGNOSIS | Highest | When outcomes disappoint, is the dominant failure in selection, breakout quality, execution timing, regime, risk, or exit? | DIAG-001 end-to-end funnel and later attribution diagnostics. |
-| PROB-012 | OPEN DIAGNOSIS | High | Which entry components provide separation: breakout onset/repeat, volume confirmation, tightness, Investability components, or regime? | Follow-up attribution diagnostic after valid research-history contract is available. |
+| PROB-012 | OPEN DIAGNOSIS | High | Which entry components provide separation: breakout onset/repeat, volume confirmation, tightness, Investability components, or regime? | Follow-up attribution diagnostic using the governed research-history contract. |
 | PROB-013 | OPEN DIAGNOSIS | **High** | Is the current exit contract (2 ATR stop anchored to filled T+1 entry, EMA20 trend exit, 45 trading-day maximum) aligned with a short-to-medium swing system adapted from the CAN SLIM/O'Neil family? The 45-day hard maximum is formally challenged. | Use `docs/CANSLIM_EXIT_AUDIT.md` as methodology baseline. DIAG-003 must measure early failure, current 2 ATR behavior, time-to-MFE, MFE/MAE, give-back, EMA20-loss timing, and a day-45 counterfactual. |
-| PROB-014 | OPEN DIAGNOSIS | Medium-High | How regime-dependent are signal and executable-entry outcomes? | Segment outcomes by frozen regime labels once valid research history exists. |
-| PROB-015 | OPEN DIAGNOSIS | Medium | Which Investability components actually contribute outcome separation? | Component-level descriptive attribution; no threshold tuning. |
+| PROB-014 | OPEN DIAGNOSIS | Medium-High | How regime-dependent are signal and executable-entry outcomes? | Segment outcomes by frozen regime labels using governed research history. |
+| PROB-015 | OPEN DIAGNOSIS | Medium | Which Investability components actually contribute outcome separation? | Component-level descriptive attribution under governed research history; no threshold tuning. |
 | PROB-016 | GOVERNED VALIDATION | High | <=0.60 ATR proximity has development evidence for near-term breakout onset, but not untouched production validation and not profitability evidence. | Continue frozen Cycle 1 forward validation independently. |
 | PROB-017 | ENGINEERING DEBT | High | Supabase position history contains a duplicate `(symbol, entry_date)` key (`ANF`, `2026-08-26`) with conflicting state/outcome rows, which can contaminate forward attribution. | Audit position lifecycle history and enforce/verify canonical uniqueness semantics. |
-| PROB-018 | **CONFIRMED / RESOLVED DIAGNOSIS** | **Highest / VALIDITY GATE** | The ~300-bar R2 window is adequate for the current-end trend classification in the audited deterministic 100-symbol sample, but is **not** valid as a full historical feature/backtest window. Run #1 found 0% latest EMA-stack/Stage/trend-status disagreement, while historical trend-status disagreement was 15.64–21.76% in bars 1–150, 5.68% in 151–200, 2.14% in 201–250, and 0.96% at 251+. | Evidence locked in `docs/EVIDENCE_PROB_018.md`. Do not retune MAs. Introduce a research-history/pre-roll contract before further historical attribution/backtesting. |
-| PROB-019 | CONFIRMED | **Highest / ARCHITECTURE GATE** | Research/backtest jobs need historical OHLCV before the evaluated window so EMA150/EMA200 and 30-week Stage are initialized from pre-roll rather than from the first evaluated R2 bar. A conservative warm-up inside a 300-bar dataset would consume most of the usable sample. | Define and implement a **feature pre-roll / research history contract**: preserve R2 readiness as the universe, obtain sufficiently long prior OHLCV for feature initialization, exclude pre-roll from evaluation, enforce no look-ahead, record source/provenance, and verify same-date feature agreement before DIAG-002/DIAG-003/backtests. |
+| PROB-018 | **CONFIRMED / RESOLVED DIAGNOSIS** | **Highest / VALIDITY GATE** | The ~300-bar R2 window is adequate for the current-end trend classification in the audited deterministic 100-symbol sample, but is **not** valid as a full historical feature/backtest window. Run #1 found 0% latest EMA-stack/Stage/trend-status disagreement, while historical trend-status disagreement was 15.64–21.76% in bars 1–150, 5.68% in 151–200, 2.14% in 201–250, and 0.96% at 251+. | Evidence locked in `docs/EVIDENCE_PROB_018.md`. Do not retune MAs. Historical work must use the governed research-history contract. |
+| PROB-019 | **CONFIRMED / RESOLVED ARCHITECTURE** | **Highest / ARCHITECTURE GATE** | Historical diagnostics/backtests require pre-roll before evaluated rows. The governed contract now uses current R2 readiness as universe authority, R2 `backtest/ohlcv/{security_id}.parquet` as full stock history, a frozen 500-bar engineering pre-roll, pre-feature `evaluation_end` trimming, post-feature `research_eligible` gating, and canonical `EMA(adj_close)`. Audit run `34905314921` passed with 100/100 histories loaded, 29,930/29,930 source-compatible overlap rows, exact canonical EMA parity, and 0 latest Stage mismatches. | Evidence locked in `docs/EVIDENCE_PROB_019.md`. New historical diagnostics/backtests may proceed through `research_history.py` or an explicitly equivalent governed successor. Current-universe results are not claimed survivorship-bias-free. |
 
 ## Diagnostic work order
 
-0. **PROB-018 completed** — audit evidence is in `docs/EVIDENCE_PROB_018.md`. Current-end scanning is supported by the sample; full-window historical research is not.
-1. **PROB-019 — RESEARCH HISTORY / PRE-ROLL ARCHITECTURE GATE**: implement valid feature initialization history while keeping R2 readiness as the universe. This now blocks new historical attribution and development backtests.
-2. Rebuild/verify DIAG-001 where relevant under the valid history contract.
+0. **PROB-018 completed** — evidence is in `docs/EVIDENCE_PROB_018.md`.
+1. **PROB-019 completed** — governed research-history/pre-roll architecture is implemented and audited in `docs/EVIDENCE_PROB_019.md` and `docs/RESEARCH_HISTORY_CONTRACT.md`.
+2. Rebuild/verify DIAG-001 where relevant under the valid research-history contract; record it as a new evidence version rather than rewriting the frozen original.
 3. DIAG-002 Entry Attribution: PROB-012.
 4. DIAG-003 Exit Conversion / Give-back: PROB-013, including the 45-day counterfactual.
 5. Regime and Investability segmentation: PROB-014/015.
@@ -65,13 +65,17 @@ However, early historical bars were materially contaminated by finite-history in
 
 This evidence supports continuing the current latest-day scanner; it does **not** authorize using all 300 R2 bars as a historical backtest window.
 
-## PROB-019 contract principles
+## PROB-019 resolved contract
 
-The preferred architecture is not to shrink the model merely to fit the available history. Research should use:
+Historical research now uses:
 
-`R2 readiness universe -> historical pre-roll OHLCV -> feature initialization -> evaluation start -> signal/outcome study`
+`R2 readiness universe -> R2 full stock history -> pre-roll feature initialization -> research_eligible rows -> signal/outcome study`
 
-The pre-roll portion is feature context only and must never count as evaluated observations, trades, or validation outcomes. Source provenance and same-date compatibility checks must be retained so warm-up differences are not confused with vendor-data differences. Any implementation must prevent future data from leaking into earlier feature states.
+The pre-roll portion is feature context only and never counts as evaluated observations, trades, or validation outcomes. Each security's history is trimmed to the requested `evaluation_end` before feature computation, preventing future stock rows from entering earlier states. Canonical historical EMA is based on `adj_close`, matching production shared EMA, while Stage2 remains the existing raw-close weekly implementation.
+
+The successful deterministic 100-security audit loaded 520,282 full-history rows and produced 25,064 eligible rows across 87 securities after the 500-bar requirement. All 29,930 exact ready/full-history overlap rows passed the 0.25% source compatibility guard; all 100 latest canonical EMA states matched production exactly with zero numeric/stack/date mismatches; and all 100 latest Stage classifications matched. See `docs/EVIDENCE_PROB_019.md`.
+
+The universe authority remains current R2 readiness. This contract does not reconstruct historical point-in-time membership and therefore does not authorize claims that historical results are survivorship-bias-free.
 
 ## Decision discipline
 
