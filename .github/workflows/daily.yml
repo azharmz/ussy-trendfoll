@@ -1,15 +1,9 @@
 name: USSY TrendFoll — Daily Watchlist
 
 on:
-  push:
-    branches: [main]
-    paths:
-      - ".github/workflows/daily.yml"
   schedule:
     - cron: "30 22 * * 1-5"
   workflow_dispatch: {}
-
-# TEMPORARY ACCEPTANCE TRIGGER — remove after the CAND-003 operational smoke run.
 
 jobs:
   run-pipeline:
