@@ -51,10 +51,10 @@ create policy "exit_candidate003_shadow_sessions read-only public"
     to anon, authenticated
     using (true);
 
--- Client roles can observe evidence but cannot mutate it. Backend shadow job writes
--- with the server-side service role / secret key only.
-revoke insert, update, delete on table public.exit_candidate003_shadow_sessions from anon, authenticated;
+-- Explicit least privilege: existing projects can inherit broad default grants.
+-- Client roles observe only; backend shadow job may SELECT/INSERT only.
+revoke all privileges on table public.exit_candidate003_shadow_sessions from anon, authenticated, service_role;
 grant select on table public.exit_candidate003_shadow_sessions to anon, authenticated;
 grant select, insert on table public.exit_candidate003_shadow_sessions to service_role;
-revoke update, delete on table public.exit_candidate003_shadow_sessions from service_role;
+revoke all privileges on sequence public.exit_candidate003_shadow_sessions_id_seq from anon, authenticated, service_role;
 grant usage, select on sequence public.exit_candidate003_shadow_sessions_id_seq to service_role;
