@@ -5,6 +5,9 @@ on:
     - cron: "30 22 * * 1-5"
   workflow_dispatch: {}
 
+# Operational smoke trigger: CAND-003 shadow ledger acceptance, 2026-09-16.
+# This comment is intentionally non-functional; push runs the same daily pipeline.
+
 jobs:
   run-pipeline:
     runs-on: ubuntu-latest
