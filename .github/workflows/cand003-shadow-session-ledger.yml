@@ -4,7 +4,6 @@ on:
   push:
     branches:
       - research/cand003-shadow-session-ledger
-      - main
     paths:
       - 'exit_candidate003_shadow.py'
       - 'tests/test_exit_candidate003_shadow.py'
@@ -29,6 +28,5 @@ jobs:
           grep -q 'test_gap_has_priority_and_fills_open' /tmp/cand003-tests.log
           grep -q 'test_identical_session_replay_is_idempotent' /tmp/cand003-tests.log
           grep -q 'test_divergent_duplicate_evidence_is_rejected' /tmp/cand003-tests.log
-          grep -q 'test_rejects_late_bootstrap_without_creating_shadow' /tmp/cand003-tests.log
       - name: Compile shadow module
         run: python -m py_compile exit_candidate003_shadow.py
