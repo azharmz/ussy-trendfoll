@@ -1,0 +1,64 @@
+name: R2 Lifecycle Membership Audit
+
+on:
+  workflow_dispatch: {}
+  push:
+    branches:
+      - research/exit-development-hypotheses
+    paths:
+      - ".github/workflows/audit-r2-lifecycle-membership.yml"
+
+jobs:
+  audit:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - name: Install dependencies
+        run: |
+          pip install -r requirements.txt
+          pip install boto3 pyarrow
+      - name: Audit current R2 READY vs historical lifecycle
+        env:
+          SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
+          SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
+          R2_ENDPOINT: ${{ secrets.R2_ENDPOINT }}
+          R2_ACCESS_KEY_ID: ${{ secrets.R2_ACCESS_KEY_ID }}
+          R2_SECRET_ACCESS_KEY: ${{ secrets.R2_SECRET_ACCESS_KEY }}
+          R2_BUCKET_NAME: ${{ secrets.R2_BUCKET_NAME }}
+        run: python audit_r2_lifecycle_membership.py
+      - name: Write summary
+        if: success()
+        run: |
+          python - <<'PY'
+          import json, os
+          from pathlib import Path
+          d = json.loads(Path("r2_lifecycle_membership_audit.json").read_text())
+          lines = [
+              "## R2 ↔ Candidate Lifecycle Membership Audit",
+              "",
+              f"- R2 snapshot: {d.get('ready_snapshot_date')}",
+              f"- Current R2 READY symbols: **{d['current_r2_ready_symbols']}**",
+              f"- Historical lifecycle symbols: **{d['historical_lifecycle_symbols']}**",
+              f"- R2 ∩ lifecycle: **{d['r2_and_lifecycle']}**",
+              f"- Legacy-only / not current R2: **{d['legacy_only_not_current_r2']}**",
+              f"- Current R2 not yet lifecycle: **{d['current_r2_not_yet_lifecycle']}**",
+              "",
+              "Diagnostic only — no production data was changed.",
+          ]
+          with open(os.environ["GITHUB_STEP_SUMMARY"], "a", encoding="utf-8") as f:
+              f.write("\n".join(lines) + "\n")
+          PY
+      - name: Upload audit evidence
+        if: success()
+        uses: actions/upload-artifact@v4
+        with:
+          name: r2-lifecycle-membership-${{ github.run_number }}
+          path: |
+            r2_lifecycle_membership_audit.json
+            r2_lifecycle_membership_audit.csv
+          if-no-files-found: error
+          retention-days: 90

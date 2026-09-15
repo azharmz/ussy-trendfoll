@@ -9,6 +9,7 @@ Urutan:
   5. Ambil snapshot terbaru + hitung state transition vs watchlist sebelumnya
   6. Simpan watchlist + kirim notifikasi hanya bila ada state change
   7. Position tracking
+  8. EXIT-CAND-003 non-decisioning shadow (observational only)
 """
 
 import sys
@@ -22,27 +23,28 @@ from alert_state import compute_alert_transitions
 import database
 import notify
 import positions
+import exit_candidate003_shadow
 
 
 def main():
     client = database.get_client()
 
-    print("=== [1/7] Sector mapping ===")
+    print("=== [1/8] Sector mapping ===")
     sector_map = get_sector_map(client, UNIVERSE)
 
-    print("=== [2/7] Build feature store ===")
+    print("=== [2/8] Build feature store ===")
     result = build_feature_store(UNIVERSE, sector_map=sector_map)
     features = result["features"]
 
-    print("=== [3/7] Hard filter ===")
+    print("=== [3/8] Hard filter ===")
     filtered = compute_hard_filter(features)
 
-    print("=== [4/7] Decision layer ===")
+    print("=== [4/8] Decision layer ===")
     decided = compute_decision_layer(filtered)
     decided = decided.sort_values(["symbol", "date"])
     decided["prev_close"] = decided.groupby("symbol")["close_raw"].shift(1)
 
-    print("=== [5/7] Latest snapshot + alert state transition ===")
+    print("=== [5/8] Latest snapshot + alert state transition ===")
     as_of_date = decided["date"].max()
     latest = decided[decided["date"] == as_of_date].copy()
     candidates = latest[
@@ -68,22 +70,26 @@ def main():
 
     explanations = {row["symbol"]: explain_candidate(row) for _, row in candidates.iterrows()}
 
-    print("=== [6/7] Simpan watchlist + notification gate ===")
+    print("=== [6/8] Simpan watchlist + notification gate ===")
     database.upsert_watchlist(client, candidates, explanations)
     if transitions:
-        # Transport Telegram yang ada tetap dipakai; perbedaannya sekarang
-        # digest tidak dikirim setiap hari jika state tidak berubah.
         notify.send_watchlist_summary(candidates, as_of_date)
     else:
         print("[notify] Watchlist tidak berubah bermakna — skip digest Telegram.")
 
-    print("=== [7/7] Position tracking ===")
+    print("=== [7/8] Authoritative production position tracking ===")
     all_trading_dates = decided["date"].unique()
     positions.fill_realistic_entry_prices(client, decided, as_of_date)
     positions.align_active_stops_to_filled_entry(client)
     exits = positions.check_exits(client, latest, as_of_date, all_trading_dates)
     notify.send_exit_alerts(exits)
     positions.register_new_positions(client, latest, as_of_date)
+
+    print("=== [8/8] EXIT-CAND-003 shadow (NON-DECISIONING) ===")
+    # Deliberately runs only after authoritative production exits/registration.
+    # The shadow module never writes to `positions` and its outputs are not
+    # consumed by notification, entry, or exit decision paths.
+    exit_candidate003_shadow.run_shadow(client, decided, as_of_date, all_trading_dates)
 
     print("Selesai.")
 

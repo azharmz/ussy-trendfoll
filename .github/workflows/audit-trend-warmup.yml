@@ -67,3 +67,5 @@ jobs:
             trend_warmup_audit_failures.csv
           if-no-files-found: error
           retention-days: 90
+
+# Audit control: evidence rerun requested 2026-09-16.

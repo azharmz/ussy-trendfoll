@@ -10,6 +10,7 @@ from candidate_lifecycle import write_candidate_lifecycle
 from r2_ready import load_ready_dataset
 from r2_feature_engine import build_feature_store_from_r2
 import database, notify, positions
+import exit_candidate003_shadow
 
 
 SHADOW_ARTIFACT_PATH = "near_trigger_shadow_snapshot.csv"
@@ -62,8 +63,7 @@ def main():
     if missing_latest:
         print(f"[R2 freshness] {len(missing_latest)} ready ticker tanpa bar latest: {missing_latest[:20]}")
 
-    # Shadow-only evidence. Tidak memengaruhi Investability, Tradability,
-    # Telegram state, posisi, entry, atau exit.
+    # Near-trigger shadow remains a separate frozen research workstream.
     _write_near_trigger_shadow_snapshot(latest, as_of_date)
     write_forward_validation_progress(
         decided,
@@ -79,9 +79,6 @@ def main():
     explanations = {r["symbol"]: explain_candidate(r) for _, r in candidates.iterrows()}
     database.upsert_watchlist(client, candidates, explanations)
 
-    # Persistent lifecycle: history watchlist tidak dihapus. Setelah snapshot
-    # hari ini tersimpan, rebuild ringkasan seluruh perjalanan kandidat sehingga
-    # ticker NEAR_PASS tetap terlacak walaupun besok keluar dari watchlist latest.
     watchlist_history = database.get_watchlist_history(client)
     write_candidate_lifecycle(watchlist_history, latest, LIFECYCLE_ARTIFACT_PATH)
 
@@ -89,12 +86,20 @@ def main():
         notify.send_watchlist_summary(candidates, as_of_date)
     else:
         print("[notify] Tidak ada state change — skip digest Telegram.")
+
+    # Authoritative production position/exit path remains unchanged.
     dates = decided["date"].unique()
     positions.fill_realistic_entry_prices(client, decided, as_of_date)
     positions.align_active_stops_to_filled_entry(client)
     exits = positions.check_exits(client, latest, as_of_date, dates)
     notify.send_exit_alerts(exits)
     positions.register_new_positions(client, latest, as_of_date)
+
+    # EXIT-CAND-003 runs strictly after the authoritative production path.
+    # It writes only its own observational table and cannot alter/suppress/
+    # accelerate production exits or notifications.
+    print("[EXIT-CAND-003 shadow] non-decisioning observational pass")
+    exit_candidate003_shadow.run_shadow(client, decided, as_of_date, dates)
 
 
 if __name__ == "__main__":

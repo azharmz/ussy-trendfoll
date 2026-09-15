@@ -1,0 +1,49 @@
+name: STOP-EXEC-001 Gap-Through Audit
+on:
+  workflow_dispatch:
+  push:
+    branches: [research/exit-development-hypotheses]
+    paths:
+      - run_stop_exec001.py
+      - tests/test_stop_exec001.py
+      - docs/STOP_EXEC_001_AUDIT_PROTOCOL.md
+      - .github/workflows/stop-exec001.yml
+
+jobs:
+  audit:
+    runs-on: ubuntu-latest
+    env:
+      R2_ACCESS_KEY_ID: ${{ secrets.R2_ACCESS_KEY_ID }}
+      R2_SECRET_ACCESS_KEY: ${{ secrets.R2_SECRET_ACCESS_KEY }}
+      R2_ENDPOINT: ${{ secrets.R2_ENDPOINT }}
+      R2_BUCKET_NAME: ${{ secrets.R2_BUCKET_NAME }}
+      PYTHONUNBUFFERED: '1'
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+          cache: pip
+      - name: Install dependencies
+        run: python -m pip install --disable-pip-version-check -r requirements.txt boto3 pyarrow
+      - name: Run repository tests
+        run: python -m unittest discover -s tests
+      - name: Run STOP-EXEC-001
+        run: python run_stop_exec001.py
+      - name: Publish summary
+        if: always()
+        run: |
+          if [ -f artifacts/stop_exec001/summary.json ]; then
+            echo '## STOP-EXEC-001' >> "$GITHUB_STEP_SUMMARY"
+            echo '```json' >> "$GITHUB_STEP_SUMMARY"
+            cat artifacts/stop_exec001/summary.json >> "$GITHUB_STEP_SUMMARY"
+            echo '```' >> "$GITHUB_STEP_SUMMARY"
+          fi
+      - name: Upload evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: stop-exec001-${{ github.run_number }}
+          path: artifacts/stop_exec001/
+          if-no-files-found: warn
+          retention-days: 90

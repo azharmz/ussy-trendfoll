@@ -1,0 +1,47 @@
+name: EXIT-CAND-002 Development
+on:
+  workflow_dispatch:
+  push:
+    branches: [research/exit-development-hypotheses]
+    paths:
+      - run_exit_candidate002_development.py
+      - docs/EXIT_CANDIDATE_REPRESENTATION_002.md
+      - .github/workflows/exit-candidate002-development.yml
+jobs:
+  development:
+    runs-on: ubuntu-latest
+    env:
+      R2_ACCESS_KEY_ID: ${{ secrets.R2_ACCESS_KEY_ID }}
+      R2_SECRET_ACCESS_KEY: ${{ secrets.R2_SECRET_ACCESS_KEY }}
+      R2_ENDPOINT: ${{ secrets.R2_ENDPOINT }}
+      R2_BUCKET_NAME: ${{ secrets.R2_BUCKET_NAME }}
+      PYTHONUNBUFFERED: '1'
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+          cache: pip
+      - name: Install dependencies
+        run: python -m pip install --disable-pip-version-check -r requirements.txt boto3 pyarrow
+      - name: Run repository tests
+        run: python -m unittest discover -s tests
+      - name: Run EXIT-CAND-002 development
+        run: python run_exit_candidate002_development.py
+      - name: Publish summary
+        if: always()
+        run: |
+          if [ -f artifacts/exit_candidate002_development/summary.json ]; then
+            echo '## EXIT-CAND-002 Development' >> "$GITHUB_STEP_SUMMARY"
+            echo '```json' >> "$GITHUB_STEP_SUMMARY"
+            cat artifacts/exit_candidate002_development/summary.json >> "$GITHUB_STEP_SUMMARY"
+            echo '```' >> "$GITHUB_STEP_SUMMARY"
+          fi
+      - name: Upload evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: exit-candidate002-development-${{ github.run_number }}
+          path: artifacts/exit_candidate002_development/
+          if-no-files-found: warn
+          retention-days: 90
