@@ -4,6 +4,8 @@ Status: **AUDIT IN PROGRESS / DIAGNOSTIC ONLY / NO PRODUCTION CHANGE**
 
 Branch: `research/exit-development-hypotheses`
 
+> **Operational audit control:** use `docs/FULL_SIGNAL_ENGINE_AUDIT_PROGRESS.md` as the primary detailed checklist and progress ledger. This file remains the evidence, analysis, and findings register. Audit work should update the checklist as tasks are completed.
+
 ## Governance
 
 This audit is independent of EXIT-CAND-003. Production changes are forbidden until the audit, root-cause register, correction candidates, tests, validation, and explicit production decision are complete.
@@ -95,6 +97,12 @@ The R2 adapter does **not** make the complete engine R2-only. It replaces stock-
 
 Authoritative methodology and USSY quantitative representation must remain separate. IBD first-party educational material defines buy points from recognized chart bases, so a generic rolling maximum is not automatically an O'Neil pivot. The current VCP field is explicitly described in code as a placeholder inverse ATR percentile and must be treated as a volatility-tightness proxy. Weinstein Stage Analysis is a lifecycle/chart-context framework around weekly price, the 30-week MA and additional technical context; the current four-way rule is therefore recorded as an approximation pending the dedicated source audit.
 
+## Sep-10 lifecycle diagnostic addendum
+
+The detailed operational checklist now includes a dedicated Sep-4 through Sep-10 workflow-continuity audit and a symbol-level reconstruction of the Sep-10 lifecycle jump: cumulative 100 -> +61 first-time -> 161, while current Investability >= NEAR_PASS was 85. The diagnostic explicitly tests market movement, pipeline continuity, R2 snapshot lineage, code/config changes, feature/warm-up effects, Stage/EMA/RS transitions, and other state-machine defects without presuming the jump is anomalous.
+
+Legacy-universe contamination is treated as closed/disproven under the established membership result: current R2 READY 1,227; lifecycle 161; 161/161 present in current R2 READY; legacy-only 0.
+
 ## Next audit milestone
 
-Continue without production modification: quantify R2 history/warm-up coverage, trace benchmark freshness/alignment, inspect downstream use of `hard_filter_status` vs `investability_status`, then finish Stage/RS/liquidity/price and Tradability evidence matrices before proposing corrections.
+Follow `docs/FULL_SIGNAL_ENGINE_AUDIT_PROGRESS.md` in order. Immediate work is the Sep-4–Sep-10 session/run continuity ledger together with R2 history/readiness coverage, followed by symbol-level reconstruction of the 61 first-time Sep-10 lifecycle entries. Production remains untouched.
