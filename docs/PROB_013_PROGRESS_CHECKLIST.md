@@ -1,6 +1,6 @@
 # PROB-013 — Progress Checklist
 
-Current marker: **RC-004 SUPPORTED → EXIT-CAND-003 DEVELOPMENT PASS → UNTOUCHED VALIDATION PASS → PRODUCTION SHADOW IMPLEMENTED + PERSISTENCE DEPLOYED → OPERATIONAL EVIDENCE NEXT → NO PRODUCTION CHANGE**
+Current marker: **RC-004 SUPPORTED → EXIT-CAND-003 DEVELOPMENT PASS → UNTOUCHED VALIDATION PASS → PRODUCTION SHADOW IMPLEMENTED + PERSISTENCE DEPLOYED → STOP-EXEC-001 DEFECT CONFIRMED → OPERATIONAL SHADOW EVIDENCE NEXT → NO PRODUCTION CHANGE**
 
 - [x] DIAG-003 exit/risk conversion root cause supported
 - [x] EXIT-ISO-001 component attribution evidence-locked
@@ -33,8 +33,15 @@ Current marker: **RC-004 SUPPORTED → EXIT-CAND-003 DEVELOPMENT PASS → UNTOUC
   - explicit Data API grants added for current Supabase defaults
   - `service_role` SELECT/INSERT/UPDATE verified
   - `anon` SELECT verified
+- [x] Complete separate `STOP-EXEC-001` CURRENT gap-through audit
+  - authoritative run `34967551005` SUCCESS
+  - exact paired comparable events `1,524`
+  - CURRENT stop events `839`
+  - gap-through events `93` (`11.0846%` of CURRENT stop events)
+  - median gap slippage vs stop `-1.1347%`; worst `-17.0903%`
+  - CURRENT exact-stop execution-feasibility defect confirmed and evidence-locked
+  - no production mutation from the audit
 - [ ] Collect shadow operational evidence
-- [ ] Complete separate `STOP-EXEC-001` CURRENT gap-through audit before any production promotion decision
 - [ ] Explicit production promotion/rejection governance decision
 
 Frozen constraints remain: no post-validation tuning of EXIT-CAND-003; no immediate production exit change; near-trigger forward validation remains a separate workstream.
@@ -47,3 +54,12 @@ Frozen constraints remain: no post-validation tuning of EXIT-CAND-003; no immedi
 - legacy/main pipeline wiring: `9d17355a75593a76f8167207908568e885c9a775`
 - R2 production pipeline wiring: `668026c092354a855aa663b3465c5683c6a0771f`
 - explicit Supabase Data API grants: `675e4545f4f2a4890dcdda84cc4714e0855cc74d`
+
+## STOP-EXEC-001 evidence
+
+- frozen protocol: `docs/STOP_EXEC_001_AUDIT_PROTOCOL.md`
+- runner: `run_stop_exec001.py`
+- tests: `tests/test_stop_exec001.py`
+- workflow: `.github/workflows/stop-exec001.yml`
+- evidence lock: `docs/EVIDENCE_STOP_EXEC_001.md`
+- evidence commit: `8feb52dd457662dd912a403e0fcaa92f43f56df6`
