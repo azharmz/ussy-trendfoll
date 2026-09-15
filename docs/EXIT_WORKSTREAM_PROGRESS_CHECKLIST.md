@@ -2,7 +2,7 @@
 
 **Purpose:** authoritative execution checklist for the exit/risk workstream so future sessions stay on the frozen governance path instead of reopening completed research or mixing unrelated workstreams.
 
-**Branch:** `research/exit-development-hypotheses`
+**Branch:** `main`
 
 **Last updated:** 2026-09-16
 
@@ -47,13 +47,9 @@ Rules:
 
 ## B1. Invalid candidates
 
-- [x] **CAND-001** evaluated.
-- [x] CAND-001 invalidated because the representation allowed impossible Chandelier fills above attainable price.
-- [x] Evidence locked: `docs/EVIDENCE_EXIT_CAND_001_INVALID.md`.
-- [x] **CAND-002** evaluated.
-- [x] CAND-002 invalidated because gap-through stop execution was not represented correctly.
-- [x] Evidence locked: `docs/EVIDENCE_EXIT_CAND_002_INVALID.md`.
-- [x] CAND-001/CAND-002 marked **[FROZEN]**; do not resurrect or tune them.
+- [x] **CAND-001** evaluated and invalidated; evidence locked.
+- [x] **CAND-002** evaluated and invalidated; evidence locked.
+- [x] CAND-001/CAND-002 **[FROZEN]**.
 
 ## B2. CAND-003 frozen representation
 
@@ -61,21 +57,10 @@ Rules:
 - [x] Entry reference = T+1 Open.
 - [x] Initial stop = entry − 2×ATR14(T0).
 - [x] Chandelier = HH22 − 3×Wilder ATR22.
-- [x] EMA20 trend exit retained.
-- [x] Observation boundary = 45 sessions.
-- [x] Chandelier ratchets upward only.
-- [x] Session-t Chandelier is computed only after surviving session t and arms t+1.
-- [x] Gap-through ordering frozen: Open <= operative stop → fill Open (`risk_stop_gap`).
-- [x] Otherwise Low <= operative stop → fill exact operative stop (`risk_stop_touch`).
-- [x] No ATR/EMA/holding grids, targets, momentum cutoffs, or post-outcome optimization.
-
-## B3. Development run
-
-- [x] Development workflow completed successfully.
-- [x] Frozen gates passed.
-- [x] Development median improved versus CURRENT but remained negative.
-- [x] Evidence locked: `docs/EVIDENCE_EXIT_CAND_003_DEVELOPMENT.md`.
-- [x] Terminal development status: **SUPPORTED FOR UNTOUCHED VALIDATION / NOT PRODUCTION**.
+- [x] EMA20 retained; boundary 45 sessions; Chandelier ratchets upward only.
+- [x] Session-t Chandelier arms only t+1.
+- [x] Gap-before-touch execution frozen.
+- [x] No post-outcome optimization.
 
 **Gate:** COMPLETE / **[FROZEN]**.
 
@@ -83,12 +68,9 @@ Rules:
 
 # C. Untouched validation — 100%
 
-- [x] Independent validation slice used (rank 101–200 versus development rank 1–100).
-- [x] Development/validation overlap = 0.
-- [x] Frozen CAND-003 semantics preserved.
-- [x] All validation criteria passed.
-- [x] Candidate median improved versus CURRENT in untouched validation.
-- [x] Candidate median remained negative; validation does not authorize production replacement.
+- [x] Independent validation slice with zero development overlap.
+- [x] Frozen semantics preserved and validation gates passed.
+- [x] Candidate improved versus CURRENT but median remained negative.
 - [x] Evidence locked: `docs/EVIDENCE_EXIT_CAND_003_VALIDATION.md`.
 - [x] Terminal status: **DEVELOPMENT + UNTOUCHED VALIDATION SUPPORTED / NOT YET PRODUCTION**.
 
@@ -98,121 +80,87 @@ Rules:
 
 # D. Production-shadow design and implementation — 100%
 
-## D1. Frozen shadow plan
+- [x] Frozen shadow plan and `exit-cand-003-shadow-v1` contract.
+- [x] Shadow is non-decisioning and state is separate from production positions.
+- [x] Append-only `exit_candidate003_shadow_sessions` ledger deployed with unique `(position_id, session_date, contract_version)` invariant.
+- [x] Replay/idempotency, gap-before-touch and no-same-day-lookahead tests implemented.
+- [x] RLS/least-privilege/security verification completed.
+- [x] Governed research branch promoted to `main`; daily production path can execute the shadow.
+- [x] Initial operational smoke run exposed a late-bootstrap defect: historical positions were registered long after T+1 and evaluated as if sequential.
+- [x] Defect patched so a new shadow may bootstrap only on its genuine first observable T+1 session; late bootstrap is rejected.
+- [x] Regression CI passed after the bootstrap fix.
+- [x] Post-fix production-pipeline acceptance run `35035406879` completed successfully.
+- [x] 27 pre-fix ledger rows were retained as audit evidence and classified as invalid/quarantined bootstrap evidence; they are not admissible Section E evidence.
+- [x] Post-fix acceptance created no additional contaminated operational evidence and duplicate invariant keys remained zero.
 
-- [x] Shadow plan frozen: `docs/EXIT_CAND_003_PRODUCTION_SHADOW_PLAN.md`.
-- [x] Shadow contract version = `exit-cand-003-shadow-v1`.
-- [x] Production architecture remains authoritative.
-- [x] Shadow is non-decisioning.
-- [x] Required operational invariants defined.
-- [x] Monitoring outputs defined as observational, not optimization targets.
-
-## D2. Shadow state engine
-
-- [x] `exit_candidate003_shadow.py` implemented.
-- [x] Shadow state persistence deployed separately from production position state.
-- [x] R2 production pipeline invokes shadow after authoritative production exit/registration path.
-- [x] Frozen initial stop, Chandelier, EMA20, 45-session boundary, gap/touch ordering implemented.
-- [x] No production exit-policy change introduced.
-
-## D3. Append-only per-session evidence ledger
-
-- [x] Missing session-ledger requirement identified.
-- [x] Implementation specification added: `docs/CAND003_SHADOW_SESSION_LEDGER_IMPLEMENTATION.md`.
-- [x] Supabase table `exit_candidate003_shadow_sessions` deployed.
-- [x] Unique invariant `(position_id, session_date, contract_version)` enforced.
-- [x] Session OHLC persisted.
-- [x] Operative stop before session persisted.
-- [x] HH22 / Wilder ATR22 / session Chandelier persisted.
-- [x] Next-session ratcheted stop persisted.
-- [x] Hypothetical exit reason/price persisted.
-- [x] Production comparison fields persisted observationally.
-- [x] Identical replay is idempotent.
-- [x] Divergent duplicate evidence fails closed.
-- [x] Gap-before-touch ordering covered.
-- [x] No same-day Chandelier look-ahead covered.
-- [x] Tests converted/implemented so repository `unittest discover` actually discovers CAND-003 tests.
-- [x] Dedicated CI completed successfully; 9/9 ledger tests passed on tested code/schema head.
-- [x] RLS enabled and least-privilege grants verified.
-- [x] Supabase security advisor returned zero findings after deployment.
-- [x] Unindexed foreign-key advisor finding resolved.
-- [x] PR #11 merged into `research/exit-development-hypotheses`.
-- [x] Merge commit: `42012d17a9e382ea5d3341a4dab1e21f5aca3907`.
-- [x] No synthetic live evidence inserted.
-
-**Gate:** IMPLEMENTATION COMPLETE.
+**Gate:** IMPLEMENTATION + BOOTSTRAP ACCEPTANCE COMPLETE.
 
 ---
 
-# E. Operational shadow evidence — ACTIVE / approximately 0% of observation phase
+# E. Operational shadow evidence — ACTIVE / clean evidence 0
 
-This is now the **PRIMARY EXIT WORKSTREAM**. Do not start a new exit candidate while this phase is pending.
+This is the **PRIMARY EXIT WORKSTREAM**. Do not start a new exit candidate while this phase is pending.
+
+## E0. Operational evidence boundary
+
+- [x] First smoke execution performed through the real daily production pipeline.
+- [x] Smoke execution discovered a real bootstrap defect before E1 was accepted.
+- [x] Bootstrap defect corrected without changing frozen CAND-003 scientific parameters.
+- [x] Post-fix production acceptance passed.
+- [x] Pre-fix 27 ledger rows explicitly excluded from admissible operational evidence.
+- [x] Clean operational evidence count after acceptance = **0**.
+- [x] No synthetic/backfilled row may be used to satisfy E1.
+- [x] Next admissible evidence must originate from a newly registered production position observed on its genuine T+1 market session.
 
 ## E1. First-real-session gate
 
-- [ ] Confirm the first real `exit_candidate003_shadow_sessions` row is produced by an actual production-shadow session.
+- [ ] Confirm first admissible post-fix `exit_candidate003_shadow_sessions` row is produced by an actual production-shadow T+1 session.
 - [ ] Confirm row corresponds to a real production position and real R2 market session.
 - [ ] Confirm `(position_id, session_date, contract_version)` uniqueness in live operation.
-- [ ] Confirm no synthetic/test row exists in the operational ledger.
-- [ ] Recompute one first-session row independently from its inputs and compare all persisted values.
+- [ ] Confirm row is not one of the 27 quarantined bootstrap rows and is not synthetic/test evidence.
+- [ ] Recompute the first admissible row independently from its inputs and compare all persisted values.
 - [ ] Verify operative stop used on session t existed before session t.
-- [ ] Verify session-t Chandelier only affects `next_operative_stop`, never session-t stop execution.
+- [ ] Verify session-t Chandelier affects only `next_operative_stop`.
 - [ ] Verify gap-before-touch execution against actual OHLC.
 - [ ] Verify production comparison fields did not alter production state.
-- [ ] Record evidence document for the first operational session.
+- [ ] Record evidence document for the first admissible operational session.
 
 ## E2. Coverage and data-quality monitoring
 
-- [ ] Track number of eligible production positions versus positions represented in shadow state.
-- [ ] Track number of expected position-sessions versus persisted ledger rows.
-- [ ] Calculate shadow coverage rate.
-- [ ] Calculate missing-data rate and enumerate missing-data reasons.
-- [ ] Confirm no duplicate invariant keys.
-- [ ] Confirm no divergent replay events.
-- [ ] Confirm no stop-decrease invariant failures.
-- [ ] Confirm no same-day Chandelier look-ahead failures.
-- [ ] Confirm no touch fill outside observed low/high.
-- [ ] Confirm no shadow computation mutates production position/exit state.
+- [ ] Track eligible production positions versus positions represented in clean shadow state.
+- [ ] Track expected position-sessions versus admissible persisted ledger rows.
+- [ ] Calculate clean shadow coverage and missing-data rate/reasons.
+- [ ] Confirm no duplicate invariant keys or divergent replay events.
+- [ ] Confirm no stop-decrease or same-day-lookahead invariant failures.
+- [ ] Confirm no touch fill outside observed OHLC.
+- [ ] Confirm shadow computation never mutates production position/exit state.
 
 ## E3. Frozen observational metrics
 
-Accumulate only the metrics specified by the frozen shadow plan; do not add optimization grids.
-
-- [ ] Shadow exit-reason mix: `risk_stop_gap` / `risk_stop_touch` / `trend_exit` / `observation_boundary`.
-- [ ] Gap-through frequency.
-- [ ] Gap slippage versus operative stop.
+- [ ] Exit-reason mix.
+- [ ] Gap-through frequency and slippage.
 - [ ] Timing difference versus production exit.
-- [ ] Realized-return difference versus production exit when both exits are observable.
-- [ ] MAE/MFE to shadow exit where data are available.
-- [ ] Invariant-failure counts.
-- [ ] Duplicate/replay-conflict counts.
+- [ ] Realized-return difference when both exits are observable.
+- [ ] MAE/MFE to shadow exit where available.
+- [ ] Invariant-failure and duplicate/replay-conflict counts.
 
 ## E4. Operational evidence sufficiency gate
 
-**No arbitrary observation count is invented here.** Before declaring shadow observation complete, create an explicit governance note defining evidence sufficiency from operational coverage/data quality, not from which outcome looks better.
-
 - [ ] Define and evidence-lock operational sufficiency criteria without inspecting/tuning candidate parameters.
-- [ ] Reach the locked sufficiency criteria.
-- [ ] Produce an operational shadow evidence report.
-- [ ] Freeze the operational dataset/evidence snapshot used for governance review.
+- [ ] Reach locked sufficiency criteria.
+- [ ] Produce operational shadow evidence report.
+- [ ] Freeze operational dataset/evidence snapshot used for governance review.
 
-**Gate:** PENDING REAL DATA.
+**Gate:** PENDING FIRST NEW PRODUCTION POSITION + GENUINE T+1 SESSION.
 
 ---
 
 # F. STOP-EXEC-001 — diagnostic complete; production correction NOT authorized
 
-- [x] Audit protocol frozen: `docs/STOP_EXEC_001_AUDIT_PROTOCOL.md`.
-- [x] Diagnostic runner/workflow completed.
-- [x] Exact-stop execution feasibility defect confirmed for CURRENT production-like comparator.
-- [x] Gap-through events quantified.
-- [x] Gap slippage quantified.
+- [x] Diagnostic completed and exact-stop execution feasibility defect confirmed.
 - [x] Evidence locked: `docs/EVIDENCE_STOP_EXEC_001.md`.
-- [x] Terminal diagnostic status: **CURRENT EXACT-STOP EXECUTION FEASIBILITY DEFECT OBSERVED**.
-- [!] Production CURRENT gap-through correction has **not** been governed or implemented.
-- [ ] Create a separate production-correction contract if/when this debt is prioritized.
-- [ ] Define migration/rollback and tests for CURRENT execution semantics.
-- [ ] Validate correction independently before production deployment.
+- [!] Production CURRENT gap-through correction has not been governed or implemented.
+- [ ] Separate correction contract, validation, migration and rollback remain future work if prioritized.
 
 **Important:** STOP-EXEC-001 must not be silently folded into CAND-003 promotion.
 
@@ -220,45 +168,23 @@ Accumulate only the metrics specified by the frozen shadow plan; do not add opti
 
 # G. Engineering debts relevant to exit workstream
 
-- [x] CAND-003 test-discovery mismatch fixed for the session-ledger CI path.
-- [!] Verify repository-wide tests do not still contain undiscovered bare pytest-style functions under a unittest-only workflow.
-- [!] CAND-003 development summary helper previously reported `stop_touch_timing.stop_events=0` because it expected legacy reason `risk_stop`; this is reporting-only debt and must not be interpreted as zero stop events.
-- [!] Duplicate production position key remains a separate engineering debt.
-- [!] Alert-event idempotency/same-day transition resend remains separate from exit candidate science.
-- [!] Duplicate mapped `(symbol,date)` guard remains separate engineering debt.
-
-These debts may be fixed under engineering governance but must not alter the frozen CAND-003 scientific representation.
+- [x] CAND-003 test-discovery mismatch fixed for session-ledger CI.
+- [x] CAND-003 late-bootstrap operational defect fixed and regression-tested.
+- [!] Verify repository-wide tests for undiscovered bare pytest-style functions under unittest-only workflows.
+- [!] Development summary `stop_touch_timing` legacy-reason reporting quirk remains reporting-only debt.
+- [!] Duplicate production position key remains separate engineering debt.
+- [!] Alert-event idempotency/same-day transition resend remains separate.
+- [!] Duplicate mapped `(symbol,date)` guard remains separate.
 
 ---
 
 # H. Final governance review — NOT STARTED
 
-This phase begins only after Section E has sufficient locked operational evidence.
-
-- [ ] Review development evidence.
-- [ ] Review untouched-validation evidence.
-- [ ] Review operational shadow execution feasibility and data quality.
-- [ ] Review invariant/operational failure rate.
-- [ ] Explicitly account for the still-negative median CAND-003 return in both development and validation.
-- [ ] Review STOP-EXEC-001 independently so CURRENT comparator semantics are understood.
-- [ ] Decide one terminal path without tuning v1:
-  - keep CURRENT and continue shadow observation;
-  - reject/archive CAND-003 v1;
-  - authorize a separately governed production implementation of CAND-003 v1;
-  - define a genuinely new candidate/version under a new development cycle.
-- [ ] If production change is authorized, create explicit implementation contract.
-- [ ] Create migration plan.
-- [ ] Create rollback plan.
-- [ ] Add production tests and monitoring.
-- [ ] Deploy only after explicit governance approval.
-
-**Current authorization:** `NO PRODUCTION EXIT CHANGE`.
+Blocked until Section E has sufficient locked operational evidence. Current authorization remains **NO PRODUCTION EXIT CHANGE**.
 
 ---
 
 # I. Workstreams explicitly OUT OF SCOPE here
-
-Do not let these interrupt the exit checklist unless an evidence dependency is demonstrated:
 
 - Investability/Tradability engine semantic audit.
 - Sep-10 lifecycle +61 investigation.
@@ -268,33 +194,26 @@ Do not let these interrupt the exit checklist unless an evidence dependency is d
 - Market-regime research.
 - Universe membership changes.
 
-Those belong to their own governance/workstreams.
-
 ---
 
 # J. Current marker / next action
 
 **Current marker:**
 
-`RC-004 SUPPORTED → EXIT-CAND-003 DEVELOPMENT PASS → UNTOUCHED VALIDATION PASS → PRODUCTION SHADOW IMPLEMENTED → APPEND-ONLY SESSION LEDGER DEPLOYED + CI PASS → OPERATIONAL SHADOW EVIDENCE ACTIVE → NO PRODUCTION CHANGE`
+`RC-004 SUPPORTED → CAND-003 DEVELOPMENT PASS → UNTOUCHED VALIDATION PASS → SHADOW + APPEND-ONLY LEDGER DEPLOYED → BOOTSTRAP DEFECT FOUND/FIXED → REGRESSION + PRODUCTION ACCEPTANCE PASS → 27 PRE-FIX ROWS QUARANTINED → CLEAN OPERATIONAL EVIDENCE = 0 → OBSERVATION ACTIVE → NO PRODUCTION EXIT CHANGE`
 
-**NEXT ACTION — do this before any new exit research:**
+**NEXT ACTION:**
 
-1. Wait for the first genuine production-shadow eligible session.
-2. Query `exit_candidate003_shadow_sessions`.
-3. If no row exists, diagnose whether there were zero eligible production positions versus an operational ingestion failure; do not manufacture evidence.
-4. When the first real row exists, execute Section E1 completely and evidence-lock the result.
-5. Continue Sections E2–E4 until the predeclared operational sufficiency gate is met.
+1. Let the normal daily pipeline continue; do not manufacture or backfill E1 evidence.
+2. On each new run, check whether a newly opened production position has reached genuine T+1 and created the first admissible post-fix ledger row.
+3. As soon as one exists, execute E1 completely in the same work cycle: live uniqueness → source-position/session confirmation → independent recomputation → stop/lookahead/gap ordering → production non-mutation → evidence lock.
+4. Then continue E2–E4 under the frozen observational contract.
 
 ## Approximate progress indicator
-
-For navigation only, not scientific evidence:
 
 - Problem/root-cause diagnosis: **100%**
 - Candidate development: **100%**
 - Untouched validation: **100%**
-- Shadow design/implementation/persistence: **100%**
-- Operational shadow observation: **0% / awaiting real evidence**
+- Shadow implementation + bootstrap acceptance: **100%**
+- Operational shadow observation: **0% clean evidence / active**
 - Final production governance: **0% / blocked on operational evidence**
-
-The previously quoted ~85% refers to completion through implementation relative to the immediate CAND-003 workstream. Do not mechanically recompute project completion by averaging the percentages above.
