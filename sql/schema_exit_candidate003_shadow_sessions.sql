@@ -37,6 +37,8 @@ create table if not exists public.exit_candidate003_shadow_sessions (
     check (hypothetical_exit_reason is null or hypothetical_exit_price is not null)
 );
 
+create index if not exists idx_exit_cand003_shadow_sessions_shadow_id
+    on public.exit_candidate003_shadow_sessions(shadow_id);
 create index if not exists idx_exit_cand003_shadow_sessions_symbol_date
     on public.exit_candidate003_shadow_sessions(symbol, session_date);
 create index if not exists idx_exit_cand003_shadow_sessions_contract_date
