@@ -76,10 +76,14 @@ def main():
    for name,v in per.items(): v["variant"]=name; rows.append(v)
  out=pd.DataFrame(rows); current=out[out.variant=="CURRENT"][["symbol","t0_date","realized_return"]].rename(columns={"realized_return":"current_return"})
  out=out.merge(current,on=["symbol","t0_date"],how="left"); out["delta_vs_current"]=out.realized_return-out.current_return
+ current_median=med(out.loc[out.variant=="CURRENT","realized_return"])
  summaries={}
  for name in VARIANTS:
   d=out[out.variant==name].copy(); s=summary(d); delta=d.delta_vs_current
-  s["delta_vs_current_median"]=med(delta); s["improved_fraction"]=float((delta>1e-12).mean()); s["worsened_fraction"]=float((delta<-1e-12).mean()); s["unchanged_fraction"]=float((delta.abs()<=1e-12).mean()); summaries[name]=s
+  # Keep two different estimands explicit: difference of group medians versus median of paired event deltas.
+  s["median_return_difference_vs_current"]=None if current_median is None or s["median_return"] is None else float(s["median_return"]-current_median)
+  s["paired_event_delta_median_vs_current"]=med(delta)
+  s["improved_fraction"]=float((delta>1e-12).mean()); s["worsened_fraction"]=float((delta<-1e-12).mean()); s["unchanged_fraction"]=float((delta.abs()<=1e-12).mean()); summaries[name]=s
  payload={"diagnostic":"EXIT-ISO-001","status":"COMPONENT_ATTRIBUTION_ONLY_NO_PRODUCTION_CHANGE","snapshot":manifest.get("snapshot_date"),
   "sample_size":len(ids),"eligible_onsets":int(len(events)),"exact_45bar_comparable_events":int(out[out.variant=="CURRENT"].shape[0]),
   "variants":summaries,"governance":{"atr_multiplier":2.0,"ema_period":20,"max_hold":45,"optimization":"none","production_change":"none"}}
