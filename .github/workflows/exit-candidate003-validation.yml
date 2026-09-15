@@ -1,3 +1,4 @@
+# Frozen protocol: docs/EXIT_CAND_003_VALIDATION_PROTOCOL.md
 name: EXIT-CAND-003 Untouched Validation
 on:
   workflow_dispatch:
