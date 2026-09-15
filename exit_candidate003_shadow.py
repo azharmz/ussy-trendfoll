@@ -82,7 +82,6 @@ def _evaluate_session(s: dict, row: pd.Series, today, all_trading_dates) -> tupl
     reason = None
     exit_price = None
 
-    # Frozen execution ordering: gap must be evaluated before intraday touch.
     if op <= operative:
         reason, exit_price = "risk_stop_gap", op
     elif lo <= operative:
@@ -98,7 +97,6 @@ def _evaluate_session(s: dict, row: pd.Series, today, all_trading_dates) -> tupl
     next_stop = None
     if reason is None:
         next_stop = operative
-        # Session-t Chandelier may only arm t+1 after session t survives.
         if chand is not None and chand < close and chand > operative:
             next_stop = chand
         if next_stop < operative - TOL:
@@ -106,88 +104,66 @@ def _evaluate_session(s: dict, row: pd.Series, today, all_trading_dates) -> tupl
 
     update = {"last_session_date": pd.Timestamp(today).date().isoformat(), "days_observed": days}
     if reason:
-        update.update({
-            "status": "exited",
-            "hypothetical_exit_reason": reason,
-            "hypothetical_exit_date": pd.Timestamp(today).date().isoformat(),
-            "hypothetical_exit_price": exit_price,
-        })
+        update.update({"status": "exited", "hypothetical_exit_reason": reason,
+                       "hypothetical_exit_date": pd.Timestamp(today).date().isoformat(),
+                       "hypothetical_exit_price": exit_price})
     else:
         update["operative_stop"] = next_stop
 
     stop_source = "initial_2atr" if abs(operative - initial) <= TOL else "chandelier_ratchet"
     evidence = {
-        "position_id": int(s["position_id"]),
-        "shadow_id": int(s["id"]),
-        "symbol": s["symbol"],
-        "session_date": pd.Timestamp(today).date().isoformat(),
-        "contract_version": SHADOW_CONTRACT_VERSION,
-        "shadow_entry_date": str(s["shadow_entry_date"]),
-        "shadow_entry_price": float(s["shadow_entry_price"]),
-        "days_observed": days,
-        "open_raw": op,
-        "high_raw": hi,
-        "low_raw": lo,
-        "close_raw": close,
-        "ema20": _optional_float(row.get("ema20")),
-        "operative_stop_before": operative,
-        "stop_source_before": stop_source,
-        "shadow_hh22": _optional_float(row.get("shadow_hh22")),
+        "position_id": int(s["position_id"]), "shadow_id": int(s["id"]), "symbol": s["symbol"],
+        "session_date": pd.Timestamp(today).date().isoformat(), "contract_version": SHADOW_CONTRACT_VERSION,
+        "shadow_entry_date": str(s["shadow_entry_date"]), "shadow_entry_price": float(s["shadow_entry_price"]),
+        "days_observed": days, "open_raw": op, "high_raw": hi, "low_raw": lo, "close_raw": close,
+        "ema20": _optional_float(row.get("ema20")), "operative_stop_before": operative,
+        "stop_source_before": stop_source, "shadow_hh22": _optional_float(row.get("shadow_hh22")),
         "shadow_wilder_atr22": _optional_float(row.get("shadow_wilder_atr22")),
-        "shadow_chandelier": chand,
-        "next_operative_stop": next_stop,
-        "hypothetical_exit_reason": reason,
-        "hypothetical_exit_price": exit_price,
-        "gap_checked_first": True,
-        "chandelier_arms_next_session": True,
+        "shadow_chandelier": chand, "next_operative_stop": next_stop,
+        "hypothetical_exit_reason": reason, "hypothetical_exit_price": exit_price,
+        "gap_checked_first": True, "chandelier_arms_next_session": True,
     }
     return update, evidence
 
 
 def _evidence_equivalent(existing: dict, payload: dict) -> bool:
-    """Compare immutable evidence while tolerating PostgREST numeric strings."""
     for key, expected in payload.items():
         actual = existing.get(key)
         if expected is None:
-            if actual is not None:
-                return False
+            if actual is not None: return False
             continue
         if isinstance(expected, bool):
-            if bool(actual) != expected:
-                return False
+            if bool(actual) != expected: return False
             continue
         if isinstance(expected, (int, float)) and not isinstance(expected, bool):
             try:
-                if not math.isclose(float(actual), float(expected), rel_tol=0.0, abs_tol=TOL):
-                    return False
-            except (TypeError, ValueError):
-                return False
+                if not math.isclose(float(actual), float(expected), rel_tol=0.0, abs_tol=TOL): return False
+            except (TypeError, ValueError): return False
             continue
-        if str(actual) != str(expected):
-            return False
+        if str(actual) != str(expected): return False
     return True
 
 
 def _persist_session_evidence(client, payload: dict):
-    """Append once; identical replay is idempotent, divergent replay is fatal."""
     existing = (client.table(SESSION_LEDGER_TABLE).select("*")
-                .eq("position_id", payload["position_id"])
-                .eq("session_date", payload["session_date"])
-                .eq("contract_version", payload["contract_version"])
-                .execute().data or [])
+                .eq("position_id", payload["position_id"]).eq("session_date", payload["session_date"])
+                .eq("contract_version", payload["contract_version"]).execute().data or [])
     if existing:
         if len(existing) != 1 or not _evidence_equivalent(existing[0], payload):
-            raise RuntimeError(
-                "divergent CAND-003 session evidence for invariant key "
-                f"({payload['position_id']}, {payload['session_date']}, {payload['contract_version']})"
-            )
+            raise RuntimeError("divergent CAND-003 session evidence for invariant key "
+                               f"({payload['position_id']}, {payload['session_date']}, {payload['contract_version']})")
         return "replay_identical"
     client.table(SESSION_LEDGER_TABLE).insert(payload).execute()
     return "inserted"
 
 
 def register_missing_shadows(client, feature_history: pd.DataFrame, as_of_date):
-    """Register shadows only after the real T+1 Open is observable."""
+    """Register only on the genuine first observable T+1 session.
+
+    Late bootstrap is intentionally forbidden: starting a shadow after one or more
+    post-signal sessions have already elapsed would skip frozen stop/ratchet/exit
+    decisions and manufacture non-sequential operational evidence.
+    """
     positions = (client.table("positions")
                  .select("id,symbol,entry_date,realistic_entry_price,atr14_at_entry,status,exit_date,exit_price")
                  .execute().data or [])
@@ -196,7 +172,9 @@ def register_missing_shadows(client, feature_history: pd.DataFrame, as_of_date):
     existing_ids = {int(r["position_id"]) for r in existing}
     history = feature_history.copy()
     history["date"] = pd.to_datetime(history["date"]).dt.normalize()
+    today = pd.Timestamp(as_of_date).normalize()
     rows = []
+    skipped_late = 0
     for p in positions:
         if int(p["id"]) in existing_ids:
             continue
@@ -208,63 +186,51 @@ def register_missing_shadows(client, feature_history: pd.DataFrame, as_of_date):
         after = history[(history.symbol == symbol) & (history.date > t0)].sort_values("date")
         if after.empty:
             continue
-        entry_date = pd.Timestamp(after.iloc[0].date).date().isoformat()
+        first_observable = pd.Timestamp(after.iloc[0].date).normalize()
+        if first_observable != today:
+            skipped_late += 1
+            continue
         initial_stop = float(entry) - INITIAL_ATR_MULT * float(atr14)
-        rows.append({
-            "position_id": int(p["id"]), "symbol": symbol,
-            "contract_version": SHADOW_CONTRACT_VERSION,
-            "signal_date": t0.date().isoformat(), "shadow_entry_date": entry_date,
-            "shadow_entry_price": float(entry), "atr14_t0": float(atr14),
-            "initial_stop": initial_stop, "operative_stop": initial_stop, "status": "active",
-        })
+        rows.append({"position_id": int(p["id"]), "symbol": symbol,
+                     "contract_version": SHADOW_CONTRACT_VERSION,
+                     "signal_date": t0.date().isoformat(), "shadow_entry_date": today.date().isoformat(),
+                     "shadow_entry_price": float(entry), "atr14_t0": float(atr14),
+                     "initial_stop": initial_stop, "operative_stop": initial_stop, "status": "active"})
     if rows:
         client.table("exit_candidate003_shadow").insert(rows).execute()
-        print(f"[shadow003] registered {len(rows)} shadow position(s).")
+        print(f"[shadow003] registered {len(rows)} genuine T+1 shadow position(s).")
+    if skipped_late:
+        print(f"[shadow003] skipped {skipped_late} late-bootstrap position(s); no retrospective shadow state created.")
     return rows
 
 
 def update_shadows(client, feature_history: pd.DataFrame, as_of_date, all_trading_dates):
-    """Advance shadow state and append immutable evidence. Never writes positions."""
     active = _active_shadow_rows(client)
-    if not active:
-        return []
+    if not active: return []
     history = add_frozen_shadow_features(feature_history)
     history["date"] = pd.to_datetime(history["date"]).dt.normalize()
     today = pd.Timestamp(as_of_date).normalize()
     latest = history[history.date == today].drop_duplicates("symbol").set_index("symbol")
     production = _production_position_map(client)
-    hypothetical_exits = []
-    advanced = 0
-
+    hypothetical_exits, advanced = [], 0
     for s in active:
         symbol = s["symbol"]
-        if symbol not in latest.index:
-            continue
+        if symbol not in latest.index: continue
         update, evidence = _evaluate_session(s, latest.loc[symbol], today, all_trading_dates)
         p = production.get(int(s["position_id"]), {})
-        evidence.update({
-            "production_status": p.get("status"),
-            "production_exit_date": p.get("exit_date"),
-            "production_exit_price": _optional_float(p.get("exit_price")),
-        })
-
-        # Evidence is persisted before mutable state advances. A divergent replay
-        # therefore fails closed instead of silently rewriting history.
+        evidence.update({"production_status": p.get("status"), "production_exit_date": p.get("exit_date"),
+                         "production_exit_price": _optional_float(p.get("exit_price"))})
         _persist_session_evidence(client, evidence)
         client.table("exit_candidate003_shadow").update(update).eq("id", s["id"]).execute()
         advanced += 1
         if evidence["hypothetical_exit_reason"]:
-            hypothetical_exits.append({
-                "position_id": s["position_id"], "symbol": symbol,
-                "reason": evidence["hypothetical_exit_reason"],
-                "price": evidence["hypothetical_exit_price"],
-            })
-
+            hypothetical_exits.append({"position_id": s["position_id"], "symbol": symbol,
+                                       "reason": evidence["hypothetical_exit_reason"],
+                                       "price": evidence["hypothetical_exit_price"]})
     print(f"[shadow003] advanced {advanced} active shadow(s); hypothetical exits={len(hypothetical_exits)}.")
     return hypothetical_exits
 
 
 def run_shadow(client, feature_history: pd.DataFrame, as_of_date, all_trading_dates):
-    """Run after production exit decisions so shadow cannot affect them."""
     register_missing_shadows(client, feature_history, as_of_date)
     return update_shadows(client, feature_history, as_of_date, all_trading_dates)
