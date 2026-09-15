@@ -2,9 +2,9 @@
 -- Contract is immutable: exit-cand-003-shadow-v1.
 -- This table is observational and MUST NOT drive production position exits.
 
-create table if not exists exit_candidate003_shadow (
+create table if not exists public.exit_candidate003_shadow (
     id bigint generated always as identity primary key,
-    position_id bigint not null references positions(id),
+    position_id bigint not null references public.positions(id),
     symbol text not null,
     contract_version text not null,
     signal_date date not null,
@@ -25,15 +25,18 @@ create table if not exists exit_candidate003_shadow (
 );
 
 create index if not exists idx_exit_cand003_shadow_status
-    on exit_candidate003_shadow(contract_version, status);
+    on public.exit_candidate003_shadow(contract_version, status);
 create index if not exists idx_exit_cand003_shadow_symbol
-    on exit_candidate003_shadow(symbol);
+    on public.exit_candidate003_shadow(symbol);
 
-alter table exit_candidate003_shadow enable row level security;
-drop policy if exists "exit_candidate003_shadow read-only public" on exit_candidate003_shadow;
+alter table public.exit_candidate003_shadow enable row level security;
+drop policy if exists "exit_candidate003_shadow read-only public" on public.exit_candidate003_shadow;
 create policy "exit_candidate003_shadow read-only public"
-    on exit_candidate003_shadow for select
+    on public.exit_candidate003_shadow for select
     to anon, authenticated
     using (true);
 
--- Service role used by GitHub Actions bypasses RLS.
+-- Explicit grants are required by current Supabase Data API defaults.
+grant select on table public.exit_candidate003_shadow to anon, authenticated;
+grant select, insert, update, delete on table public.exit_candidate003_shadow to service_role;
+grant usage, select on sequence public.exit_candidate003_shadow_id_seq to service_role;
