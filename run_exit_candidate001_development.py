@@ -53,7 +53,8 @@ def evaluate(g,event,variant):
     if not np.isfinite(entry) or not np.isfinite(atr0) or atr0<=0:return None
     initial_stop=entry-2.0*atr0; operative_stop=initial_stop
     fwd=g.iloc[entry_i:entry_i+MAX_HOLD].reset_index(drop=True)
-    reason="max_holding"; exit_day=MAX_HOLD; exit_price=float(fwd.iloc[-1].close_raw)
+    reason="max_holding" if variant=="CURRENT" else "observation_boundary"
+    exit_day=MAX_HOLD; exit_price=float(fwd.iloc[-1].close_raw)
     for j,row in fwd.iterrows():
         day=j+1
         if variant=="CURRENT": stop_today=initial_stop
@@ -72,6 +73,15 @@ def evaluate(g,event,variant):
             "realized_return":exit_price/entry-1,"holding_days":exit_day,"exit_reason":reason,
             "mfe_to_exit":float(exp.high_raw.max()/entry-1),"mae_to_exit":float(exp.low_raw.min()/entry-1),"giveback":exit_price/max_close-1}
 
+def stop_timing(x, variant):
+    stop_reason="stop_loss" if variant=="CURRENT" else "risk_stop"
+    s=x[x.exit_reason==stop_reason].holding_days
+    return {"stop_events":int(len(s)),"median_stop_day":float(s.median()) if len(s) else None,
+            "fraction_all_events_stopped_by_day_1":float((s<=1).sum()/len(x)),
+            "fraction_all_events_stopped_by_day_3":float((s<=3).sum()/len(x)),
+            "fraction_all_events_stopped_by_day_5":float((s<=5).sum()/len(x)),
+            "fraction_all_events_stopped_by_day_10":float((s<=10).sum()/len(x))}
+
 def summarize(df):
     out={}
     for variant,x in df.groupby("variant"):
@@ -79,7 +89,7 @@ def summarize(df):
         out[variant]={"n":int(len(x)),"median_return":float(r.median()),"positive_rate":float((r>0).mean()),
           "q25_return":float(r.quantile(.25)),"q75_return":float(r.quantile(.75)),"median_holding":float(x.holding_days.median()),
           "median_mfe":float(x.mfe_to_exit.median()),"median_mae":float(x.mae_to_exit.median()),"median_giveback":float(x.giveback.median()),
-          "exit_reasons":{str(k):int(v) for k,v in x.exit_reason.value_counts().items()}}
+          "exit_reasons":{str(k):int(v) for k,v in x.exit_reason.value_counts().items()},"stop_touch_timing":stop_timing(x,variant)}
     current=df[df.variant=="CURRENT"].set_index(["symbol","t0_date"]).realized_return
     for variant in VARIANTS[1:]:
         x=df[df.variant==variant].set_index(["symbol","t0_date"]).realized_return; d=x-current
