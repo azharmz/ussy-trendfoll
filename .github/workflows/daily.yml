@@ -1,12 +1,15 @@
 name: USSY TrendFoll — Daily Watchlist
 
 on:
+  push:
+    branches: [main]
+    paths:
+      - ".github/workflows/daily.yml"
   schedule:
     - cron: "30 22 * * 1-5"
   workflow_dispatch: {}
 
-# Operational smoke trigger: CAND-003 shadow ledger acceptance, 2026-09-16.
-# This comment is intentionally non-functional; push runs the same daily pipeline.
+# TEMPORARY ACCEPTANCE TRIGGER — remove after the CAND-003 operational smoke run.
 
 jobs:
   run-pipeline:
