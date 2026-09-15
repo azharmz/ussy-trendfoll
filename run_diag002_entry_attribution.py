@@ -85,10 +85,14 @@ def _continuous_view(events: pd.DataFrame, col: str) -> dict:
     }
     work = events.dropna(subset=[col, "ret_t1open_t5close"]).copy()
     if len(work) >= 4 and work[col].nunique() >= 4:
-        work["bucket"] = pd.qcut(work[col], 4, labels=["Q1", "Q2", "Q3", "Q4"], duplicates="drop")
-        for bucket, g in work.groupby("bucket", observed=True):
+        # labels=False remains valid when tied quantile edges collapse under
+        # duplicates='drop'.  We label only the bins that actually exist rather
+        # than allowing tied source values to crash the frozen diagnostic.
+        codes = pd.qcut(work[col], 4, labels=False, duplicates="drop")
+        work["bucket_code"] = codes
+        for code, g in work.groupby("bucket_code", observed=True):
             row = _outcome_summary(g)
-            row.update({"bucket": str(bucket), "source_median": float(g[col].median())})
+            row.update({"bucket": f"Q{int(code) + 1}", "source_median": float(g[col].median())})
             result["quartiles"].append(row)
     return result
 
@@ -122,8 +126,6 @@ def main() -> None:
     eligible = decided.loc[decided["research_eligible"].astype(bool), ["symbol", "date"]].rename(columns={"date": "t0_date"}).drop_duplicates()
     events = all_events.merge(eligible.assign(_eligible=True), on=["symbol", "t0_date"], how="inner").drop(columns="_eligible")
 
-    # Preserve exact pre-registered event columns. Missing optional components are
-    # represented explicitly rather than silently substituted.
     for col in CONTINUOUS + CATEGORICAL + OUTCOMES:
         if col not in events:
             events[col] = np.nan
