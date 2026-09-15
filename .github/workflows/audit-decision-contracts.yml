@@ -1,0 +1,30 @@
+name: Signal Engine Decision Contract Audit
+
+on:
+  workflow_dispatch: {}
+  push:
+    branches:
+      - research/exit-development-hypotheses
+    paths:
+      - "decision_layer.py"
+      - "hard_filter.py"
+      - "tests/test_decision_contracts.py"
+      - ".github/workflows/audit-decision-contracts.yml"
+
+jobs:
+  contract-tests:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - name: Install dependencies
+        run: |
+          pip install -r requirements.txt
+          pip install pytest
+      - name: Run Investability and Tradability contract tests
+        env:
+          PYTHONPATH: ${{ github.workspace }}
+        run: pytest -q tests/test_decision_contracts.py
