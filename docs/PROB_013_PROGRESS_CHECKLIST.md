@@ -1,6 +1,6 @@
 # PROB-013 — Progress Checklist
 
-Current marker: **RC-004 SUPPORTED → EXIT-CAND-003 DEVELOPMENT PASS → UNTOUCHED VALIDATION PASS → PRODUCTION SHADOW IMPLEMENTED → OPERATIONAL EVIDENCE NEXT → NO PRODUCTION CHANGE**
+Current marker: **RC-004 SUPPORTED → EXIT-CAND-003 DEVELOPMENT PASS → UNTOUCHED VALIDATION PASS → PRODUCTION SHADOW IMPLEMENTED + PERSISTENCE DEPLOYED → OPERATIONAL EVIDENCE NEXT → NO PRODUCTION CHANGE**
 
 - [x] DIAG-003 exit/risk conversion root cause supported
 - [x] EXIT-ISO-001 component attribution evidence-locked
@@ -27,7 +27,12 @@ Current marker: **RC-004 SUPPORTED → EXIT-CAND-003 DEVELOPMENT PASS → UNTOUC
   - wired strictly after authoritative production position/exit path
   - shadow module never writes to `positions` and does not feed notifications/decisions
   - frozen-contract and Chandelier unit tests added
-- [ ] Apply `sql/schema_exit_candidate003_shadow.sql` to production Supabase before first live shadow run
+- [x] Apply shadow persistence schema to production Supabase
+  - RLS enabled
+  - read-only `anon`/`authenticated` policy retained
+  - explicit Data API grants added for current Supabase defaults
+  - `service_role` SELECT/INSERT/UPDATE verified
+  - `anon` SELECT verified
 - [ ] Collect shadow operational evidence
 - [ ] Complete separate `STOP-EXEC-001` CURRENT gap-through audit before any production promotion decision
 - [ ] Explicit production promotion/rejection governance decision
@@ -37,7 +42,8 @@ Frozen constraints remain: no post-validation tuning of EXIT-CAND-003; no immedi
 ## Shadow implementation commits
 
 - engine: `d7a66cf2fab893beff2528e044b3b9d93cfe88f4`
-- persistence schema: `a769102ba0a23c9832a4a794239555ea37932e9e`
+- initial persistence schema: `a769102ba0a23c9832a4a794239555ea37932e9e`
 - unit tests: `f722e2219f437e54ac0cf03a4b090e524adb897f`
 - legacy/main pipeline wiring: `9d17355a75593a76f8167207908568e885c9a775`
 - R2 production pipeline wiring: `668026c092354a855aa663b3465c5683c6a0771f`
+- explicit Supabase Data API grants: `675e4545f4f2a4890dcdda84cc4714e0855cc74d`
