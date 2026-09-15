@@ -1,0 +1,50 @@
+name: EXIT-ISO-001 Component Isolation
+on:
+  workflow_dispatch:
+  push:
+    branches: [research/exit-development-hypotheses]
+    paths:
+      - run_exit_iso001.py
+      - docs/EXIT_DEVELOPMENT_HYPOTHESES.md
+      - .github/workflows/exit-iso001.yml
+
+jobs:
+  isolation:
+    runs-on: ubuntu-latest
+    env:
+      R2_ACCESS_KEY_ID: ${{ secrets.R2_ACCESS_KEY_ID }}
+      R2_SECRET_ACCESS_KEY: ${{ secrets.R2_SECRET_ACCESS_KEY }}
+      R2_ENDPOINT: ${{ secrets.R2_ENDPOINT }}
+      R2_BUCKET_NAME: ${{ secrets.R2_BUCKET_NAME }}
+      PYTHONUNBUFFERED: '1'
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+          cache: pip
+      - name: Install dependencies
+        run: python -m pip install --disable-pip-version-check -r requirements.txt boto3 pyarrow
+      - name: Run repository tests
+        run: python -m unittest discover -s tests
+      - name: Run EXIT-ISO-001
+        run: python run_exit_iso001.py
+      - name: Publish summary
+        if: always()
+        run: |
+          if [ -f exit_iso001_summary.json ]; then
+            echo '## EXIT-ISO-001' >> "$GITHUB_STEP_SUMMARY"
+            echo '```json' >> "$GITHUB_STEP_SUMMARY"
+            cat exit_iso001_summary.json >> "$GITHUB_STEP_SUMMARY"
+            echo '```' >> "$GITHUB_STEP_SUMMARY"
+          fi
+      - name: Upload evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: exit-iso001-${{ github.run_number }}
+          path: |
+            exit_iso001_summary.json
+            exit_iso001_events.csv
+          if-no-files-found: warn
+          retention-days: 90
