@@ -1,11 +1,12 @@
 """Non-decisioning production shadow for frozen EXIT-CAND-003.
 
 Contract: exit-cand-003-shadow-v1.
-This module may persist hypothetical state, but MUST NOT mutate `positions`
-or influence production exit decisions.
+This module may persist hypothetical state/evidence, but MUST NOT mutate
+`positions` or influence production exit decisions.
 """
 from __future__ import annotations
 
+import math
 import numpy as np
 import pandas as pd
 
@@ -15,18 +16,16 @@ CHAND_PERIOD = 22
 CHAND_ATR_MULT = 3.0
 MAX_HOLDING_DAYS = 45
 TOL = 1e-9
+SESSION_LEDGER_TABLE = "exit_candidate003_shadow_sessions"
 
 
 def _true_range(g: pd.DataFrame) -> pd.Series:
     prev_close = g["close_raw"].shift(1)
-    return pd.concat(
-        [
-            g["high_raw"] - g["low_raw"],
-            (g["high_raw"] - prev_close).abs(),
-            (g["low_raw"] - prev_close).abs(),
-        ],
-        axis=1,
-    ).max(axis=1)
+    return pd.concat([
+        g["high_raw"] - g["low_raw"],
+        (g["high_raw"] - prev_close).abs(),
+        (g["low_raw"] - prev_close).abs(),
+    ], axis=1).max(axis=1)
 
 
 def add_frozen_shadow_features(history: pd.DataFrame) -> pd.DataFrame:
@@ -49,32 +48,151 @@ def _trading_days_between(entry_date, as_of_date, trading_dates) -> int:
     return int(((dates > pd.Timestamp(entry_date)) & (dates <= pd.Timestamp(as_of_date))).sum())
 
 
+def _optional_float(value):
+    if value is None or pd.isna(value):
+        return None
+    return float(value)
+
+
 def _active_shadow_rows(client):
-    return (
-        client.table("exit_candidate003_shadow")
-        .select("*")
-        .eq("contract_version", SHADOW_CONTRACT_VERSION)
-        .eq("status", "active")
-        .execute().data
-        or []
-    )
+    return (client.table("exit_candidate003_shadow").select("*")
+            .eq("contract_version", SHADOW_CONTRACT_VERSION)
+            .eq("status", "active").execute().data or [])
+
+
+def _production_position_map(client):
+    rows = (client.table("positions")
+            .select("id,status,exit_date,exit_price")
+            .execute().data or [])
+    return {int(r["id"]): r for r in rows}
+
+
+def _evaluate_session(s: dict, row: pd.Series, today, all_trading_dates) -> tuple[dict, dict]:
+    """Pure frozen session evaluation; returns mutable state update + evidence."""
+    operative = float(s["operative_stop"])
+    initial = float(s["initial_stop"])
+    if operative < initial - TOL:
+        raise RuntimeError(f"shadow stop decreased below initial stop: {s['symbol']}")
+
+    op, lo, hi, close = map(float, (row.open_raw, row.low_raw, row.high_raw, row.close_raw))
+    if hi < lo or not (lo - TOL <= op <= hi + TOL) or not (lo - TOL <= close <= hi + TOL):
+        raise RuntimeError(f"invalid OHLC evidence: {s['symbol']} {today}")
+
+    days = _trading_days_between(s["shadow_entry_date"], today, all_trading_dates) + 1
+    reason = None
+    exit_price = None
+
+    # Frozen execution ordering: gap must be evaluated before intraday touch.
+    if op <= operative:
+        reason, exit_price = "risk_stop_gap", op
+    elif lo <= operative:
+        reason, exit_price = "risk_stop_touch", operative
+        if exit_price < lo - TOL or exit_price > hi + TOL:
+            raise RuntimeError("touch fill outside observed daily range")
+    elif days >= MAX_HOLDING_DAYS:
+        reason, exit_price = "observation_boundary", close
+    elif pd.notna(row.get("ema20")) and close < float(row.ema20):
+        reason, exit_price = "trend_exit", close
+
+    chand = _optional_float(row.get("shadow_chandelier"))
+    next_stop = None
+    if reason is None:
+        next_stop = operative
+        # Session-t Chandelier may only arm t+1 after session t survives.
+        if chand is not None and chand < close and chand > operative:
+            next_stop = chand
+        if next_stop < operative - TOL:
+            raise RuntimeError("shadow operative stop decreased")
+
+    update = {"last_session_date": pd.Timestamp(today).date().isoformat(), "days_observed": days}
+    if reason:
+        update.update({
+            "status": "exited",
+            "hypothetical_exit_reason": reason,
+            "hypothetical_exit_date": pd.Timestamp(today).date().isoformat(),
+            "hypothetical_exit_price": exit_price,
+        })
+    else:
+        update["operative_stop"] = next_stop
+
+    stop_source = "initial_2atr" if abs(operative - initial) <= TOL else "chandelier_ratchet"
+    evidence = {
+        "position_id": int(s["position_id"]),
+        "shadow_id": int(s["id"]),
+        "symbol": s["symbol"],
+        "session_date": pd.Timestamp(today).date().isoformat(),
+        "contract_version": SHADOW_CONTRACT_VERSION,
+        "shadow_entry_date": str(s["shadow_entry_date"]),
+        "shadow_entry_price": float(s["shadow_entry_price"]),
+        "days_observed": days,
+        "open_raw": op,
+        "high_raw": hi,
+        "low_raw": lo,
+        "close_raw": close,
+        "ema20": _optional_float(row.get("ema20")),
+        "operative_stop_before": operative,
+        "stop_source_before": stop_source,
+        "shadow_hh22": _optional_float(row.get("shadow_hh22")),
+        "shadow_wilder_atr22": _optional_float(row.get("shadow_wilder_atr22")),
+        "shadow_chandelier": chand,
+        "next_operative_stop": next_stop,
+        "hypothetical_exit_reason": reason,
+        "hypothetical_exit_price": exit_price,
+        "gap_checked_first": True,
+        "chandelier_arms_next_session": True,
+    }
+    return update, evidence
+
+
+def _evidence_equivalent(existing: dict, payload: dict) -> bool:
+    """Compare immutable evidence while tolerating PostgREST numeric strings."""
+    for key, expected in payload.items():
+        actual = existing.get(key)
+        if expected is None:
+            if actual is not None:
+                return False
+            continue
+        if isinstance(expected, bool):
+            if bool(actual) != expected:
+                return False
+            continue
+        if isinstance(expected, (int, float)) and not isinstance(expected, bool):
+            try:
+                if not math.isclose(float(actual), float(expected), rel_tol=0.0, abs_tol=TOL):
+                    return False
+            except (TypeError, ValueError):
+                return False
+            continue
+        if str(actual) != str(expected):
+            return False
+    return True
+
+
+def _persist_session_evidence(client, payload: dict):
+    """Append once; identical replay is idempotent, divergent replay is fatal."""
+    existing = (client.table(SESSION_LEDGER_TABLE).select("*")
+                .eq("position_id", payload["position_id"])
+                .eq("session_date", payload["session_date"])
+                .eq("contract_version", payload["contract_version"])
+                .execute().data or [])
+    if existing:
+        if len(existing) != 1 or not _evidence_equivalent(existing[0], payload):
+            raise RuntimeError(
+                "divergent CAND-003 session evidence for invariant key "
+                f"({payload['position_id']}, {payload['session_date']}, {payload['contract_version']})"
+            )
+        return "replay_identical"
+    client.table(SESSION_LEDGER_TABLE).insert(payload).execute()
+    return "inserted"
 
 
 def register_missing_shadows(client, feature_history: pd.DataFrame, as_of_date):
     """Register shadows only after the real T+1 Open is observable."""
-    positions = (
-        client.table("positions")
-        .select("id,symbol,entry_date,realistic_entry_price,atr14_at_entry,status,exit_date,exit_price")
-        .execute().data
-        or []
-    )
-    existing = (
-        client.table("exit_candidate003_shadow")
-        .select("position_id")
-        .eq("contract_version", SHADOW_CONTRACT_VERSION)
-        .execute().data
-        or []
-    )
+    positions = (client.table("positions")
+                 .select("id,symbol,entry_date,realistic_entry_price,atr14_at_entry,status,exit_date,exit_price")
+                 .execute().data or [])
+    existing = (client.table("exit_candidate003_shadow").select("position_id")
+                .eq("contract_version", SHADOW_CONTRACT_VERSION).execute().data or [])
     existing_ids = {int(r["position_id"]) for r in existing}
     history = feature_history.copy()
     history["date"] = pd.to_datetime(history["date"]).dt.normalize()
@@ -82,8 +200,7 @@ def register_missing_shadows(client, feature_history: pd.DataFrame, as_of_date):
     for p in positions:
         if int(p["id"]) in existing_ids:
             continue
-        entry = p.get("realistic_entry_price")
-        atr14 = p.get("atr14_at_entry")
+        entry, atr14 = p.get("realistic_entry_price"), p.get("atr14_at_entry")
         if entry is None or atr14 is None or float(atr14) <= 0:
             continue
         symbol = p["symbol"]
@@ -94,16 +211,11 @@ def register_missing_shadows(client, feature_history: pd.DataFrame, as_of_date):
         entry_date = pd.Timestamp(after.iloc[0].date).date().isoformat()
         initial_stop = float(entry) - INITIAL_ATR_MULT * float(atr14)
         rows.append({
-            "position_id": int(p["id"]),
-            "symbol": symbol,
+            "position_id": int(p["id"]), "symbol": symbol,
             "contract_version": SHADOW_CONTRACT_VERSION,
-            "signal_date": t0.date().isoformat(),
-            "shadow_entry_date": entry_date,
-            "shadow_entry_price": float(entry),
-            "atr14_t0": float(atr14),
-            "initial_stop": initial_stop,
-            "operative_stop": initial_stop,
-            "status": "active",
+            "signal_date": t0.date().isoformat(), "shadow_entry_date": entry_date,
+            "shadow_entry_price": float(entry), "atr14_t0": float(atr14),
+            "initial_stop": initial_stop, "operative_stop": initial_stop, "status": "active",
         })
     if rows:
         client.table("exit_candidate003_shadow").insert(rows).execute()
@@ -112,7 +224,7 @@ def register_missing_shadows(client, feature_history: pd.DataFrame, as_of_date):
 
 
 def update_shadows(client, feature_history: pd.DataFrame, as_of_date, all_trading_dates):
-    """Advance shadow state. Never writes to production `positions`."""
+    """Advance shadow state and append immutable evidence. Never writes positions."""
     active = _active_shadow_rows(client)
     if not active:
         return []
@@ -120,58 +232,35 @@ def update_shadows(client, feature_history: pd.DataFrame, as_of_date, all_tradin
     history["date"] = pd.to_datetime(history["date"]).dt.normalize()
     today = pd.Timestamp(as_of_date).normalize()
     latest = history[history.date == today].drop_duplicates("symbol").set_index("symbol")
+    production = _production_position_map(client)
     hypothetical_exits = []
+    advanced = 0
 
     for s in active:
         symbol = s["symbol"]
         if symbol not in latest.index:
             continue
-        row = latest.loc[symbol]
-        operative = float(s["operative_stop"])
-        initial = float(s["initial_stop"])
-        if operative < initial - TOL:
-            raise RuntimeError(f"shadow stop decreased below initial stop: {symbol}")
+        update, evidence = _evaluate_session(s, latest.loc[symbol], today, all_trading_dates)
+        p = production.get(int(s["position_id"]), {})
+        evidence.update({
+            "production_status": p.get("status"),
+            "production_exit_date": p.get("exit_date"),
+            "production_exit_price": _optional_float(p.get("exit_price")),
+        })
 
-        op, lo, hi, close = map(float, (row.open_raw, row.low_raw, row.high_raw, row.close_raw))
-        days = _trading_days_between(s["shadow_entry_date"], today, all_trading_dates) + 1
-        reason = None
-        exit_price = None
-        if op <= operative:
-            reason, exit_price = "risk_stop_gap", op
-            if abs(exit_price - op) > TOL:
-                raise RuntimeError("gap fill must equal observed Open")
-        elif lo <= operative:
-            reason, exit_price = "risk_stop_touch", operative
-            if exit_price < lo - TOL or exit_price > hi + TOL:
-                raise RuntimeError("touch fill outside observed daily range")
-        elif days >= MAX_HOLDING_DAYS:
-            reason, exit_price = "observation_boundary", close
-        elif pd.notna(row.get("ema20")) and close < float(row.ema20):
-            reason, exit_price = "trend_exit", close
-
-        update = {"last_session_date": today.date().isoformat(), "days_observed": days}
-        if reason:
-            update.update({
-                "status": "exited",
-                "hypothetical_exit_reason": reason,
-                "hypothetical_exit_date": today.date().isoformat(),
-                "hypothetical_exit_price": exit_price,
-            })
-            hypothetical_exits.append({"position_id": s["position_id"], "symbol": symbol, "reason": reason, "price": exit_price})
-        else:
-            # Ratchet only AFTER surviving today's execution/trend checks; it is
-            # therefore operative no earlier than the next session.
-            chand = row.get("shadow_chandelier")
-            next_stop = operative
-            if pd.notna(chand) and float(chand) < close and float(chand) > operative:
-                next_stop = float(chand)
-            if next_stop < operative - TOL:
-                raise RuntimeError("shadow operative stop decreased")
-            update["operative_stop"] = next_stop
-
+        # Evidence is persisted before mutable state advances. A divergent replay
+        # therefore fails closed instead of silently rewriting history.
+        _persist_session_evidence(client, evidence)
         client.table("exit_candidate003_shadow").update(update).eq("id", s["id"]).execute()
+        advanced += 1
+        if evidence["hypothetical_exit_reason"]:
+            hypothetical_exits.append({
+                "position_id": s["position_id"], "symbol": symbol,
+                "reason": evidence["hypothetical_exit_reason"],
+                "price": evidence["hypothetical_exit_price"],
+            })
 
-    print(f"[shadow003] advanced {len(active)} active shadow(s); hypothetical exits={len(hypothetical_exits)}.")
+    print(f"[shadow003] advanced {advanced} active shadow(s); hypothetical exits={len(hypothetical_exits)}.")
     return hypothetical_exits
 
 
