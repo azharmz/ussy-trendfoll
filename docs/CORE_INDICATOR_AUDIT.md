@@ -32,9 +32,9 @@ Controlled verdicts remain: `MATCH`, `VALID USSY DEFINITION`, `APPROXIMATION`, `
 
 ## Core progress
 
-Current evidence closes the formula/semantic classification for most components, but the **exact legacy-vs-current comparison is not yet complete component-by-component**. Therefore no legacy value is inferred where the existing audit evidence does not establish it.
+Current evidence closes C01. Remaining components still require an explicit legacy-vs-current comparison before receiving a final Core verdict.
 
-- [ ] C01 Trend / EMA
+- [x] C01 Trend / EMA
 - [ ] C02 Stage Analysis
 - [ ] C03 Relative Strength vs SPY
 - [ ] C04 Liquidity
@@ -45,15 +45,15 @@ Current evidence closes the formula/semantic classification for most components,
 - [ ] C09 Market regime
 - [ ] C10 Investability / Tradability aggregation
 
-**Core completion: 0 / 10 final legacy-vs-current verdicts.**
+**Core completion: 1 / 10 final legacy-vs-current verdicts.**
 
-This does not mean prior audit work is incomplete or discarded. It means the new denominator requires an explicit legacy comparison before a component receives its final Core verdict.
+This does not mean prior audit work is incomplete or discarded. The Core denominator requires an explicit legacy comparison before each component receives its final verdict.
 
 ## Working matrix
 
 | ID | Component | Current implementation established by audit | Current semantic verdict | Temporal status | Legacy comparison | Materiality / action |
 |---|---|---|---|---|---|---|
-| C01 | Trend / EMA | Terminal canonical EMA20/50/150/200 uses governed `adj_close` state; historical feature rows retain legacy raw-close EWM basis | Terminal: `MATCH` / `VALID USSY DEFINITION`; historical-vs-terminal basis: `MISMATCH` | T0 causal | **OPEN — exact legacy baseline to record** | Quantify whether basis difference changes historical classifications; do not treat terminal production state as invalid merely because research history differs |
+| C01 | Trend / EMA | **Current production terminal state is governed long-history recursive EMA20/50/150/200 on `adj_close`**, consumed from the shared `ussy-data` EMA state by `r2_shared_ema.apply_shared_ema_terminal()`. The underlying legacy `feature_engine.py` still computes finite-window EWM from `close_raw`, but those legacy EMA facts are replaced on each terminal production row; they are not the canonical current T0 EMA state. | `MATCH` / `VALID USSY DEFINITION` for current terminal production. Historical/research feature rows that retain raw-close finite-window EWM remain a separate basis/initialization mismatch and must not be confused with current terminal production. | T0 causal; shared EMA state must align to the current READY lineage and as-of date. | **CLOSED.** Legacy = finite-window `EMA(close_raw)` in `feature_engine.py`. Current production = governed long-history recursive `EMA(adj_close)`. Migration commit `f35c3fb0376b7342e73efe7a55419a1fb30a07f9` explicitly changed terminal production trend state to canonical shared adjusted EMA after shadow validation. | **RETAIN current production contract.** Migration shadow: 1,226 securities; 16 EMA-stack changes, 15 Trend changes, 5 Hard Filter changes, 5 Investability changes, 5 candidate-membership changes, but 0 Tradability and 0 Actionable changes. Do not describe `feature_engine.py` raw-close EMA as the current production EMA. Historical/research consistency remains Extended-audit work, not a reason to reopen C01. |
 | C02 | Stage Analysis | Weekly close vs SMA30w plus three-observation MA slope mapped to Stage1–4 | `APPROXIMATION` | Weekly W-FRI + backward-as-of verified causal | **OPEN — exact legacy baseline to record** | Decide whether current field should remain explicitly Weinstein-inspired approximation; no automatic rebuild required |
 | C03 | RS vs SPY | 63-session stock `adj_close` return minus SPY 63-session return; PASS >=0, NEAR >=-0.02 | `VALID USSY DEFINITION`; horizon/threshold rationale still `NEEDS_EVIDENCE` | Exact-date benchmark merge; causal when benchmark available | **OPEN — exact legacy baseline to record** | Corporate-action basis is appropriate; compare legacy horizon/threshold before deciding change |
 | C04 | Liquidity | 50-session mean raw share volume, min 20; PASS >=300k, NEAR >=240k | `MISMATCH` around split-sensitive windows; threshold rationale separately open | T0 causal; corporate-action unit consistency defect identified | **OPEN — exact legacy baseline to record** | FSE-014 correction spec is already frozen; keep remediation in Extended track rather than blocking all Core components |
@@ -63,6 +63,26 @@ This does not mean prior audit work is incomplete or discarded. It means the new
 | C08 | Breakout volume | Current raw volume percentile in rolling 50 including current; confirmation >=80 | `APPROXIMATION` | T0 causal | **OPEN — exact legacy baseline to record** | FSE-015 proved Sep-14 mass anomaly was upstream incomplete volume, not percentile-formula failure; compare legacy semantics before changing formula |
 | C09 | Market regime | SPY-based Bullish/Neutral/Bearish regime; excluded from Investability but included in hard-filter contract | `MATCH` architecture / `VALID USSY DEFINITION` | Backward-as-of; empirical freshness audit passed | **OPEN — exact legacy baseline to record** | Preserve distinction between Investability and hard-filter consumers |
 | C10 | Investability / Tradability | Investability = Trend + Liquidity + RS + Price non-compensatory aggregation; Tradability = breakout + volume confirmation + tightness; production position entry intentionally retains separate backtest-parity contract | Aggregation contract traced; dual downstream contract = `VALID USSY DEFINITION` | T0 decision semantics traced; T+1 realistic execution path documented | **OPEN — exact legacy baseline to record** | Compare legacy aggregation/entry contract directly; do not silently unify alert and position-entry contracts |
+
+## C01 evidence note — canonical adjusted EMA migration
+
+C01 is closed using repository evidence rather than the current contents of `feature_engine.py` alone.
+
+The legacy feature engine still contains raw-close EWM calculations. That implementation remains relevant for historical/research rows and as the pre-migration baseline, but it no longer defines the terminal production EMA contract.
+
+Production migration commit `f35c3fb0376b7342e73efe7a55419a1fb30a07f9` (`Migrate TrendFoll to canonical shared adjusted EMA`) established:
+
+- shared pointer: `production/indicators/ema/current.json`;
+- price basis: `adj_close`;
+- periods: 20 / 50 / 150 / 200;
+- long-history bootstrap plus recursive persisted state;
+- READY-lineage/equivalence validation before consumption;
+- terminal `ema_stack_aligned = adj_close > EMA20 > EMA50 > EMA150 > EMA200`;
+- only terminal EMA facts and stack are replaced; Stage, RS, liquidity, regime, breakout, volume, ATR, Tradability and thresholds are unchanged by this migration.
+
+The migration shadow reported 1,226 securities, with 16 terminal stack differences between legacy finite `EMA(close)` and canonical recursive `EMA(adj_close)`. Downstream changes reached Trend (15), Hard Filter (5), Investability (5), and candidate membership (5), while Tradability and Actionable membership were unchanged (0/0) in that shadow population.
+
+**C01 final Core action: `RETAIN`.** The canonical current production trend basis is `adj_close`. The historical raw-close/finite-window representation is tracked separately as Extended engineering/research consistency work and must not be used to characterize the current terminal production EMA as raw-close based.
 
 ## Existing deep evidence retained
 
@@ -86,10 +106,11 @@ Close the ten rows above by extracting the exact legacy definition and comparing
 
 ## Next execution sequence
 
-1. Recover exact legacy formulas/contracts from repository history/code rather than memory.
-2. Fill legacy column for C01–C10.
-3. Compare current vs legacy mechanically and identify changed outputs where practical.
-4. Close each Core row with a final verdict and one action: `RETAIN`, `RENAME / REDOCUMENT`, `CORRECT`, or `RESEARCH SEPARATELY`.
-5. Produce one concise final Legacy-vs-Current conclusion before any optional Extended Engineering backlog is resumed.
+1. C01 is closed: legacy finite raw-close EMA -> current canonical long-history adjusted-close EMA, action `RETAIN`.
+2. Recover the exact legacy Stage Analysis contract and compare it with the current production Stage path before closing C02.
+3. Continue C03–C10 using repository history/code rather than assuming the visible legacy feature-engine implementation is current production behavior.
+4. Compare changed outputs mechanically where practical.
+5. Close each Core row with one action: `RETAIN`, `RENAME / REDOCUMENT`, `CORRECT`, or `RESEARCH SEPARATELY`.
+6. Produce one concise final Legacy-vs-Current conclusion before any optional Extended Engineering backlog is resumed.
 
 Production remains untouched throughout this Core audit.
