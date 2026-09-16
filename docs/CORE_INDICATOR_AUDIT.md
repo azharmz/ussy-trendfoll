@@ -1,6 +1,6 @@
 # Core Indicator Audit — Legacy vs Current
 
-Status: **ACTIVE PRIMARY AUDIT / C01-C04 REVIEW GATE PASS / NO PRODUCTION CHANGE**
+Status: **ACTIVE PRIMARY AUDIT / C01-C04 REVIEW GATE PASS / C05 CLOSED / NO PRODUCTION CHANGE**
 
 Branch: `research/exit-development-hypotheses`
 
@@ -38,14 +38,14 @@ Controlled verdicts: `MATCH`, `VALID USSY DEFINITION`, `APPROXIMATION`, `MISMATC
 - [x] C02 Stage Analysis
 - [x] C03 Relative Strength vs SPY
 - [x] C04 Liquidity
-- [ ] C05 Price floor
+- [x] C05 Price floor
 - [ ] C06 ATR / volatility tightness
 - [ ] C07 Pivot / breakout
 - [ ] C08 Breakout volume confirmation
 - [ ] C09 Market regime
 - [ ] C10 Investability / Tradability aggregation
 
-**Core completion: 4 / 10. C01-C04 independent review gate: PASS.**
+**Core completion: 5 / 10. C01-C04 independent review gate: PASS. C05 closed independently.**
 
 ## Working matrix
 
@@ -55,7 +55,7 @@ Controlled verdicts: `MATCH`, `VALID USSY DEFINITION`, `APPROXIMATION`, `MISMATC
 | C02 | Stage Analysis | W-FRI weekly `close_raw`; SMA30w; three-observation monotonic MA slope; compact Stage1–4 mapping. | `APPROXIMATION` | **PASS / causal**, with a conservative holiday-week visibility lag when Friday is not a session. | **CLOSED / MATCH.** Same formula exists in original repository implementation and current path. | **RETAIN + REDOCUMENT** as Weinstein-inspired approximation. |
 | C03 | RS vs SPY | 63-session adjusted-close stock return minus same-basis SPY return; PASS >=0, NEAR >=-0.02. | `MATCH` legacy-current / `VALID USSY DEFINITION` as 63-session excess return vs SPY. | **PASS / causal.** | **CLOSED / MATCH.** Same formula and thresholds in original repository state. | **RETAIN.** Horizon/threshold rationale remains separate research question. |
 | C04 | Liquidity | Current production still uses `rolling_mean(volume_raw, 50, min_periods=20)`; PASS >=300k, NEAR_PASS >=240k. | `MISMATCH` in split-sensitive windows for intended average-share-liquidity semantics. | Raw rolling calculation is T0-causal; frozen correction is explicitly as-of causal. | **CLOSED / MATCH legacy-current.** The defect is inherited, not a new regression. | **CORRECT under FSE-014 governance.** Finding/action is supported; research prototype/test success does not itself authorize production adoption. |
-| C05 | Price floor | Raw close >=$10 PASS; >=$8 NEAR | `VALID USSY DEFINITION`; threshold rationale `NEEDS_EVIDENCE` | T0 close causal | **OPEN** | Retain as nominal-price rule unless legacy/evidence comparison supports change |
+| C05 | Price floor | Current hard filter classifies the same-day nominal `close_raw`: PASS >= $10, NEAR_PASS >= $8, otherwise FAIL. R2 READY `close` maps directly to `close_raw`; no downstream price-floor override exists. | `VALID USSY DEFINITION` as a nominal share-price eligibility rule. The exact $10/$8 cutoffs remain `NEEDS_EVIDENCE` as methodology/threshold choices, not implementation defects. | **PASS / T0 causal.** Uses only T0 nominal close; no future data or rolling lookahead. | **CLOSED / MATCH.** Original repository hard filter uses the identical `close_raw` input and $10/$8 thresholds. | **RETAIN.** Raw/unadjusted close is intentional for a nominal-dollar price floor; do not convert this rule to adjusted close. Threshold optimization, if desired, is separate research. |
 | C06 | ATR / volatility tightness | ATR14 plus `vcp_tightness = 100 - ATR percentile(63)` | ATR: `MATCH`; VCP label: `MISMATCH` with literal VCP morphology | T0 causal | **OPEN** | Strong candidate for rename/re-document as volatility-tightness proxy |
 | C07 | Pivot / breakout | Pivot proxy = rolling raw high 60, min20; Tradability compares T0 close with shifted prior-row pivot | Pivot-as-O'Neil semantics: `MISMATCH`; rolling-high breakout: `VALID USSY DEFINITION` | Breakout T0 causal | **OPEN** | Decide intended label; avoid silently claiming O'Neil pivot |
 | C08 | Breakout volume | Raw volume percentile in rolling 50 including current; confirmation >=80 | `APPROXIMATION` | T0 causal | **OPEN** | Sep-14 incident was upstream incomplete volume, not percentile-formula failure |
@@ -117,6 +117,20 @@ Review performed against actual repository execution path, original repository s
 
 No dependent Core conclusion was invalidated. One audit-record clarification was required and has been applied to C01: current EMA is not `MATCH` to legacy; it is a changed, validated current production definition. C02 test hardening is optional engineering work, not a blocker. C04 remediation remains governed separately and must not be silently promoted during Core Audit.
 
+## C05 evidence note — nominal price floor
+
+The original repository hard filter and current branch are byte-identical for the relevant contract: `THRESHOLDS['price'] = {'pass': 10.0, 'near_pass': 8.0}` and `price_status` is computed from the same row's `close_raw`. Current R2 ingestion maps governed READY `close` to `close_raw`, and the R2 adapter only overlays terminal EMA state; it does not replace nominal close or price status.
+
+This rule is dimensionally different from analytical return/EMA features. It asks whether one share's observed market price at T0 is at least a nominal-dollar eligibility cutoff. Using adjusted close here would rewrite historical nominal prices after splits/dividends and would no longer represent the actual per-share quote that the rule claims to filter. Therefore raw close is the correct basis for the stated rule.
+
+The consumer is material: `price_status` is one of the four non-compensatory Investability inputs and is also included in the five-factor hard filter used by the production position-entry contract. A FAIL can therefore block candidate eligibility/entry even when other criteria pass. That materiality does not imply the numerical cutoff is optimal.
+
+No evidence in the Core audit establishes that $10 PASS or $8 NEAR_PASS is an empirically optimal threshold for this universe/horizon. That is a methodology/research question rather than an implementation correctness defect. Core therefore does not tune either cutoff.
+
+Temporal verdict is straightforward: classification uses only same-row T0 `close_raw`, with no rolling window, future event, or T+1 value. It is causal at signal close; actual realistic execution remains governed separately at T+1 Open.
+
+**C05 final verdict: `MATCH` legacy-current + `VALID USSY DEFINITION`; action `RETAIN`.** Threshold rationale remains `NEEDS_EVIDENCE / RESEARCH SEPARATELY` if optimization is ever desired. No production change.
+
 ## Existing deep evidence retained
 
 - FSE-001 through FSE-015 findings in `FULL_SIGNAL_ENGINE_AUDIT.md`.
@@ -132,10 +146,11 @@ Core proves primitive/core components. Full Audit remains responsible for compos
 ## Next execution sequence
 
 1. C01-C04 independent review gate: **PASS**.
-2. Resume C05 Price Floor from actual legacy/current execution path.
-3. Continue C06-C10 sequentially.
-4. For each: implementation -> actual consumer path -> legacy/current -> data semantics -> T0 causality -> implementation vs methodology -> materiality -> verdict/action -> evidence.
-5. Stop before any production remediation/change that requires a separate governed decision.
-6. After C10, Core completion does not automatically close Full Signal Engine Audit; return to the Full Audit terminal objective for composition/end-to-end correctness.
+2. C05 Price Floor: **CLOSED / RETAIN**.
+3. Resume C06 ATR / volatility tightness from actual legacy/current execution path.
+4. Continue C07-C10 sequentially.
+5. For each: implementation -> actual consumer path -> legacy/current -> data semantics -> T0 causality -> implementation vs methodology -> materiality -> verdict/action -> evidence.
+6. Stop before any production remediation/change that requires a separate governed decision.
+7. After C10, Core completion does not automatically close Full Signal Engine Audit; return to the Full Audit terminal objective for composition/end-to-end correctness.
 
 Production remains untouched throughout this Core audit.
