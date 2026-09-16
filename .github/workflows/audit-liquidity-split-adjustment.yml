@@ -1,0 +1,21 @@
+name: Signal Engine FSE014 Split Liquidity Research Gate
+on:
+  workflow_dispatch:
+  push:
+    branches: [research/exit-development-hypotheses]
+    paths:
+      - liquidity_split_adjustment.py
+      - tests/test_liquidity_split_adjustment.py
+      - .github/workflows/audit-liquidity-split-adjustment.yml
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - run: pip install pandas numpy
+      - name: Run frozen FSE-014 contract tests
+        run: python -m unittest -v tests.test_liquidity_split_adjustment
