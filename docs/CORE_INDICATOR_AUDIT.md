@@ -1,6 +1,6 @@
 # Core Indicator Audit — Legacy vs Current
 
-Status: **ACTIVE PRIMARY AUDIT / C01-C04 REVIEW GATE PASS / C01-C08 CLOSED / NO PRODUCTION CHANGE**
+Status: **ACTIVE PRIMARY AUDIT / C01-C04 REVIEW GATE PASS / C01-C09 CLOSED / NO PRODUCTION CHANGE**
 
 Branch: `research/exit-development-hypotheses`
 
@@ -42,95 +42,94 @@ Controlled verdicts: `MATCH`, `VALID USSY DEFINITION`, `APPROXIMATION`, `MISMATC
 - [x] C06 ATR / volatility tightness
 - [x] C07 Pivot / breakout
 - [x] C08 Breakout volume confirmation
-- [ ] C09 Market regime
+- [x] C09 Market regime
 - [ ] C10 Investability / Tradability aggregation
 
-**Core completion: 8 / 10. C01-C04 independent review gate: PASS.**
+**Core completion: 9 / 10. C01-C04 independent review gate: PASS.**
 
 ## Working matrix
 
 | ID | Component | Current implementation established by audit | Current semantic verdict | Temporal status | Legacy comparison | Materiality / action |
 |---|---|---|---|---|---|---|
-| C01 | Trend / EMA | Current production terminal state is governed long-history recursive EMA20/50/150/200 on `adj_close`, consumed from shared `ussy-data` EMA state. | `VALID USSY DEFINITION` | T0 causal. | **CLOSED / CHANGED.** | **RETAIN.** |
-| C02 | Stage Analysis | W-FRI weekly `close_raw`; SMA30w; three-observation monotonic MA slope. | `APPROXIMATION` | PASS / causal. | **CLOSED / MATCH.** | **RETAIN + REDOCUMENT.** |
-| C03 | RS vs SPY | 63-session adjusted-close stock return minus same-basis SPY return. | `VALID USSY DEFINITION` | PASS / causal. | **CLOSED / MATCH.** | **RETAIN.** |
-| C04 | Liquidity | Raw share-volume rolling mean 50/min20. | Split-sensitive `MISMATCH`. | Causal; correction must remain as-of causal. | **CLOSED / MATCH.** | **CORRECT under FSE-014 governance.** |
-| C05 | Price floor | T0 nominal `close_raw`: PASS >=$10, NEAR >=$8. | `VALID USSY DEFINITION`; thresholds `NEEDS_EVIDENCE`. | PASS. | **CLOSED / MATCH.** | **RETAIN.** |
-| C06 | ATR / volatility tightness | Raw-OHLC ATR14; inverse 63d ATR-level percentile called `vcp_tightness`. | ATR split-sensitive `MISMATCH`; VCP label `MISMATCH`. | PASS. | **CLOSED / MATCH.** | **CORRECT ATR separately + RENAME/REDOCUMENT VCP proxy.** |
-| C07 | Pivot / breakout | Prior-row shifted rolling raw high 60/min20; T0 close breakout. | Valid trailing-high breakout; not O'Neil/base pivot. | PASS. | **CLOSED / MATCH.** | **RENAME / REDOCUMENT.** |
-| C08 | Breakout volume confirmation | `breakout_volume_percentile(t)=100*mean(volume_raw(window<=50 ending t) <= volume_raw(t))`, min20; confirmation when percentile >=80. Current observation is deliberately part of the empirical distribution. | `VALID USSY DEFINITION` as a contemporaneous **rolling volume-rank confirmation**; `APPROXIMATION` if described as O'Neil-style volume confirmation or volume expansion versus prior average. It is not a historical-only percentile because T0 is included. Raw-volume split-unit caveat inherits C04/FSE-014. | **PASS / T0 causal.** Uses T0 and prior volume only; no future data. T0 inclusion is a semantic design choice, not look-ahead. | **CLOSED / MATCH.** Original feature and decision layers contain identical percentile formula and >=80 consumer threshold. R2 adapter does not override volume features. | **RENAME / REDOCUMENT + inherit FSE-014 correction governance.** Preserve formula if intended primitive is rolling rank. Do not call it canonical/O'Neil volume confirmation. 50/min20/80 rationale remains `NEEDS_EVIDENCE / RESEARCH SEPARATELY`; no tuning in Core. |
-| C09 | Market regime | SPY-based Bullish/Neutral/Bearish regime. | `VALID USSY DEFINITION` | Backward-as-of. | **OPEN** | Preserve consumer distinction. |
-| C10 | Investability / Tradability | Non-compensatory structural vs entry-timing contracts plus separate production-entry parity contract. | Pending final aggregation audit. | T0 / T+1 governed. | **OPEN** | Compare full downstream contracts. |
+| C01 | Trend / EMA | Canonical terminal recursive EMA20/50/150/200 on `adj_close`. | `VALID USSY DEFINITION` | T0 causal. | CLOSED / CHANGED. | RETAIN. |
+| C02 | Stage Analysis | W-FRI close, SMA30w, 3-observation slope proxy. | `APPROXIMATION` | PASS. | CLOSED / MATCH. | RETAIN + REDOCUMENT. |
+| C03 | RS vs SPY | 63-session adjusted-close excess return vs SPY. | `VALID USSY DEFINITION` | PASS. | CLOSED / MATCH. | RETAIN. |
+| C04 | Liquidity | Raw share-volume rolling mean 50/min20. | Split-sensitive `MISMATCH`. | Causal. | CLOSED / MATCH. | CORRECT under FSE-014 governance. |
+| C05 | Price floor | T0 nominal raw close $10/$8. | `VALID USSY DEFINITION`; thresholds `NEEDS_EVIDENCE`. | PASS. | CLOSED / MATCH. | RETAIN. |
+| C06 | ATR / volatility tightness | Raw ATR14 + inverse ATR percentile proxy. | ATR split-sensitive `MISMATCH`; VCP label `MISMATCH`. | PASS. | CLOSED / MATCH. | CORRECT ATR separately + RENAME/REDOCUMENT. |
+| C07 | Pivot / breakout | T0 close above shifted prior 60-session trailing high. | Valid trailing-high breakout, not O'Neil pivot. | PASS. | CLOSED / MATCH. | RENAME / REDOCUMENT. |
+| C08 | Breakout volume confirmation | Inclusive rolling 50-session raw-volume rank; confirm >=80. | `VALID USSY DEFINITION` as rolling rank; `APPROXIMATION` as O'Neil volume confirmation. | PASS. | CLOSED / MATCH. | RENAME/REDOCUMENT + inherit FSE-014 dependency. |
+| C09 | Market regime | Live SPY raw close; SMA50/SMA200; Bullish if close>SMA50>SMA200, Bearish if close<SMA50<SMA200, else Neutral; stock rows consume latest benchmark state at or before stock date through backward `merge_asof`. | `VALID USSY DEFINITION` as an internal three-state SPY trend regime. It is not claimed as a canonical market-timing model. | **PASS for no-future leakage.** Backward-as-of cannot import a future benchmark row. Separate benchmark-vs-R2 freshness/readiness contract remains architectural evidence risk, not formula leakage. | **CLOSED / MATCH.** Original repository has identical SPY SMA50/200 classifier. Current R2 adapter intentionally retains live benchmark downloads and does not override regime. | **RETAIN + REDOCUMENT consumer boundary.** Regime belongs to portfolio-level context; it is included in legacy `hard_filter_status` but deliberately excluded from `investability_status`. Preserve/document that distinction. Governed benchmark ingestion/freshness remains separate Full-Audit hardening, not a C09 formula correction. |
+| C10 | Investability / Tradability | Non-compensatory structural vs entry-timing contracts plus separate production-entry parity contract. | Pending final aggregation audit. | T0 / T+1 governed. | OPEN. | Compare full downstream contracts. |
 
 ## C01-C04 independent review gate
 
 **PASS.** C04 remediation remains governed separately.
 
-## C05-C07 disposition summary
+## C05-C08 disposition summary
 
-C05 nominal price floor: `MATCH + VALID USSY DEFINITION -> RETAIN`. C06: legacy-current `MATCH`, but raw ATR state is split-sensitive and the VCP label overstates an inverse ATR-level percentile; correction/rename is separately governed. C07: legacy-current `MATCH`; valid trailing-high breakout, not an O'Neil/base pivot; rename/redocument rather than silently replacing the strategy primitive.
+C05 nominal price floor: `MATCH + VALID USSY DEFINITION -> RETAIN`. C06: raw ATR state is split-sensitive and VCP label overstates an inverse ATR percentile. C07: valid trailing-high breakout, not O'Neil/base pivot. C08: valid rolling volume rank, only an approximation of O'Neil-style volume confirmation and dependent on FSE-014 for split-unit robustness.
 
-## C08 evidence note — breakout volume confirmation
+## C09 evidence note — market regime
 
-### Actual formula and current execution
+### Actual current execution
 
-`feature_engine.compute_volume_features()` sorts each symbol by date and computes `breakout_volume_percentile` with a rolling 50-session window (`min_periods=20`). For each window the value is:
+The current R2 adapter is intentionally hybrid. It injects governed R2 READY OHLCV only for the stock universe, while `feature_engine.build_feature_store()` continues to call the legacy benchmark downloader for SPY, QQQ, VIX and sector ETFs. The adapter subsequently overlays terminal EMA only; there is no market-regime migration or override.
 
-`100 * mean(window_volume <= current_window_last_volume)`.
+`compute_market_regime()` sorts SPY by date, calculates simple rolling SMA50 and SMA200 on SPY `close_raw`, and classifies each benchmark row:
 
-Because the last element is T0 itself, T0 is always counted and the theoretical minimum for a full 50-row window is 2%. The metric is therefore an empirical rank of today's raw share volume among the up-to-50 observations ending today. It is not a percentile against an exclusively T-1-and-earlier reference sample.
+- Bullish: `SPY close_raw > SMA50 > SMA200`;
+- Bearish: `SPY close_raw < SMA50 < SMA200`;
+- Neutral: every other evaluable ordering;
+- unavailable until both moving averages exist.
 
-`decision_layer.compute_tradability()` defines `has_volume_confirmation = breakout_volume_percentile >= 80`. This confirmation affects Tradability PASS/NEAR_PASS. The same boolean is also a direct production position-registration condition together with hard-filter PASS and breakout, so C08 is materially production-relevant.
-
-The current R2 adapter injects READY stock OHLCV into the legacy feature builder and only overlays terminal EMA. It does not replace volume features. Therefore the current production C08 formula is the feature-engine formula above.
+For each stock, the benchmark regime table is joined with `pd.merge_asof(..., direction='backward')`. Thus a stock row dated T0 receives the latest regime observation whose benchmark date is <= T0.
 
 ### Legacy comparison
 
-Original commit `94b78f008d0a003ed5cf37c53e3fd4253122c259` contains the identical rolling-50/min20 percentile formula. Its original `decision_layer.py` also uses the identical default threshold `volume_percentile_threshold=80` and boolean comparison. There is no legacy-current drift.
+Original repository commit `94b78f008d0a003ed5cf37c53e3fd4253122c259` contains the same raw-SPY SMA50/SMA200 calculation and identical Bullish/Bearish/Neutral ordering. Current R2 production deliberately retains the legacy benchmark download/formula path. Therefore C09 has no legacy-current formula drift.
 
-### Semantic interpretation
+### Semantics
 
-As a **rolling volume-rank confirmation**, the primitive is mathematically coherent. A value >=80 says T0 raw volume ranks at or above roughly the upper fifth of the recent empirical window under the implementation's inclusive-rank convention.
+This is a coherent internal **SPY trend-regime classifier**. It measures the ordering of the current SPY price and two moving averages; it does not encode breadth, distribution days, follow-through days, macro state, volatility state, or a canonical O'Neil Market Direction model. Core therefore treats `market_regime` as a `VALID USSY DEFINITION` only under its explicit internal three-state semantics.
 
-It is not equivalent to a historical-only percentile, because T0 participates in its own reference distribution. This does not create future leakage; it changes the exact statistic being measured. It is also not equivalent to O'Neil-style breakout-volume semantics such as explicit percentage expansion versus average/normal volume. FSE-004's `APPROXIMATION` classification therefore remains valid whenever the field is interpreted as canonical/O'Neil volume confirmation.
+Raw SPY close is internally coherent here because the current price and both moving averages are computed from the same benchmark series. Core does not claim that this proves raw-price SMA is the only defensible benchmark basis; there is no corporate-action finding requiring a C09 correction from the evidence currently established.
 
-The clean documentation name should communicate what is actually measured, e.g. `rolling_volume_rank_50d` / `high_recent_volume_rank`, while `has_volume_confirmation` should be understood as a USSY confirmation rule built from that proxy rather than a claim of authoritative O'Neil semantics.
+### Temporal correctness and benchmark freshness boundary
 
-### Temporal correctness
+The merge itself is causal: `direction='backward'` cannot use a future SPY regime row. If stock T0 is present while the benchmark downloader only has T-1, the stock receives T-1 regime rather than future information. That is stale-state risk, not look-ahead.
 
-C08 is T0 causal. The rolling window ends at T0 and contains no future observation. T0 volume is only finalized/knowable after the session close, consistent with the T0-close signal contract and T+1 execution model.
+The architecture nevertheless has a distinct readiness/freshness boundary: stock facts come from governed R2 READY, while SPY/other benchmark facts are downloaded live through the legacy downloader. FSE-007 correctly records this as benchmark-ingestion evidence/hardening work. C09 does not collapse that architecture issue into a formula bug. The appropriate Full-Audit hardening is to keep proving/guarding benchmark date freshness and lineage relative to the common stock as-of date, or eventually govern benchmark state explicitly if approved.
 
-The Sep-14 partial-volume incident does not invalidate this temporal formula. Evidence 12 showed the mass 2% population was caused by incomplete upstream READY T0 volume. After finalized upstream data and targeted historical repair, the same unchanged TrendFoll percentile diagnostic returned to a normal population. Evidence 12 therefore supports the distinction between formula semantics and source-data completeness.
+### Consumer semantics
 
-### Corporate-action interaction
+`hard_filter.compute_hard_filter()` maps Bullish -> PASS, Neutral -> NEAR_PASS, and Bearish/NaN -> FAIL, then includes `regime_status` among its five non-compensatory columns. Therefore regime can materially change `hard_filter_status`.
 
-C08 uses the same raw share-volume basis implicated by C04/FSE-014. A split changes share units, so a 50-session rank spanning pre/post split observations can compare raw share counts expressed in different units. Rank statistics are less directly scale-sensitive than an arithmetic mean only when the scale is common; across a share-unit discontinuity, ordering itself can change mechanically. Therefore C08 inherits the FSE-014 corporate-action correction dependency. Core does not create a second competing correction formula: any adopted normalized T0-basis share-volume series should be evaluated consistently for both average-liquidity and rolling-rank consumers.
+`decision_layer.compute_investability()`, however, intentionally uses only Trend, Liquidity, RS and Price. Its module contract explicitly states that Regime is a separate portfolio-level gate and `INVESTABILITY_COLS` excludes `regime_status`.
 
-### Threshold/methodology boundary
+This is not accidental drift: it is the already-documented dual consumer architecture that C10 must verify end-to-end. C09's responsibility is to preserve the distinction rather than silently forcing regime into Investability or deleting it from hard filter.
 
-Core establishes what >=80 means mechanically but does not establish that 80, 50 sessions, or min20 is empirically optimal for the USSY universe/horizon. Those are `NEEDS_EVIDENCE / RESEARCH SEPARATELY` questions. No threshold or lookback tuning is performed here.
+### C09 disposition
 
-### C08 disposition
+- Legacy vs current formula: **`MATCH`**.
+- Internal SPY price/SMA50/SMA200 three-state classifier: **`VALID USSY DEFINITION`**.
+- Canonical/O'Neil market-direction interpretation: **not claimed / not established**.
+- Temporal merge: **PASS / no future leakage**.
+- Benchmark ingestion/readiness: **separate FSE-007 architectural hardening/evidence dependency**, not a C09 formula mismatch.
+- Materiality: **YES** through `regime_status` in `hard_filter_status`; deliberately **NO direct membership in Investability**.
+- Action: **`RETAIN + REDOCUMENT` the portfolio-level consumer boundary**. No formula or threshold tuning in Core.
 
-- Legacy vs current formula/threshold: **`MATCH`**.
-- Rolling inclusive volume-rank primitive: **`VALID USSY DEFINITION`**.
-- As canonical/O'Neil breakout-volume confirmation: **`APPROXIMATION`**.
-- Historical-only percentile interpretation: **not the implemented statistic**; T0 is included by design.
-- Temporal causality: **PASS**.
-- Data-completeness incident: **upstream Sep-14 incident closed/verified; no formula correction supported by that incident**.
-- Corporate-action robustness: **inherits C04/FSE-014 split-unit correction dependency**.
-- Materiality: **YES** — affects Tradability tier and is a direct production-entry condition.
-- Action: **`RENAME / REDOCUMENT` + evaluate under FSE-014 normalized-volume remediation if/when that correction is adopted.** Do not tune 80/50/min20 during Core.
-
-**C08 CLOSED. Production remains unchanged.**
+**C09 CLOSED. Production remains unchanged.**
 
 ## Existing deep evidence retained
 
 - FSE-001 through FSE-015 findings in `FULL_SIGNAL_ENGINE_AUDIT.md`.
+- FSE-007: hybrid live benchmark vs governed R2-stock ingestion remains a Full-Audit evidence/hardening concern.
+- FSE-009: Investability excludes regime while legacy hard filter includes it; C09 independently confirms this architecture.
 - Evidence 10: effective-date lifecycle technical validation closed; production decision separate.
 - Evidence 11: corporate-action semantics.
-- Evidence 12: Sep-14 partial-volume incident; upstream prevention and residual repair verified; no TrendFoll percentile formula correction supported.
-- Evidence 13: FSE-014 split-normalized share-liquidity correction spec frozen; production adoption separate. C08 should be regression-tested against the same normalized share-volume basis if that remediation proceeds.
+- Evidence 12: Sep-14 partial-volume incident closed/verified under incident scope.
+- Evidence 13: FSE-014 split-normalized share-liquidity correction spec frozen; production adoption separate.
 
 ## Scope boundary
 
@@ -138,11 +137,11 @@ Core proves primitive/core components. Full Audit remains responsible for compos
 
 ## Next execution sequence
 
-1. C01-C04 independent review gate: **PASS**.
-2. C05-C08: **CLOSED** under dispositions above.
-3. Resume C09 Market Regime from actual benchmark ingestion, formula, temporal merge, legacy/current history, and downstream consumers.
-4. Continue C10 aggregation/consumer-contract audit.
+1. C01-C04 independent review gate: PASS.
+2. C05-C09: CLOSED under dispositions above.
+3. Resume C10 Investability / Tradability aggregation from actual hard-filter, decision-layer, candidate/watchlist/actionability, and production-position consumers.
+4. Compare legacy/current composition and explicitly verify the dual downstream contracts rather than assuming they are interchangeable.
 5. Stop before production remediation requiring separate governed decision.
-6. After C10, return to Full Audit composition/end-to-end objective.
+6. After C10, Core completion does not automatically close Full Audit; return to Full Audit composition/end-to-end objective.
 
 Production remains untouched throughout this Core audit.
