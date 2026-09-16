@@ -1,0 +1,22 @@
+name: Signal Engine Effective-Date Untouched Validation
+
+on:
+  push:
+    branches:
+      - research/exit-development-hypotheses
+    paths:
+      - 'tests/test_effective_date_state_validation.py'
+      - '.github/workflows/audit-effective-date-untouched-validation.yml'
+
+jobs:
+  untouched-validation:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - name: Install validation dependencies
+        run: pip install pandas
+      - name: Run frozen untouched validation exactly as committed
+        run: python -m unittest -v tests.test_effective_date_state_validation
