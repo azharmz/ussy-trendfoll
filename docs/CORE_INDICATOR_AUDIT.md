@@ -32,12 +32,12 @@ Controlled verdicts remain: `MATCH`, `VALID USSY DEFINITION`, `APPROXIMATION`, `
 
 ## Core progress
 
-C01 through C03 are closed. Remaining components still require an explicit legacy-vs-current comparison before receiving a final Core verdict.
+C01 through C04 are closed. Remaining components still require an explicit legacy-vs-current comparison before receiving a final Core verdict.
 
 - [x] C01 Trend / EMA
 - [x] C02 Stage Analysis
 - [x] C03 Relative Strength vs SPY
-- [ ] C04 Liquidity
+- [x] C04 Liquidity
 - [ ] C05 Price floor
 - [ ] C06 ATR / volatility tightness
 - [ ] C07 Pivot / breakout
@@ -45,7 +45,7 @@ C01 through C03 are closed. Remaining components still require an explicit legac
 - [ ] C09 Market regime
 - [ ] C10 Investability / Tradability aggregation
 
-**Core completion: 3 / 10 final legacy-vs-current verdicts.**
+**Core completion: 4 / 10 final legacy-vs-current verdicts.**
 
 ## Working matrix
 
@@ -53,8 +53,8 @@ C01 through C03 are closed. Remaining components still require an explicit legac
 |---|---|---|---|---|---|---|
 | C01 | Trend / EMA | Current production terminal state is governed long-history recursive EMA20/50/150/200 on `adj_close`, consumed from shared `ussy-data` EMA state. | `MATCH` / `VALID USSY DEFINITION` | T0 causal; READY-lineage/as-of governed. | **CLOSED.** Legacy finite `EMA(close_raw)` -> current canonical recursive `EMA(adj_close)`. | **RETAIN.** Historical/research consistency is Extended work. |
 | C02 | Stage Analysis | W-FRI weekly `close_raw`; SMA30w; three-observation monotonic MA slope; compact Stage1–4 mapping. | `APPROXIMATION` | **PASS / causal** via backward-as-of weekly semantics. | **CLOSED / MATCH.** Same formula exists in original repository implementation and current path. | **RETAIN + REDOCUMENT** as Weinstein-inspired approximation. |
-| C03 | RS vs SPY | Stock 63-session return is `close_adj[t] / close_adj[t-63] - 1`; SPY uses the same `compute_return_n()` default adjusted-close basis; `rs_spy = stock_return_63d - spy_return_63d`. Hard-filter classification is PASS >= 0, NEAR_PASS >= -0.02, otherwise FAIL. Current R2 adapter changes the stock data source to governed READY but deliberately reuses `feature_engine.build_feature_store()` for RS and benchmarks; only terminal EMA is separately overridden. | `MATCH` legacy-to-current formula / `VALID USSY DEFINITION` for a 63-session excess-return-vs-SPY feature. It is **not** an IBD/O'Neil cross-sectional RS Rating. The choice of 63 sessions and -2pp NEAR_PASS band remains a design rationale question, not an implementation mismatch. | **PASS / causal.** Stock and SPY returns use observations at or before T0 and SPY is merged by exact `date`. Missing same-date benchmark return remains missing rather than being forward-filled from a future date. | **CLOSED / MATCH.** Original `feature_engine.py` and `hard_filter.py` at commit `94b78f008d0a003ed5cf37c53e3fd4253122c259` already use the same adjusted-close 63-session excess return and the same 0 / -0.02 thresholds. Repository history shows no later formula migration for RS. | **RETAIN.** No legacy-to-current drift to correct. Evidence 11 empirically supports adjusted-close stock-return semantics around corporate actions: 23/31 audited event rows had >5pp raw-vs-adjusted 63-session return gaps. Keep horizon/threshold justification as separate `NEEDS_EVIDENCE`; do not tune it merely to create a difference from legacy. |
-| C04 | Liquidity | 50-session mean raw share volume, min 20; PASS >=300k, NEAR >=240k | `MISMATCH` around split-sensitive windows; threshold rationale separately open | T0 causal; corporate-action unit consistency defect identified | **OPEN — exact legacy baseline to record** | FSE-014 correction spec is already frozen; keep remediation in Extended track rather than blocking all Core components |
+| C03 | RS vs SPY | 63-session adjusted-close stock return minus same-basis SPY return; PASS >=0, NEAR >=-0.02. | `MATCH` / `VALID USSY DEFINITION` as 63-session excess return vs SPY. | **PASS / causal.** | **CLOSED / MATCH.** Same formula and thresholds in original repository state. | **RETAIN.** Horizon/threshold rationale remains separate research question. |
+| C04 | Liquidity | **Current production still uses the legacy formula:** `avg_volume_50d = rolling_mean(volume_raw, 50, min_periods=20)`; PASS >=300k, NEAR_PASS >=240k. R2 changes the stock data source to READY but maps READY `volume` directly to `volume_raw`; there is no production split-normalization overlay analogous to EMA. | `MISMATCH` for the intended share-liquidity meaning in windows spanning share-count-changing corporate actions. Raw share counts before and after a split are in different units, so their unnormalized arithmetic mean is not consistently comparable. Outside affected windows the formula remains coherent as average daily shares traded. Threshold rationale remains separately `NEEDS_EVIDENCE`. | The rolling calculation itself is T0-causal, but unit consistency across a historical split window is defective. The frozen correction contract is also explicitly as-of causal: only split events effective through T0 may normalize a T0 window; future events must not back-propagate. | **CLOSED / MATCH legacy-to-current production.** Original `feature_engine.py` already used raw `volume_raw` rolling 50/min20, and original `hard_filter.py` already used 300k/240k thresholds. Current R2 production retains those same semantics. Therefore this is **not new current-vs-legacy drift**; it is a legacy defect still present in current production. | **CORRECT (governed remediation), not RETAIN.** FSE-014 already froze the minimal correction: preserve share-liquidity semantics/window/min-period/thresholds, but express historical volumes on each T0 share-unit basis using explicit split/share factors. Research-only implementation exists and its CI contract gate passed. Production adoption remains a separate governed decision; Core does not silently modify production. |
 | C05 | Price floor | Raw close >=$10 PASS; >=$8 NEAR | `VALID USSY DEFINITION`; threshold rationale `NEEDS_EVIDENCE` | T0 close causal | **OPEN — exact legacy baseline to record** | Retain as nominal-price rule unless legacy/evidence comparison supports change |
 | C06 | ATR / volatility tightness | ATR14 plus `vcp_tightness = 100 - ATR percentile(63)` | ATR: `MATCH`; VCP label: `MISMATCH` with literal VCP morphology | T0 causal | **OPEN — exact legacy baseline to record** | Strong candidate for rename/re-document as volatility-tightness proxy rather than rebuilding VCP inside this audit |
 | C07 | Pivot / breakout | Pivot proxy = rolling raw high 60, min20; Tradability compares T0 close with shifted prior-row pivot | Pivot-as-O'Neil semantics: `MISMATCH`; rolling-high breakout: `VALID USSY DEFINITION` | Breakout T0 is causal; executable after T0 close | **OPEN — exact legacy baseline to record** | Decide intended label: rolling-high/Donchian-like breakout vs chart-base pivot; avoid silently claiming O'Neil pivot |
@@ -76,15 +76,23 @@ The original repository implementation and current Stage path use the same W-FRI
 
 ## C03 evidence note — Relative Strength vs SPY
 
-The legacy baseline is explicit in the original repository state. `RS_LOOKBACK_DAYS = 63`; `compute_return_n(..., col="close_adj")` calculates adjusted-close 63-session return. `build_feature_store()` applies the same helper to both each stock and SPY, joins SPY by exact `date`, and defines `rs_spy = return_63d - spy_return_63d`. The original hard-filter thresholds are already PASS >= 0 and NEAR_PASS >= -0.02.
+Legacy and current both implement adjusted-close 63-session excess return versus SPY, with unchanged PASS >=0 / NEAR_PASS >=-0.02 thresholds. Evidence 11 supports adjusted-return basis around corporate actions.
 
-The current R2 path does not replace this formula. `r2_feature_engine.build_feature_store_from_r2()` maps governed READY `adj_close` to the legacy contract's `close_adj`, substitutes only the stock OHLCV source, and executes `feature_engine.build_feature_store()` for the feature formulas and benchmark downloads. Its only explicit post-build indicator migration is terminal canonical EMA. Therefore current RS semantics remain the legacy RS semantics, but the stock facts now come from governed READY.
+**C03 final Core action: `RETAIN`.**
 
-Corporate-action Evidence 11 materially supports the adjusted-return basis. Across 31 identified corporate-action-sensitive event rows, 23 had an absolute raw-vs-adjusted 63-session return gap greater than five percentage points, with a maximum gap of 62.55 percentage points. This means raw close is not an interchangeable basis for this return feature.
+## C04 evidence note — Liquidity
 
-The feature should be described precisely as **63-session excess return versus SPY**, not as an IBD/O'Neil RS Rating. Whether 63 sessions is the best horizon for the strategy, and whether -2 percentage points is the right NEAR_PASS band, remains `NEEDS_EVIDENCE`; that is a research/design question rather than evidence that the current implementation is wrong.
+The original repository implementation at `94b78f008d0a003ed5cf37c53e3fd4253122c259` defines `avg_volume_50d` as a rolling 50-session arithmetic mean of `volume_raw` with `min_periods=20`. Its hard-filter thresholds are already PASS >=300,000 and NEAR_PASS >=240,000. Current R2 production maps READY `volume` directly to `volume_raw` and reuses `feature_engine.build_feature_store()`; unlike terminal EMA, no current production liquidity override exists. C04 is therefore legacy=current at the formula level.
 
-**C03 final Core action: `RETAIN`.** No formula correction is indicated by the legacy comparison or corporate-action evidence.
+That equality does not make the formula correct across split-sensitive windows. Evidence 11 established that raw observations around corporate actions can be materially non-interchangeable, and specifically classified the rolling raw-share-volume feature as a corporate-action-sensitive window requiring a correction specification. The defect is dimensional: pre- and post-split share volumes may represent the same economic activity in different share units.
+
+FSE-014 Evidence 13 has already frozen the minimal correction contract rather than changing the economic feature. `avg_volume_50d` remains average daily **share** liquidity; window=50, min_periods=20, and thresholds 300k/240k remain fixed for the correction cycle. Historical raw volumes inside a T0 window are converted to the T0 share-unit basis using explicit split/stock-dividend share factors effective in `(t, T0]`. Dollar volume and `adj_close/close`-derived volume factors are explicitly rejected for this correction cycle.
+
+The research-only implementation `liquidity_split_adjustment.py` implements that causal contract without changing `feature_engine.py`. Commit `5e0e91046c30165abeef02857435d5f553ee0c63` introduced the prototype. The frozen FSE-014 CI research gate at run `35080840497`, head `593e8f699494e7e155e95e1835eaf4e98f754056`, completed successfully; job `104744193463` reports the `Run frozen FSE-014 contract tests` step as successful.
+
+This makes the Core conclusion straightforward: **the current liquidity feature has not regressed relative to legacy; legacy and current share the same defect.** The correct Core action is nevertheless `CORRECT`, because the mismatch is material to the intended share-liquidity contract in split-sensitive windows and a minimal governed correction is already specified and research-tested.
+
+**C04 final Core action: `CORRECT` under FSE-014 governance.** Production remains unchanged by this audit; production adoption of the frozen correction is a separate governed remediation step.
 
 ## Existing deep evidence retained
 
@@ -94,7 +102,7 @@ The following work remains authoritative supporting evidence rather than being r
 - Evidence 10: FSE-013 effective-date lifecycle correction passed research contract/regression and untouched validation V2; production decision remains separate.
 - Evidence 11: corporate-action semantics for RS, liquidity, and nominal price.
 - Evidence 12: Sep-14 partial-volume incident; TrendFoll percentile formula behaved as implemented; residual upstream repair was handled separately.
-- Evidence 13: FSE-014 split-normalized share-liquidity correction specification is frozen; this is an engineering remediation track, not a reason to hold every Core verdict open.
+- Evidence 13: FSE-014 split-normalized share-liquidity correction specification is frozen and its research contract gate has passed; production adoption remains separate.
 
 ## Scope boundary
 
@@ -110,10 +118,11 @@ Close the ten rows above by extracting the exact legacy definition and comparing
 
 1. C01 closed: `RETAIN`.
 2. C02 closed: `RETAIN + REDOCUMENT`.
-3. C03 closed: unchanged 63-session adjusted excess return vs SPY; `RETAIN`.
-4. Recover exact legacy liquidity contract and compare it with current R2 path and the already-frozen FSE-014 split-adjustment correction contract for C04.
-5. Continue C05–C10 using repository history/code rather than assuming visible legacy code equals current behavior.
-6. Close each remaining Core row with one action: `RETAIN`, `RENAME / REDOCUMENT`, `CORRECT`, or `RESEARCH SEPARATELY`.
-7. Produce one concise final Legacy-vs-Current conclusion before optional Extended Engineering backlog resumes.
+3. C03 closed: `RETAIN`.
+4. C04 closed: legacy=current raw-share-volume rolling mean, but both retain the split-unit defect; action `CORRECT` under frozen FSE-014 governance.
+5. Recover exact legacy nominal price-floor contract and compare current consumer path for C05.
+6. Continue C06–C10 using repository history/code rather than assuming visible legacy code equals current behavior.
+7. Close each remaining Core row with one action: `RETAIN`, `RENAME / REDOCUMENT`, `CORRECT`, or `RESEARCH SEPARATELY`.
+8. Produce one concise final Legacy-vs-Current conclusion before optional Extended Engineering backlog resumes.
 
 Production remains untouched throughout this Core audit.
