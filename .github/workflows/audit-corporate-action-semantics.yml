@@ -1,0 +1,35 @@
+name: Signal Engine Corporate-Action Semantics Audit
+
+on:
+  workflow_dispatch:
+  push:
+    branches:
+      - research/exit-development-hypotheses
+    paths:
+      - audit_corporate_action_semantics.py
+      - .github/workflows/audit-corporate-action-semantics.yml
+
+jobs:
+  audit:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - name: Install dependencies
+        run: pip install pandas numpy pyarrow boto3
+      - name: Run corporate-action semantics audit
+        env:
+          R2_ENDPOINT: ${{ secrets.R2_ENDPOINT }}
+          R2_ACCESS_KEY_ID: ${{ secrets.R2_ACCESS_KEY_ID }}
+          R2_SECRET_ACCESS_KEY: ${{ secrets.R2_SECRET_ACCESS_KEY }}
+          R2_BUCKET_NAME: ${{ secrets.R2_BUCKET_NAME }}
+        run: python audit_corporate_action_semantics.py
+      - name: Upload audit artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: corporate-action-semantics-${{ github.run_number }}
+          path: audit_artifacts/corporate_action_semantics/
+          if-no-files-found: error
