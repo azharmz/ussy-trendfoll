@@ -1,6 +1,6 @@
 # Full Signal Engine Audit — Evidence 10: Effective-Date State Semantics
 
-Status: **REFINED CORRECTION IMPLEMENTED ON RESEARCH BRANCH + REGRESSION PASS / UNTOUCHED VALIDATION PENDING / NO PRODUCTION CHANGE**
+Status: **REFINED CORRECTION IMPLEMENTED + REGRESSION PASS + UNTOUCHED VALIDATION V2 PASS / PRODUCTION DECISION PENDING / NO PRODUCTION CHANGE**
 
 ## Trigger
 
@@ -85,39 +85,54 @@ Workflow: `Signal Engine Effective-Date State Audit`
 - result: **SUCCESS**
 - dedicated refined contract tests: **12 / 12 PASS**
 
-The suite covers current failed rows, current-member missing rows, out-of-universe historical symbols, stale-row exclusion, absence-state non-actionability, restoration, universe re-entry, lifecycle equivalents, and latest/current-universe consistency.
-
 ### Run #10 — contract + downstream regression
 
-The workflow was then strengthened on the research branch to run the existing alert/lifecycle regression suite after the frozen contract characterization. Workflow update commit: `11d7eed5af2f509e16c109d311c7ac113f66fa30`.
+Workflow update commit: `11d7eed5af2f509e16c109d311c7ac113f66fa30`.
 
 - run: `35063901480`
 - job: `104689883526`
-- head: `11d7eed5af2f509e16c109d311c7ac113f66fa30`
 - result: **SUCCESS**
 - refined effective-date contract: **12 / 12 PASS**
 - existing alert-state regression: **5 / 5 PASS**
-- candidate-lifecycle module was included in the regression command and produced no failure.
+- candidate-lifecycle module was included and produced no failure.
 
-This closes the research implementation/regression gate. It does **not** constitute untouched validation because the validation dataset/scenarios must be governed independently from the development characterization used to build the correction.
+## Untouched governed validation
+
+A separate validation suite was created after development/regression closure and kept outside the development characterization suite.
+
+### Validation V1 — invalid harness, retained as evidence
+
+The first frozen validation execution failed because four scenarios omitted the required `date` field from input fixtures. The implementation raised `KeyError: 'date'` before the intended semantic assertions could be evaluated. One independent fail-closed scenario passed.
+
+- run: `35066426578`
+- job: `104697632849`
+- result: **FAILURE — VALIDATION HARNESS INPUT-CONTRACT ERROR**
+- tests: 5 total; 1 semantic scenario reached/passed; 4 errored on missing required `date` input.
+
+V1 was not edited after execution to manufacture a pass. It remains immutable evidence of an invalid validation harness.
+
+### Validation V2 — corrected fixture contract, frozen before first execution
+
+A new V2 suite was created with only the fixture-contract defect corrected before its first execution. It uses a mixed population and independently exercises alert/lifecycle three-way state separation, present failure versus two absence causes, re-entry from current facts, and fail-closed snapshot/universe inconsistency.
+
+- frozen validation-suite commit: `d6e8045b4408a8553c3e1a5d0b118a2afcf181f2`
+- workflow execution commit: `b0cff605b5fad22beef8032a5db725258ae35c95`
+- workflow: `Signal Engine Effective-Date Untouched Validation V2`
+- run: `35066531313`
+- job: `104697955901`
+- result: **SUCCESS**
+- untouched validation: **5 / 5 PASS**
+
+No implementation file was modified between V1 diagnosis and V2 execution. The V2 result therefore closes the governed untouched-validation gate for this correction.
 
 ## Correction boundary
 
-The implemented research correction remains confined to:
-
-- orchestration membership propagation;
-- alert-state semantics;
-- candidate lifecycle semantics;
-- tests and research-only audit workflow.
-
-It does **not** change R2 OHLCV facts, feature formulas, Investability/Tradability aggregation, terminal EMA calculation, production entry formula, historical persisted observations, or active-position fail-fast behavior.
+The implemented research correction remains confined to orchestration membership propagation, alert-state semantics, candidate lifecycle semantics, tests, and research-only audit workflows. It does **not** change R2 OHLCV facts, feature formulas, Investability/Tradability aggregation, terminal EMA calculation, production entry formula, historical persisted observations, or active-position fail-fast behavior.
 
 ## Governance disposition
 
-G0.8 root-cause/intended-contract-before-code is satisfied. The refined research implementation and downstream regression gate are now satisfied. The previous first-stage implementation is superseded by the explicit three-way membership contract.
+For this effective-date finding, the technical evidence chain is now complete through governed validation:
 
-Current gate:
+`root cause -> refined frozen correction spec -> research implementation -> 12/12 contract PASS -> downstream regression PASS -> untouched validation V2 5/5 PASS`
 
-`refined frozen correction spec -> research implementation -> 12/12 contract PASS -> downstream regression PASS -> UNTOUCHED GOVERNED VALIDATION -> explicit production decision`
-
-**Untouched validation remains pending. Production remains unchanged.**
+The next gate is an **explicit production decision**. A passing validation does not itself authorize deployment. Production remains unchanged until that decision is recorded in the full-audit governance context.
