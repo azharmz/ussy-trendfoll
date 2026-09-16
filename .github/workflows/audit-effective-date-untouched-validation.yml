@@ -8,6 +8,8 @@ on:
       - 'tests/test_effective_date_state_validation.py'
       - '.github/workflows/audit-effective-date-untouched-validation.yml'
 
+# Validation scenarios are frozen in tests/test_effective_date_state_validation.py.
+# Do not edit that file after first execution to convert a validation failure into a pass.
 jobs:
   untouched-validation:
     runs-on: ubuntu-latest
