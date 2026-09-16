@@ -14,6 +14,7 @@ NEAR_TRIGGER = "NEAR_TRIGGER"
 ACTIONABLE = "ACTIONABLE"
 LOST_TRADABILITY = "LOST_TRADABILITY"
 INVALIDATED = "INVALIDATED"
+DATA_UNAVAILABLE = "DATA_UNAVAILABLE"
 
 
 def is_monitored(row) -> bool:
@@ -33,7 +34,13 @@ def base_state(row) -> str:
 
 
 def compute_alert_transitions(latest: pd.DataFrame, previous_watchlist: pd.DataFrame | None) -> list[dict]:
-    """Compute meaningful changes between previous watchlist and today's full decision output."""
+    """Compute meaningful changes between previous watchlist and today's full decision output.
+
+    Absence from a common-date current snapshot means the symbol was not evaluable
+    for that effective date. It is therefore DATA_UNAVAILABLE, not INVALIDATED.
+    INVALIDATED is reserved for a present current-date row whose signal fails the
+    monitoring contract.
+    """
     if latest.empty:
         return []
 
@@ -79,7 +86,19 @@ def compute_alert_transitions(latest: pd.DataFrame, previous_watchlist: pd.DataF
 
     for symbol, prev in sorted(previous.items()):
         row = current.get(symbol)
-        if row is None or not is_monitored(row):
+        if row is None:
+            events.append({
+                "event": DATA_UNAVAILABLE,
+                "symbol": symbol,
+                "as_of_date": as_of_date,
+                "previous_date": previous_date,
+                "previous_state": base_state(prev),
+                "current_state": DATA_UNAVAILABLE,
+                "investability_status": None,
+                "tradability_status": None,
+                "close_raw": None,
+            })
+        elif not is_monitored(row):
             events.append({
                 "event": INVALIDATED,
                 "symbol": symbol,
@@ -87,10 +106,10 @@ def compute_alert_transitions(latest: pd.DataFrame, previous_watchlist: pd.DataF
                 "previous_date": previous_date,
                 "previous_state": base_state(prev),
                 "current_state": INVALIDATED,
-                "investability_status": None if row is None else row.get("investability_status"),
-                "tradability_status": None if row is None else row.get("tradability_status"),
-                "close_raw": None if row is None else row.get("close_raw"),
+                "investability_status": row.get("investability_status"),
+                "tradability_status": row.get("tradability_status"),
+                "close_raw": row.get("close_raw"),
             })
 
-    order = {ACTIONABLE: 0, NEW_WATCH: 1, NEAR_TRIGGER: 2, LOST_TRADABILITY: 3, INVALIDATED: 4}
+    order = {ACTIONABLE: 0, NEW_WATCH: 1, NEAR_TRIGGER: 2, LOST_TRADABILITY: 3, INVALIDATED: 4, DATA_UNAVAILABLE: 5}
     return sorted(events, key=lambda e: (order[e["event"]], e["symbol"]))
