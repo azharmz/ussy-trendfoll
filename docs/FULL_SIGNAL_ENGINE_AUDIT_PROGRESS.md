@@ -121,15 +121,15 @@ D1.6 is empirically closed by PROB-018: historical warm-up effect is real, while
 - [x] D2.3 Current three-observation slope rule traced.
 - [x] D2.4 Current Stage1/2/3/4 mapping traced.
 - [x] D2.5 Current implementation classified as `APPROXIMATION` pending dedicated methodology audit.
-- [ ] D2.6 Audit weekly W-FRI labeling around market holidays.
-- [ ] D2.7 Verify no weekly look-ahead is introduced by resample/as-of merge.
+- [x] D2.6 Audit weekly W-FRI labeling around market holidays.
+- [x] D2.7 Verify no weekly look-ahead is introduced by resample/as-of merge.
 - [ ] D2.8 Compare current Stage semantics against authoritative Weinstein methodology.
 - [ ] D2.9 Enumerate missing lifecycle/context elements.
 - [ ] D2.10 Quantify Stage transition stability around Sep-4–Sep-10.
 - [x] D2.11 Quantify contribution of Stage transitions to Sep-10 first-time lifecycle symbols.
 - [ ] D2.12 Freeze corrected Stage specification only if evidence supports a correction.
 
-D2.11 disposition: the +61 set was newly evaluated after universe expansion, so there is no valid prior legacy-engine Stage state from which to attribute a Stage transition; mass Stage-transition causality is disproven as the primary explanation.
+D2.6/D2.7 are closed by Evidence 08 and workflow run `35036545474` (`4 passed`). W-FRI plus backward-as-of is temporally causal: Mon–Thu cannot see the current Friday bucket. Good-Friday-style shortened weeks create a conservative calendar-label lag, not future-data leakage. D2.11 disposition: the +61 set was newly evaluated after universe expansion, so there is no valid prior legacy-engine Stage state from which to attribute a Stage transition; mass Stage-transition causality is disproven as the primary explanation.
 
 ## D3 Relative strength
 
@@ -271,15 +271,15 @@ F5–F7/F9 are covered by the successful decision-contract test gate. F10–F11 
 - [x] G2 Verify daily OHLCV T0 is only used for decisions after T0 close.
 - [x] G3 Verify shifted pivot excludes T0 high from T0 breakout reference.
 - [ ] G4 Verify rolling calculations never use future rows.
-- [ ] G5 Verify weekly Stage resampling does not leak future Friday information into Mon–Thu.
-- [ ] G6 Verify holiday-shortened weeks do not create leakage or unintended lag.
+- [x] G5 Verify weekly Stage resampling does not leak future Friday information into Mon–Thu.
+- [x] G6 Verify holiday-shortened weeks do not create leakage or unintended lag.
 - [x] G7 Verify exact-date benchmark merge has no forward fill from future benchmark dates.
 - [x] G8 Verify regime backward-as-of merge only uses same/prior benchmark state.
 - [ ] G9 Verify lifecycle comparisons are as-of historical state, not recomputed with future/canonical terminal overlays.
 - [x] G10 Verify backtests/research do not accidentally use terminal-only canonical EMA state for earlier dates.
 - [x] G11 Verify T+1 Open execution constraint wherever signal outcomes are evaluated.
 
-G2/G3/G7/G8/G11 are closed by static/empirical temporal evidence and downstream execution ordering. G10 is closed in the sense that canonical R2 EMA overlay is terminal-only; historical research remains on historical feature rows and the mismatch is explicitly governed rather than silently backfilled.
+G5/G6 are closed by Evidence 08 and run `35036545474`: 4 temporal/calendar tests passed, including Good Friday and Labor Day cases. Good-Friday W-FRI labeling can conservatively delay the shortened week's Stage state until the next trading session, but does not leak future information. G2/G3/G7/G8/G11 are closed by static/empirical temporal evidence and downstream execution ordering. G10 is closed in the sense that canonical R2 EMA overlay is terminal-only; historical research remains on historical feature rows and the mismatch is explicitly governed rather than silently backfilled.
 
 **Exit criterion:** zero unresolved look-ahead/as-of ambiguity.
 
@@ -338,162 +338,74 @@ Established facts supplied for this diagnostic:
 ## I1 Reconstruct the population
 
 - [x] I1.1 Extract exact 61 first-time lifecycle symbols dated Sep-10.
-- [x] I1.2 Verify each symbol's first-seen timestamp/date.
-- [x] I1.3 Verify none had an earlier lifecycle record under another identifier/ticker mapping.
-- [x] I1.4 Confirm security-ID/ticker mapping consistency.
-- [x] I1.5 Confirm all 61 are present in the relevant R2 READY snapshot, not merely current READY.
+- [x] I1.2 Confirm their prior lifecycle absence.
+- [x] I1.3 Confirm all 61 belong to current R2 READY.
+- [x] I1.4 Compare the 61 with legacy hard-coded universe.
+- [x] I1.5 Determine whether they were previously evaluated by legacy production.
 
-## I2 Reconstruct prior observable state
+## I2 Causal decomposition
 
-For every one of the 61 symbols:
+- [x] I2.1 Test mass Stage-transition hypothesis.
+- [x] I2.2 Test mass RS-transition hypothesis.
+- [x] I2.3 Test mass liquidity-transition hypothesis.
+- [x] I2.4 Test mass price-transition hypothesis.
+- [x] I2.5 Test benchmark-regime shift hypothesis.
+- [x] I2.6 Test workflow catch-up hypothesis.
+- [x] I2.7 Test universe-expansion/migration hypothesis.
+- [x] I2.8 Test legacy-universe contamination hypothesis.
 
-- [x] I2.1 Find last valid observable session before Sep-10.
-- [x] I2.2 Record prior `trend_status`.
-- [x] I2.3 Record prior `stage`.
-- [x] I2.4 Record prior `ema_stack_aligned`.
-- [x] I2.5 Record prior `rs_status` and `rs_spy`.
-- [x] I2.6 Record prior `liquidity_status` and underlying average volume.
-- [x] I2.7 Record prior `price_status` and raw close.
-- [x] I2.8 Record prior `investability_status`.
-- [x] I2.9 Record Sep-10 values for the same fields.
-- [x] I2.10 Record data date/lineage for both observations.
+## I3 Disposition
 
-I2 disposition: prior state for the +61 is `NOT EVALUATED / OUTSIDE LEGACY UNIVERSE`, not a missing per-component FAIL state. The absence of comparable prior component rows is itself the causal evidence and must not be fabricated as a FAIL→qualifying transition.
+- [x] I3.1 Root cause documented as `EXPLAINABLE MIGRATION / UNIVERSE-EXPANSION EFFECT`.
+- [x] I3.2 Mass signal transition rejected as primary explanation.
+- [x] I3.3 Legacy-universe contamination rejected.
+- [x] I3.4 Diagnostic closed without production correction.
 
-## I3 Attribute first qualifying transition
-
-- [x] I3.1 Classify `Trend FAIL -> NEAR/PASS` only.
-- [x] I3.2 Classify `RS FAIL -> NEAR/PASS` only.
-- [x] I3.3 Classify `Liquidity FAIL -> NEAR/PASS` only.
-- [x] I3.4 Classify `Price FAIL -> NEAR/PASS` only.
-- [x] I3.5 Classify multiple simultaneous component changes.
-- [x] I3.6 Separate `Stage` change from EMA-stack change within Trend transitions.
-- [x] I3.7 Identify symbols whose prior state is unavailable because pipeline did not persist it.
-- [x] I3.8 Distinguish genuine first qualification from first *observed/persisted* qualification after a continuity gap.
-- [x] I3.9 Produce counts and symbol lists for every transition category.
-
-I3 verdict: all 61 belong to the `NOT PREVIOUSLY EVALUATED / UNIVERSE EXPANSION` category. Component-transition buckets are zero as causal attribution because no comparable legacy evaluation exists.
-
-## I4 Test causal hypotheses
-
-- [x] I4.1 HYP-MARKET: test whether market/stock price movement alone reproduces component transitions under unchanged engine/input contract.
-- [x] I4.2 HYP-PIPELINE: test whether failed/missing production persistence caused accumulated first-seen records.
-- [x] I4.3 HYP-R2-SNAPSHOT: compare relevant R2 manifest/snapshot lineage before and on Sep-10.
-- [x] I4.4 HYP-CODE: compare commits affecting feature/filter/decision/lifecycle code.
-- [x] I4.5 HYP-CONFIG: compare thresholds/environment-driven configuration.
-- [x] I4.6 HYP-FEATURE: identify formula/implementation changes affecting classifications.
-- [x] I4.7 HYP-WARMUP: test whether added history/readiness crossed feature minimum periods simultaneously.
-- [x] I4.8 HYP-STAGE: quantify Stage-driven transitions.
-- [x] I4.9 HYP-EMA: quantify EMA-stack-driven transitions.
-- [x] I4.10 HYP-RS: quantify RS-driven transitions.
-- [x] I4.11 HYP-OTHER: inspect identifier, date-selection, NaN, persistence, or state-machine defects.
-
-I4 verdict: migration/universe expansion is supported as primary cause; mass market/Stage/EMA/RS transition hypotheses are disproven as primary cause; legacy-universe contamination is disproven; warm-up is a real independent historical issue but does not explain the +61 first-seen population.
-
-## I5 Reproducibility verdict
-
-- [x] I5.1 Re-run/reconstruct Sep-10 decision state from immutable inputs if available.
-- [x] I5.2 Compare reconstructed 85 current qualifying symbols with persisted state.
-- [x] I5.3 Compare reconstructed first-time set with persisted +61.
-- [x] I5.4 Explain every discrepancy.
-- [x] I5.5 If all +61 are legitimate and reproducible, record `EXPLAINABLE / NO DEFECT FOUND` with evidence.
-- [x] I5.6 If a data/engine/pipeline defect contributed, create a numbered FSE finding with severity, affected population, mechanism, and correction candidate.
-- [x] I5.7 Do not collapse mixed causality: report proportions/counts by cause if multiple mechanisms contributed.
-
-I5 verdict: `EXPLAINABLE MIGRATION / UNIVERSE-EXPANSION EFFECT / NO SIGNAL-ENGINE DEFECT FOUND FOR +61`. No correction candidate is created from the +61 case.
-
-**Exit criterion:** all 61 symbols are individually attributable or explicitly marked unresolved with the missing evidence named.
+Evidence: `docs/SEP10_LIFECYCLE_DIAGNOSTIC.md`.
 
 ---
 
-# Phase J — Findings register and correction candidates
+# Phase J — Findings and correction specifications
 
-Existing findings in `FULL_SIGNAL_ENGINE_AUDIT.md`: FSE-001 onward.
-
-- [ ] J1 Re-evaluate severity/classification after empirical checks.
-- [x] J2 Add any workflow-continuity finding from Sep-4–Sep-10.
-- [x] J3 Add any lifecycle-state-machine/persistence finding.
-- [x] J4 Add any R2 warm-up/readiness defect.
-- [ ] J5 Add any benchmark-freshness defect.
-- [ ] J6 Add any temporal/look-ahead defect.
-- [ ] J7 Add any NaN handling defect affecting production decision/persistence.
-- [x] J8 Separate naming/semantic mismatches from computational bugs.
-- [x] J9 For each actionable finding, document affected fields and downstream impact.
-- [ ] J10 For each correction candidate, document intended contract before code change.
-- [ ] J11 Rank correction execution by dependency/severity, not by convenience.
-- [ ] J12 Freeze correction specification before validation.
-
-J2/J3 disposition includes the closed Sep-10 migration explanation and intentional downstream contract split. J4 records the historical finite-window warm-up issue with terminal canonical-EMA mitigation. No production correction has been made by this checklist synchronization.
-
-**Exit criterion:** no unresolved high-severity production-relevant finding without an explicit disposition.
+- [ ] J1 Consolidate all findings after remaining empirical/temporal checks.
+- [ ] J2 Separate naming/semantic mismatches from calculation defects.
+- [ ] J3 For each actual correction candidate, document root cause before code change.
+- [ ] J4 Freeze intended corrected contract before validation.
+- [ ] J5 Define untouched validation dataset/corpus before implementation.
+- [ ] J6 Do not tune after validation result is observed.
 
 ---
 
-# Phase K — Test and validation gate
+# Phase K — Tests and governed validation
 
-- [ ] K1 Unit tests for every corrected formula.
-- [x] K2 Truth-table tests for Investability.
-- [x] K3 Truth-table tests for Tradability.
-- [x] K4 NaN/insufficient-history tests.
-- [ ] K5 Corporate-action/raw-vs-adjusted tests where applicable.
-- [ ] K6 Weekly Stage calendar/holiday tests.
-- [x] K7 Benchmark stale/missing-session tests.
-- [x] K8 Temporal no-look-ahead tests.
-- [x] K9 T+1 Open execution tests for event-level evaluation.
-- [x] K10 Lifecycle idempotency tests.
-- [x] K11 First-seen persistence tests.
-- [ ] K12 Failed-run/rerun recovery tests.
-- [ ] K13 Regression test reproducing Sep-10 diagnostic case where immutable inputs permit.
-- [ ] K14 Development sample completed before untouched validation.
-- [ ] K15 Correction frozen before validation.
-- [ ] K16 Untouched validation executed once under governance.
-- [ ] K17 No post-validation tuning without new governed cycle.
+- [x] K1 Existing terminal canonical EMA tests identified.
+- [x] K2 Investability truth-table tests added and passing.
+- [x] K3 Tradability truth-table tests added and passing.
+- [x] K4 T0/T+1 downstream ordering covered by static contract evidence.
+- [x] K5 Benchmark stale/alignment scenarios tested empirically.
+- [x] K6 Weekly Stage holiday/calendar edge cases tested.
+- [ ] K7 Historical EMA consistent-basis comparison test/validation.
+- [ ] K8 R2 READY empirical QC gate.
+- [ ] K9 Any approved correction receives dedicated regression tests.
+- [ ] K10 Untouched validation run after correction specification freeze.
 
-K2–K4: decision-contract workflow run `35035424562`, job `104603352321`, completed SUCCESS with `6 passed, 8 subtests passed`. K7 is covered by benchmark freshness/alignment audit. K8 includes prior-pivot causality and benchmark as-of direction tests. K9 is covered by `test_signal_path_diagnostic.py` and downstream execution evidence. K10–K11 are covered by lifecycle/alert-state tests and Evidence 05 semantics.
-
-**Exit criterion:** approved correction set passes tests and governed validation.
+K6 evidence: `tests/test_weekly_stage_temporal.py`, workflow run `35036545474`, `4 passed in 0.73s`.
 
 ---
 
-# Phase L — Final production decision and post-audit funnel
+# Phase L — Final production decision / funnel
 
-- [ ] L1 Summarize engine components classified MATCH / VALID / APPROXIMATION / MISMATCH / BUG / UNUSED.
-- [x] L2 Summarize Sep-10 lifecycle diagnostic verdict with evidence.
-- [ ] L3 Document remaining known limitations.
-- [ ] L4 Explicit production decision for each correction candidate: adopt / defer / reject.
-- [ ] L5 Production code change only after explicit decision.
-- [ ] L6 Re-run full test suite after production integration.
-- [ ] L7 Run current R2 READY funnel only after signal engine is clean enough for interpretation.
-- [ ] L8 Report current counts by Trend, RS, Liquidity, Price, Investability, Tradability.
-- [ ] L9 Establish ongoing health checks for R2 freshness, benchmark freshness, NaN, and lifecycle jumps.
-- [ ] L10 Close audit with immutable evidence references/commit SHAs.
-
-L2 verdict: Sep-10 +61 is an explainable migration/universe-expansion effect, not evidence of a mass signal transition or signal-engine defect.
+- [ ] L1 Confirm all decision-relevant input contracts are clean or explicitly governed.
+- [ ] L2 Confirm all temporal ambiguities are closed.
+- [ ] L3 Confirm correction specs are frozen where needed.
+- [ ] L4 Confirm regression tests pass.
+- [ ] L5 Confirm untouched validation completed for any correction.
+- [ ] L6 Make explicit production decision per finding: keep / rename / correct / defer.
+- [ ] L7 Only after L1–L6, produce current Investability/Tradability funnel and interpret it.
+- [ ] L8 Record final audit verdict and production change set (which may be empty).
 
 ---
 
-# Progress summary
+## Current audit posture
 
-| Phase | Area | Status |
-|---|---|---|
-| G0 | Governance | IN PROGRESS |
-| A | Production execution map | COMPLETE AT CODE-CONTRACT LEVEL — empirical persisted-row consistency separate |
-| B | R2 input/readiness | IN PROGRESS — finite-window/warm-up contract established; broad QC pending |
-| C | Benchmark boundary | IN PROGRESS — static + empirical alignment complete; governance decision pending |
-| D | Feature formulas | IN PROGRESS — major formulas/classifications traced; methodology/quantification remains |
-| E | Investability | IN PROGRESS — aggregation contract tested; effective-date/funnel pending |
-| F | Tradability | IN PROGRESS — truth table/causality tested; min-history/terminology disposition remains governed |
-| G | Temporal/look-ahead | IN PROGRESS — daily/pivot/benchmark/T+1 checks closed; weekly Stage remains |
-| H | Sep-4–Sep-10 workflow continuity | IN PROGRESS — migration cause known; complete run ledger still pending |
-| I | Sep-10 +61 diagnostic | COMPLETE — explainable migration/universe expansion |
-| J | Findings/corrections | IN PROGRESS |
-| K | Tests/validation | IN PROGRESS — decision contract gate SUCCESS; correction validation not started |
-| L | Production decision/funnel | BLOCKED BY REMAINING AUDIT/CORRECTION GOVERNANCE |
-
-## Audit completion rule
-
-The audit is **not complete** merely because all formulas have been read. Completion requires:
-
-`input contract -> formula -> temporal semantics -> downstream consumer -> empirical behavior -> finding classification -> correction specification (if any) -> tests -> governed validation -> explicit production decision`.
-
-The Sep-10 lifecycle case is closed as `EXPLAINABLE MIGRATION / UNIVERSE-EXPANSION EFFECT`; remaining audit work must not reopen it without contradictory evidence.
+Production remains unchanged. The audit has established the full downstream contract, empirical persistence consistency, finite R2 warm-up boundary, benchmark alignment behavior, Sep-10 migration explanation, decision truth tables, and weekly Stage temporal causality. Remaining work is concentrated in R2 empirical QC, historical EMA consistent-basis quantification/canonical-history governance, methodology/evidence questions, remaining minimum-history/frequency measurements, field-level temporal table, workflow continuity ledger, and final correction/validation governance.
