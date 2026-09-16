@@ -1,0 +1,39 @@
+name: Signal Engine R2 READY QC Audit
+
+on:
+  workflow_dispatch:
+  push:
+    branches:
+      - research/exit-development-hypotheses
+    paths:
+      - audit_r2_ready_qc.py
+      - .github/workflows/audit-r2-ready-qc.yml
+
+permissions:
+  contents: read
+
+jobs:
+  r2-ready-qc:
+    runs-on: ubuntu-latest
+    env:
+      R2_ENDPOINT: ${{ secrets.R2_ENDPOINT }}
+      R2_ACCESS_KEY_ID: ${{ secrets.R2_ACCESS_KEY_ID }}
+      R2_SECRET_ACCESS_KEY: ${{ secrets.R2_SECRET_ACCESS_KEY }}
+      R2_BUCKET_NAME: ${{ secrets.R2_BUCKET_NAME }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - name: Install dependencies
+        run: |
+          pip install -r requirements.txt
+          pip install boto3 pyarrow
+      - name: Run R2 READY empirical QC
+        run: python audit_r2_ready_qc.py
+      - name: Upload audit evidence
+        uses: actions/upload-artifact@v4
+        with:
+          name: r2-ready-qc-${{ github.run_number }}
+          path: audit_artifacts/r2_ready_qc/
+          if-no-files-found: error
