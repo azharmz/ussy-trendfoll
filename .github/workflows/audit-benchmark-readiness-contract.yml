@@ -1,0 +1,23 @@
+name: Signal Engine Benchmark Readiness Contract Gate
+
+on:
+  push:
+    branches:
+      - research/exit-development-hypotheses
+    paths:
+      - 'benchmark_readiness.py'
+      - 'tests/test_benchmark_readiness.py'
+      - '.github/workflows/audit-benchmark-readiness-contract.yml'
+  workflow_dispatch:
+
+jobs:
+  benchmark-readiness-contract:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - run: pip install pandas
+      - name: Run frozen benchmark readiness contract tests
+        run: python -m unittest -v tests.test_benchmark_readiness
