@@ -8,11 +8,15 @@ from __future__ import annotations
 
 import pandas as pd
 
-from alert_state import base_state, INVALIDATED, DATA_UNAVAILABLE
+from alert_state import base_state, INVALIDATED, DATA_UNAVAILABLE, OUT_OF_UNIVERSE
 from hard_filter import STATUS_RANK
 
 
-def build_candidate_lifecycle(history: pd.DataFrame, latest: pd.DataFrame) -> pd.DataFrame:
+def build_candidate_lifecycle(
+    history: pd.DataFrame,
+    latest: pd.DataFrame,
+    current_universe: set[str] | list[str] | tuple[str, ...],
+) -> pd.DataFrame:
     columns = [
         "symbol", "first_watch_date", "last_watch_date", "watch_days",
         "ever_tradability_near_pass", "ever_tradability_pass",
@@ -23,6 +27,7 @@ def build_candidate_lifecycle(history: pd.DataFrame, latest: pd.DataFrame) -> pd
     if history is None or history.empty:
         return pd.DataFrame(columns=columns)
 
+    universe = {str(symbol) for symbol in current_universe}
     h = history.copy()
     h["date"] = pd.to_datetime(h["date"]).dt.normalize()
     h = h.sort_values(["symbol", "date"])
@@ -32,6 +37,8 @@ def build_candidate_lifecycle(history: pd.DataFrame, latest: pd.DataFrame) -> pd
         latest_by_symbol = {
             str(r["symbol"]): r for _, r in latest.drop_duplicates("symbol").iterrows()
         }
+        if not set(latest_by_symbol).issubset(universe):
+            raise ValueError("latest contains symbols outside current R2 READY universe")
         as_of_date = pd.Timestamp(latest["date"].max()).normalize()
     else:
         as_of_date = h["date"].max()
@@ -40,15 +47,13 @@ def build_candidate_lifecycle(history: pd.DataFrame, latest: pd.DataFrame) -> pd
     for symbol, g in h.groupby("symbol", sort=True):
         g = g.sort_values("date")
         last = g.iloc[-1]
-        current = latest_by_symbol.get(str(symbol))
+        symbol_key = str(symbol)
+        current = latest_by_symbol.get(symbol_key)
 
         if current is None:
             current_investability = None
             current_tradability = None
-            # No row on the common effective date means the symbol is not
-            # evaluable today. Preserve that distinction from a present row
-            # whose Investability actually invalidates monitoring.
-            current_state = DATA_UNAVAILABLE
+            current_state = DATA_UNAVAILABLE if symbol_key in universe else OUT_OF_UNIVERSE
             currently_monitored = False
             currently_actionable = False
         else:
@@ -78,7 +83,13 @@ def build_candidate_lifecycle(history: pd.DataFrame, latest: pd.DataFrame) -> pd
         })
 
     out = pd.DataFrame(rows, columns=columns)
-    state_rank = {"ACTIONABLE": 0, "NEAR_TRIGGER": 1, "INVALIDATED": 2, "DATA_UNAVAILABLE": 3}
+    state_rank = {
+        "ACTIONABLE": 0,
+        "NEAR_TRIGGER": 1,
+        "INVALIDATED": 2,
+        "DATA_UNAVAILABLE": 3,
+        "OUT_OF_UNIVERSE": 4,
+    }
     out["_state_rank"] = out["current_state"].map(state_rank).fillna(9)
     return (
         out.sort_values(["_state_rank", "last_watch_date", "symbol"], ascending=[True, False, True])
@@ -87,8 +98,13 @@ def build_candidate_lifecycle(history: pd.DataFrame, latest: pd.DataFrame) -> pd
     )
 
 
-def write_candidate_lifecycle(history: pd.DataFrame, latest: pd.DataFrame, path: str) -> pd.DataFrame:
-    lifecycle = build_candidate_lifecycle(history, latest)
+def write_candidate_lifecycle(
+    history: pd.DataFrame,
+    latest: pd.DataFrame,
+    path: str,
+    current_universe: set[str] | list[str] | tuple[str, ...],
+) -> pd.DataFrame:
+    lifecycle = build_candidate_lifecycle(history, latest, current_universe)
     lifecycle.to_csv(path, index=False)
     near_history = int(lifecycle["ever_tradability_near_pass"].sum()) if not lifecycle.empty else 0
     inactive = int((~lifecycle["currently_monitored"]).sum()) if not lifecycle.empty else 0
