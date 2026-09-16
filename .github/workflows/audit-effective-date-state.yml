@@ -1,0 +1,30 @@
+name: Signal Engine Effective-Date State Audit
+
+on:
+  workflow_dispatch:
+  push:
+    branches:
+      - research/exit-development-hypotheses
+    paths:
+      - 'alert_state.py'
+      - 'candidate_lifecycle.py'
+      - 'positions.py'
+      - 'r2_main.py'
+      - 'tests/test_effective_date_state_contract.py'
+      - '.github/workflows/audit-effective-date-state.yml'
+
+jobs:
+  effective-date-state-contract:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+
+      - name: Install test dependencies
+        run: pip install pandas
+
+      - name: Run frozen effective-date state characterization
+        run: python -m unittest -v tests.test_effective_date_state_contract
