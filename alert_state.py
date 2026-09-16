@@ -15,6 +15,7 @@ ACTIONABLE = "ACTIONABLE"
 LOST_TRADABILITY = "LOST_TRADABILITY"
 INVALIDATED = "INVALIDATED"
 DATA_UNAVAILABLE = "DATA_UNAVAILABLE"
+OUT_OF_UNIVERSE = "OUT_OF_UNIVERSE"
 
 
 def is_monitored(row) -> bool:
@@ -33,18 +34,26 @@ def base_state(row) -> str:
     return NEAR_TRIGGER
 
 
-def compute_alert_transitions(latest: pd.DataFrame, previous_watchlist: pd.DataFrame | None) -> list[dict]:
-    """Compute meaningful changes between previous watchlist and today's full decision output.
+def compute_alert_transitions(
+    latest: pd.DataFrame,
+    previous_watchlist: pd.DataFrame | None,
+    current_universe: set[str] | list[str] | tuple[str, ...],
+) -> list[dict]:
+    """Compute meaningful changes against the common-date decision snapshot.
 
-    Absence from a common-date current snapshot means the symbol was not evaluable
-    for that effective date. It is therefore DATA_UNAVAILABLE, not INVALIDATED.
-    INVALIDATED is reserved for a present current-date row whose signal fails the
-    monitoring contract.
+    ``current_universe`` is the current R2 READY membership, distinct from
+    ``latest`` (members with a row on the common effective date). A previous
+    symbol still in current READY but absent from ``latest`` is DATA_UNAVAILABLE;
+    a previous symbol no longer in current READY is OUT_OF_UNIVERSE.
     """
     if latest.empty:
         return []
 
+    universe = {str(symbol) for symbol in current_universe}
     current = {str(r["symbol"]): r for _, r in latest.iterrows()}
+    if not set(current).issubset(universe):
+        raise ValueError("latest contains symbols outside current R2 READY universe")
+
     previous = {} if previous_watchlist is None or previous_watchlist.empty else {
         str(r["symbol"]): r for _, r in previous_watchlist.iterrows()
     }
@@ -87,13 +96,14 @@ def compute_alert_transitions(latest: pd.DataFrame, previous_watchlist: pd.DataF
     for symbol, prev in sorted(previous.items()):
         row = current.get(symbol)
         if row is None:
+            absence_state = DATA_UNAVAILABLE if symbol in universe else OUT_OF_UNIVERSE
             events.append({
-                "event": DATA_UNAVAILABLE,
+                "event": absence_state,
                 "symbol": symbol,
                 "as_of_date": as_of_date,
                 "previous_date": previous_date,
                 "previous_state": base_state(prev),
-                "current_state": DATA_UNAVAILABLE,
+                "current_state": absence_state,
                 "investability_status": None,
                 "tradability_status": None,
                 "close_raw": None,
@@ -111,5 +121,13 @@ def compute_alert_transitions(latest: pd.DataFrame, previous_watchlist: pd.DataF
                 "close_raw": row.get("close_raw"),
             })
 
-    order = {ACTIONABLE: 0, NEW_WATCH: 1, NEAR_TRIGGER: 2, LOST_TRADABILITY: 3, INVALIDATED: 4, DATA_UNAVAILABLE: 5}
+    order = {
+        ACTIONABLE: 0,
+        NEW_WATCH: 1,
+        NEAR_TRIGGER: 2,
+        LOST_TRADABILITY: 3,
+        INVALIDATED: 4,
+        DATA_UNAVAILABLE: 5,
+        OUT_OF_UNIVERSE: 6,
+    }
     return sorted(events, key=lambda e: (order[e["event"]], e["symbol"]))
