@@ -1,6 +1,6 @@
 """Research-only diagnostic for suspicious latest-session R2 volume completeness.
 
-No production/R2/Supabase mutation.
+No production/R2/Supabase mutation. Triggered after workflow registration.
 """
 from __future__ import annotations
 import json
