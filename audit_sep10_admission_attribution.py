@@ -11,6 +11,7 @@ from pathlib import Path
 import pandas as pd
 
 import database
+import feature_engine as fe
 from hard_filter import compute_hard_filter, STATUS_RANK
 from decision_layer import compute_decision_layer
 from r2_ready import load_ready_dataset
@@ -19,7 +20,7 @@ from r2_feature_engine import build_feature_store_from_r2
 TARGET = pd.Timestamp("2026-09-10")
 PRIOR = pd.Timestamp("2026-09-04")
 SUMMARY = Path("sep10_admission_attribution_summary.json")
-DETAIL = Path("sep10_admission_attribution.csv")
+DETAIL = Path("sep10_admission_admission_attribution.csv")
 COMPONENTS = ["trend_status", "liquidity_status", "rs_status", "price_status"]
 
 
@@ -32,7 +33,15 @@ def main():
     target_symbols = sorted(first[first.dt.normalize() == TARGET].index.astype(str))
 
     ready, manifest = load_ready_dataset()
-    result = build_feature_store_from_r2(ready=ready, manifest=manifest)
+    # Earnings is not an Investability/Tradability component and build_feature_store
+    # otherwise performs one live Yahoo calendar request per symbol. Remove that
+    # irrelevant network dependency for this read-only historical attribution.
+    original_earnings = fe.compute_days_to_next_earnings
+    fe.compute_days_to_next_earnings = lambda ticker, as_of_date: None
+    try:
+        result = build_feature_store_from_r2(ready=ready, manifest=manifest)
+    finally:
+        fe.compute_days_to_next_earnings = original_earnings
     decided = compute_decision_layer(compute_hard_filter(result["features"]))
     decided["date"] = pd.to_datetime(decided["date"]).dt.normalize()
 
@@ -80,15 +89,10 @@ def main():
         rows.append(row)
 
     detail = pd.DataFrame(rows)
-    detail.to_csv(DETAIL, index=False)
+    # Keep canonical evidence filename expected by workflow.
+    detail.to_csv("sep10_admission_attribution.csv", index=False)
     valid = detail[detail.get("error", pd.Series(index=detail.index, dtype=object)).isna()].copy()
 
-    component_transitions = {}
-    for c in COMPONENTS:
-        a, b = f"prior_{c}", f"target_{c}"
-        if a in valid and b in valid:
-            component_transitions[c] = valid.groupby([a, b], dropna=False).size().sort_values(ascending=False).to_dict()
-    # JSON cannot serialize tuple keys.
     component_transitions = {
         c: {f"{a}->{b}": int(n) for (a, b), n in valid.groupby([f'prior_{c}', f'target_{c}'], dropna=False).size().items()}
         for c in COMPONENTS if f"prior_{c}" in valid and f"target_{c}" in valid
