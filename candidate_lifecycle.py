@@ -8,7 +8,7 @@ from __future__ import annotations
 
 import pandas as pd
 
-from alert_state import base_state, INVALIDATED
+from alert_state import base_state, INVALIDATED, DATA_UNAVAILABLE
 from hard_filter import STATUS_RANK
 
 
@@ -45,7 +45,10 @@ def build_candidate_lifecycle(history: pd.DataFrame, latest: pd.DataFrame) -> pd
         if current is None:
             current_investability = None
             current_tradability = None
-            current_state = INVALIDATED
+            # No row on the common effective date means the symbol is not
+            # evaluable today. Preserve that distinction from a present row
+            # whose Investability actually invalidates monitoring.
+            current_state = DATA_UNAVAILABLE
             currently_monitored = False
             currently_actionable = False
         else:
@@ -75,7 +78,7 @@ def build_candidate_lifecycle(history: pd.DataFrame, latest: pd.DataFrame) -> pd
         })
 
     out = pd.DataFrame(rows, columns=columns)
-    state_rank = {"ACTIONABLE": 0, "NEAR_TRIGGER": 1, "INVALIDATED": 2}
+    state_rank = {"ACTIONABLE": 0, "NEAR_TRIGGER": 1, "INVALIDATED": 2, "DATA_UNAVAILABLE": 3}
     out["_state_rank"] = out["current_state"].map(state_rank).fillna(9)
     return (
         out.sort_values(["_state_rank", "last_watch_date", "symbol"], ascending=[True, False, True])
