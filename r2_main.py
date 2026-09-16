@@ -45,6 +45,7 @@ def main():
     universe = sorted(ready["ticker"].dropna().unique().tolist())
     if not universe:
         raise RuntimeError("R2 ready universe kosong")
+    current_universe = set(universe)
     print(f"[R2] snapshot={manifest.get('snapshot_date')} securities={len(universe)} rows={len(ready)}")
     sector_map = get_sector_map(client, universe)
     features = build_feature_store_from_r2(
@@ -58,7 +59,7 @@ def main():
     as_of_date = decided["date"].max()
     latest = decided[decided["date"] == as_of_date].copy()
     candidates = latest[latest["investability_status"].map(STATUS_RANK) >= STATUS_RANK["NEAR_PASS"]].copy()
-    missing_latest = sorted(set(universe) - set(latest["symbol"].unique()))
+    missing_latest = sorted(current_universe - set(latest["symbol"].unique()))
     print(f"Tanggal {pd.Timestamp(as_of_date).date()}: {len(candidates)} kandidat / {len(latest)} latest / {len(universe)} ready")
     if missing_latest:
         print(f"[R2 freshness] {len(missing_latest)} ready ticker tanpa bar latest: {missing_latest[:20]}")
@@ -73,14 +74,19 @@ def main():
 
     positions.validate_active_position_coverage(client, latest)
     previous = database.get_previous_watchlist(client, as_of_date)
-    transitions = compute_alert_transitions(latest, previous)
+    transitions = compute_alert_transitions(latest, previous, current_universe)
     for e in transitions:
         print(f"[alert] {e['event']}: {e['symbol']} ({e['previous_state']} -> {e['current_state']})")
     explanations = {r["symbol"]: explain_candidate(r) for _, r in candidates.iterrows()}
     database.upsert_watchlist(client, candidates, explanations)
 
     watchlist_history = database.get_watchlist_history(client)
-    write_candidate_lifecycle(watchlist_history, latest, LIFECYCLE_ARTIFACT_PATH)
+    write_candidate_lifecycle(
+        watchlist_history,
+        latest,
+        LIFECYCLE_ARTIFACT_PATH,
+        current_universe,
+    )
 
     if transitions:
         notify.send_watchlist_summary(candidates, as_of_date)
