@@ -1,10 +1,17 @@
 # Full Signal Engine Audit — Evidence 12: Latest Volume Completeness
 
-Status: **ROOT CAUSE IDENTIFIED / NEW-SESSION PREVENTION VALIDATED / SEP-14 HISTORICAL FACTS NOW NORMALIZED IN CURRENT READY / RECONCILIATION MECHANISM GOVERNANCE STILL OPEN / DIAGNOSTIC ONLY / NO PRODUCTION CHANGE**
+Status: **ROOT CAUSE IDENTIFIED / NEW-SESSION PREVENTION VALIDATED / RESIDUAL SEP-14 CORRUPTION DETERMINISTICALLY REPAIRED + VERIFIED / HISTORICAL MAJORITY SELF-HEAL PROVEN EMPIRICALLY BUT FORENSIC PROVENANCE OPTIONAL-OPEN / NO TRENDFOLL PRODUCTION CHANGE**
 
 ## Scope
 
-Investigate the anomalous terminal `breakout_volume_percentile` population observed in R2 READY and determine whether it is caused by the TrendFoll percentile formula or by upstream OHLCV completeness.
+Investigate the anomalous terminal `breakout_volume_percentile` population observed in R2 READY and distinguish:
+
+1. TrendFoll formula correctness;
+2. prevention of unfinished new-session bars;
+3. deterministic remediation of residual corrupted Sep-14 history;
+4. forensic provenance of the earlier majority self-healing event.
+
+These are separate questions and must not be collapsed into one unresolved upstream-provenance finding.
 
 ## Baseline empirical run — anomalous READY
 
@@ -22,78 +29,139 @@ Observed R2 READY terminal date: `2026-09-14`.
 
 Among 1,223 securities with a row on that common latest date:
 
-- 933 / 1,223 (76.29%) have terminal volume below every one of their prior 50 observations;
-- median terminal-volume / previous-session-volume ratio = 0.1629;
-- median cross-sectional terminal-volume / prior-50 median-volume ratio = 0.1520;
-- 875 securities have terminal volume <25% of their prior-50 median;
-- 1,025 securities have terminal volume <50% of their prior-50 median.
+- 933 / 1,223 (76.29%) had terminal volume below every prior-50 observation;
+- median terminal / previous-session volume = 0.1629;
+- median terminal / prior-50 median volume = 0.1520;
+- 875 securities were <25% of prior-50 median;
+- 1,025 securities were <50% of prior-50 median.
 
-This independently explains the earlier mass concentration of terminal volume percentile at the theoretical 2% minimum for a 50-observation percentile window. The percentile formula was responding to supplied volume facts; the terminal volume facts themselves were anomalously incomplete.
+This explained the mass concentration of `breakout_volume_percentile` at its theoretical 2% minimum. The TrendFoll percentile formula was ranking supplied volume facts; the supplied Sep-14 volume facts were anomalously incomplete.
 
-## Upstream code trace
+## Upstream prevention trace
 
-The traced `azharmz/ussy-data` updater contained an append-only date rule:
+The incremental updater contains an append-only trigger:
 
 ```python
 additions = downloaded[downloaded["date"] > last_date].copy()
 ```
 
-The upstream repository also contains a finalization wrapper that excludes the current New York trading-day candle before 18:00 America/New_York and explicitly documents the risk of accepting an unfinished daily Yahoo candle.
-
-This trace established a plausible mechanism for the original Sep-14 anomaly, but code inspection alone did not prove whether some later upstream path/rebuild could replace the affected historical facts. That question is resolved empirically below.
+A separate finalization wrapper, introduced by upstream commit `f805a59c217e0056cbbe80b2728fbd0877b87135`, excludes the current New York trading-day candle before 18:00 America/New_York. This prevents the observed failure mode from accepting an unfinished current-session Yahoo daily candle through that production path.
 
 ## Post-refresh validation — finalized new session
 
-After upstream production published a refreshed READY containing the next finalized market session, the exact same frozen latest-session diagnostic was rerun without changing TrendFoll volume thresholds or percentile semantics.
+The same TrendFoll diagnostic was rerun after refreshed READY publication without changing TrendFoll thresholds or percentile semantics.
 
 - run: `35056685958`
 - job: `104668244734`
 - head: `ecd1c9c080f2e3b5f2a1271766fd9b6553b376fb`
 - conclusion: `SUCCESS`
-- artifact: `latest-volume-completeness-3`
-- artifact id: `10431260053`
-- artifact SHA-256: `a45707a1a7154eeb010c3f7edf316549263820776ff7546254ddb453a7772804`
 
-Observed refreshed R2 READY terminal date: `2026-09-15`.
+Observed terminal date: `2026-09-15`.
 
-Among 1,220 securities analyzed on that common latest date:
+Among 1,220 securities:
 
-- 19 / 1,220 (1.56%) have terminal volume below every prior-50 observation;
+- below every prior-50 observation: 19 / 1,220 = 1.56%;
 - median terminal / previous-session volume = 0.9939;
 - median terminal / prior-50 median volume = 1.0771;
-- 32 securities are <25% of prior-50 median;
-- 92 securities are <50% of prior-50 median.
+- <25% prior-50 median = 32;
+- <50% prior-50 median = 92.
 
-The mass terminal anomaly disappeared on the newly finalized session.
+The mass terminal anomaly disappeared on the finalized new session.
 
-## Date-specific historical reconciliation audit — Sep-14
+## Incident workstream — final residual audit before targeted repair
 
-A new research-only diagnostic then re-read the current READY but targeted the historical `2026-09-14` rows directly rather than the terminal date.
+The upstream incident workstream created `src/repair_partial_daily_bar.py`. The utility compares one historical R2 daily OHLCV row against a fresh finalized Yahoo row for the same date. In `--apply` mode it replaces only the targeted date in the affected security history, preserving other dates and the standard OHLCV schema.
 
-Workflow: `Signal Engine Sep14 Volume Reconciliation Audit`
+Final no-write audit before targeted repair:
 
-- diagnostic script commit: `7be9d8f9e6e570429eb7a0a76d12823247be3283`
-- workflow/head commit: `bfc2194c85adfd577da797458e372b099cef8144`
+- run: `35063409654`
+- job: `104688391199`
+- checkout/head: `4fbb8caff9ebd653141c7f44b4b7ddd5c6d0fa15`
+- conclusion: `SUCCESS`
+- target: `2026-09-14`
+- eligible histories: 1,300
+- changed: **2**
+- missing fresh source rows: **19**
+- processing errors: **0**
+
+The two residual mismatches were:
+
+- `HUBB` / `US4435106079`: Sep-14 volume `61,875 -> 457,222`, with associated finalized OHLC corrections;
+- `SITC` / `US82981J8514`: Sep-14 volume `74,352 -> 831,377`, with associated finalized OHLC corrections.
+
+This audit is important for interpretation: by this point the original mass Sep-14 corruption had already reduced to only two detectable residual mismatches among histories for which a fresh comparison could be made. Therefore the majority had self-healed earlier; that earlier self-healing is distinct from the targeted repair below.
+
+## Deterministic targeted write repair
+
+Repair run:
+
+- run: `35065793106`
+- job: `104695656869`
+- conclusion: `SUCCESS`
+- workflow steps explicitly executed `Apply targeted Sep14 finalized bar repair` followed by `Verify targeted Sep14 bars are clean`.
+
+Repair result:
+
+- changed: **2**
+- missing: **0**
+- errors: **0**
+
+Immediate post-write verification:
+
+- changed: **0**
+- missing: **0**
+- errors: **0**
+
+Therefore the residual HUBB/SITC corruption has explicit, deterministic, repeatable remediation provenance through `repair_partial_daily_bar.py`; it is not an unexplained side effect of generic republication.
+
+## Full derived-state rebuild after repair
+
+After the targeted historical write, the full upstream derived state was rebuilt.
+
+- rebuild commit: `bca86d829f70cc1871143e345d5b8ebee4d63ec1`
+- Production Daily run: `35066010307`
+- job: `104696335029`
+- conclusion: `SUCCESS`
+
+The successful workflow executed finalized OHLCV update, READY export, adjusted EMA candidate build, and adjusted EMA validation/promotion. Incident evidence records:
+
+- READY: 1,227 securities / 367,522 rows;
+- latest finalized date: `2026-09-15`;
+- unfinished Sep-16 excluded;
+- EMA affected securities rebuilt: 2;
+- EMA equivalence numeric failures: 0;
+- classification mismatches: 0;
+- max absolute error: 0.0;
+- production EMA pointer promoted.
+
+## Downstream TrendFoll verification
+
+After repair + derived-state rebuild, TrendFoll volume-percentile audit was rerun:
+
+- run: `35067332157`
+- job: `104700496198`
+- conclusion: `SUCCESS`
+- diagnostic step: `Run diagnostic audit` = SUCCESS.
+
+Incident evidence records the exact 2% population falling from `935 / 1,223` to `19`, with the distribution returning to normal. This closes the downstream consequence chain for the targeted remediation without any TrendFoll threshold tuning.
+
+## Later date-specific historical confirmation
+
+A separate TrendFoll research-only diagnostic subsequently re-read current READY and targeted historical `2026-09-14` directly:
+
 - run: `35078341639`
 - job: `104735984047`
 - conclusion: `SUCCESS`
-- artifact: `sep14-volume-reconciliation-1`
-- artifact id: `10438488703`
-- artifact SHA-256: `4a370e50753f7ae94670fc8102c47e5dfc5a96f169f83fd100bb29b9f4151f49`
 
-Current READY latest date remained `2026-09-15`, while the audit evaluated 1,223 historical rows dated `2026-09-14`.
+For 1,223 Sep-14 rows in current READY:
 
-Observed current Sep-14 distribution:
+- below every prior-50 observation: 13 / 1,223 = 1.06%, versus original 76.29%;
+- median Sep-14 / previous-session volume = 1.1159, versus original 0.1629;
+- median Sep-14 / prior-50 median volume = 1.0617, versus original 0.1520;
+- <25% prior-50 median = 39, versus original 875;
+- <50% prior-50 median = 76, versus original 1,025.
 
-- below every prior-50 observation: **13 / 1,223 = 1.06%**, versus original **933 / 1,223 = 76.29%**;
-- median Sep-14 / previous-session volume: **1.1159**, versus original **0.1629**;
-- median Sep-14 / prior-50 median volume: **1.0617**, versus original **0.1520**;
-- Sep-14 volume <25% prior-50 median: **39**, versus original **875**;
-- Sep-14 volume <50% prior-50 median: **76**, versus original **1,025**.
-
-This is decisive empirical evidence that the Sep-14 historical volume facts exposed through current READY are no longer the partial-volume population observed in the baseline run. The affected date has been normalized/reconciled somewhere in the upstream publication/rebuild path.
-
-The result also corrects an earlier over-strong inference from the append-only incremental updater: although that individual code path cannot replace `date == last_date`, the complete upstream system evidently has another path capable of rebuilding or republishing historical facts. The exact mechanism and its invariant guarantees still require upstream governance before declaring the data-contract defect permanently remediated.
+This independently confirms that current READY no longer exposes the original Sep-14 partial-volume population.
 
 ## Classification
 
@@ -101,38 +169,33 @@ The result also corrects an earlier over-strong inference from the append-only i
 
 **MATCH / FORMULA BEHAVES AS IMPLEMENTED.**
 
-No TrendFoll threshold/formula correction is supported by this anomaly.
+No TrendFoll threshold/formula correction is supported by this incident.
 
-### New-session terminal volume finalization
+### New-session terminal finalization
 
-**MATCH / EMPIRICALLY VALIDATED FOR SEP-15 REFRESH.**
+**MATCH / EMPIRICALLY VALIDATED FOR THE OBSERVED POST-FIX PUBLICATION.**
 
-The terminal mass-low-volume signature disappeared on the next finalized session.
+The unfinished-current-session prevention path exists and the next finalized session did not reproduce the mass-low-volume signature.
 
-### Sep-14 historical facts in current READY
+### Residual Sep-14 remediation correctness
 
-**MATCH / EMPIRICALLY RECONCILED IN CURRENT READY.**
+**PASS / DETERMINISTIC REPAIR + IMMEDIATE VERIFICATION + DERIVED-STATE REBUILD + DOWNSTREAM VERIFICATION.**
 
-The original Sep-14 partial-volume population has disappeared when the exact historical date is re-read from current READY.
+The remaining HUBB/SITC mismatches were explicitly identified, written through the one-date repair utility, immediately re-audited clean, propagated through the full derived-state rebuild, and verified downstream in TrendFoll.
 
-### Upstream reconciliation contract
+### Historical majority self-healing provenance
 
-**NEEDS GOVERNANCE / MECHANISM NOT YET FROZEN AS A GUARANTEE.**
+**FORENSIC QUESTION OPEN / NOT A BLOCKER TO THE PROVEN RESIDUAL REMEDIATION CHAIN.**
 
-The empirical repair is established, but the audit has not yet proven which upstream rebuild/reconciliation path performed it or that future same-date partial bars are guaranteed to be repaired under all relevant paths.
+The no-write audit immediately before targeted repair found only two residual mismatches, so most of the original Sep-14 population had already self-healed. The exact earlier workflow/run responsible for every self-healed historical row has not been isolated here. That is a separate forensic-provenance question and must not be used to describe the residual repair itself as unexplained.
 
-## Remediation boundary
+## FSE-015 disposition
 
-Remaining governance belongs upstream in `ussy-data`, not in TrendFoll threshold tuning. A durable contract should establish:
+FSE-015 must distinguish remediation correctness from optional historical forensics:
 
-1. unfinished current-session candles remain excluded;
-2. previously stored partial same-date candles are reconcilable after finalization;
-3. READY publication does not silently promote materially incomplete terminal volume as finalized data;
-4. reconciliation preserves identity/security mapping and unrelated valid history;
-5. a regression/health check demonstrates the behavior continuously.
+- **A. Are the residual corrupted Sep-14 observations known at final audit deterministically repaired and verified? YES.**
+- **B. Is the exact earlier workflow/run that self-healed the majority of Sep-14 rows fully isolated? NOT YET in this evidence; forensic follow-up may remain open.**
 
-No production mutation is authorized by this evidence document.
+For the TrendFoll signal-engine audit, the observed volume-completeness incident no longer justifies a TrendFoll correction. The upstream incident has a demonstrated prevention path, an explicit one-date residual repair mechanism, immediate verification, a successful derived-state rebuild, and successful downstream verification.
 
-## Audit disposition
-
-FSE-015 is no longer blocked on proving whether Sep-14 remained historically corrupted: **it does not in current READY**. The remaining question is narrower and upstream-governance-oriented: identify/freeze the mechanism that produced the repair and decide whether an explicit READY completeness guard is required.
+Any remaining work should be scoped as upstream durability/forensic governance (for example, continuous completeness guards or reconstructing the earlier majority self-heal provenance), not as an unresolved TrendFoll formula defect.
