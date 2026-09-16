@@ -1,6 +1,6 @@
 # Full Signal Engine Audit — Evidence 10: Effective-Date State Semantics
 
-Status: **ROOT CAUSE + REFINED CORRECTION SPECIFICATION FROZEN / DIAGNOSTIC ONLY / NO PRODUCTION CHANGE**
+Status: **REFINED CORRECTION IMPLEMENTED ON RESEARCH BRANCH + REGRESSION PASS / UNTOUCHED VALIDATION PENDING / NO PRODUCTION CHANGE**
 
 ## Trigger
 
@@ -33,104 +33,91 @@ The production entry point also retains a separate `universe` derived from every
 
 Absence from the current snapshot is not neutral in every downstream consumer.
 
-### Alerts / watchlist state
+The original state model conflated signal invalidation with absence of a current-date row. The first research correction separated `INVALIDATED` from `DATA_UNAVAILABLE`, but subsequent trace exposed a second distinction: absence from `latest` can mean either a current READY member lacks a common-date row or a historical/watchlist symbol is no longer in the current READY universe.
 
-The alert-state path compares the prior persisted watchlist snapshot with the common-date `latest` decision frame. The research correction introduced `DATA_UNAVAILABLE` for a previous symbol absent from `latest`.
+Three materially different cases must therefore remain separate:
 
-However, `compute_alert_transitions()` receives `latest` and previous watchlist only. It does **not** receive current READY-universe membership. Therefore it cannot distinguish:
+1. **Signal invalidation** — current-date evaluation exists and Investability falls below monitoring threshold.
+2. **Data unavailable / stale terminal data** — symbol remains in current READY but lacks a common-date row.
+3. **Out of current universe** — historical/watchlist symbol is not a member of current READY.
 
-- a symbol that is still in current READY but lacks a common-date row; from
-- a historical watchlist symbol that is no longer a member of current READY.
+The common-date snapshot selection itself is correct. The defect was downstream information loss when state consumers did not receive current-universe membership.
 
-### Candidate lifecycle
-
-The lifecycle path has the same information loss. `build_candidate_lifecycle(history, latest)` treats every historical symbol absent from `latest` as `DATA_UNAVAILABLE`, but receives no current READY-universe membership set.
-
-### Persisted watchlist source
-
-`database.get_previous_watchlist()` retrieves the latest prior persisted watchlist snapshot by date. The persisted rows contain signal/state facts but no current-universe membership classification. Membership therefore must come from the current R2 READY contract, not be inferred from watchlist history.
-
-### Active positions
-
-The position path is stricter. Active-position coverage is validated against the current snapshot before exit processing; missing current coverage causes a fail-fast condition rather than silently applying an older bar. This protection must remain unchanged.
-
-## Root cause
-
-The original state model conflated signal invalidation with absence of a current-date row. The first research correction separated `INVALIDATED` from `DATA_UNAVAILABLE`, but subsequent trace exposed a second distinction that the current function interfaces cannot represent.
-
-Three materially different cases must be kept separate:
-
-1. **Signal invalidation** — the symbol is evaluable on the common current date and Investability falls below the monitoring threshold.
-2. **Data unavailable / stale terminal data** — the symbol remains a member of current READY, but has no row on the common current date.
-3. **Out of current universe** — the historical/watchlist symbol is not a member of current READY and therefore is not part of the current evaluation universe.
-
-The common-date snapshot selection itself is correct. The remaining semantic defect is downstream information loss: absence from `latest` alone cannot distinguish cases 2 and 3.
-
-Classification: **MISMATCH — CURRENT SNAPSHOT ABSENCE IS UNDER-SPECIFIED WITHOUT CURRENT-UNIVERSE MEMBERSHIP**.
-
-This finding does not assert why any particular security left or entered the universe. It freezes only the state semantics required to avoid interpreting universe membership changes as signal invalidation or data staleness.
+Classification: **MISMATCH — CURRENT SNAPSHOT ABSENCE WAS UNDER-SPECIFIED WITHOUT CURRENT-UNIVERSE MEMBERSHIP**.
 
 ## Refined frozen intended contract
 
-The correction, if approved after tests and governed validation, must preserve these invariants:
+The correction must preserve these invariants:
 
 1. Current cross-sectional decisions use one common `as_of_date` only.
 2. A stale historical row must never be substituted as a current signal row.
-3. `INVALIDATED` means a current-date evaluation exists and current Investability is below the monitoring threshold.
-4. `DATA_UNAVAILABLE` means the symbol is a member of **current R2 READY universe** but lacks a row on the common current effective date.
-5. A historical/watchlist symbol that is **not a member of current R2 READY universe** must use a separate non-signal state, frozen here as `OUT_OF_UNIVERSE`.
-6. `OUT_OF_UNIVERSE` is not `INVALIDATED`: no current signal evaluation occurred.
-7. `OUT_OF_UNIVERSE` is not `DATA_UNAVAILABLE`: current READY does not claim the symbol as a current member whose latest-session fact is missing.
-8. Neither `DATA_UNAVAILABLE` nor `OUT_OF_UNIVERSE` may create `ACTIONABLE`, a new watch signal, or a production entry.
-9. Existing historical watchlist/lifecycle facts remain immutable; current state describes present evaluability/membership only.
-10. Restoration of a current-universe/current-date row resumes ordinary signal evaluation without rewriting historical facts.
-11. Re-entry into the current READY universe is evaluated from current facts; historical lifecycle identity may be retained, but prior signal state must not be substituted for current evaluation.
-12. Active positions retain fail-closed/fail-fast protection when current market data required for position management is absent, regardless of membership reason, unless a separately governed position-management contract explicitly changes that behavior.
-13. No change may weaken T0-close / T+1-open execution semantics.
+3. `INVALIDATED` requires a current-date evaluation whose Investability is below monitoring threshold.
+4. `DATA_UNAVAILABLE` means current R2 READY membership exists but the common-date row does not.
+5. A historical/watchlist symbol absent from current R2 READY uses `OUT_OF_UNIVERSE`.
+6. `OUT_OF_UNIVERSE` is neither `INVALIDATED` nor `DATA_UNAVAILABLE`.
+7. Neither absence state may create `ACTIONABLE`, a new watch signal, or a production entry.
+8. Historical watchlist/lifecycle facts remain immutable.
+9. Restoration of current data resumes ordinary evaluation from current facts.
+10. Universe re-entry is evaluated from current facts; stale prior signal state is not substituted.
+11. Active positions retain fail-closed/fail-fast current-data protection.
+12. T0-close / T+1-open execution semantics remain unchanged.
+
+## Research implementation
+
+The refined contract has now been implemented **only on `research/exit-development-hypotheses`**:
+
+- `alert_state.py`: `compute_alert_transitions(latest, previous_watchlist, current_universe)` now distinguishes `DATA_UNAVAILABLE` from `OUT_OF_UNIVERSE` and rejects a `latest` snapshot containing symbols outside the supplied current universe. Refined implementation commit: `b5a7eade27b07124168ff1c0f737b35f8ac53322`.
+- `candidate_lifecycle.py`: lifecycle construction/writing now receives explicit current-universe membership and preserves the same three-way semantics. Refined implementation commit: `5fc5fd70ba84d69fa6959aa139ef19e31d10efd1`.
+- `r2_main.py`: derives `current_universe` from current READY and passes it to both downstream consumers. Refined orchestration commit: `160e5b042f5ebc74ac46e7a05c59bdf28b2912e3`.
+- Existing alert/lifecycle tests were updated only for the explicit-universe interface; dedicated contract tests were expanded to 12 cases. Test commits include `cf58e1b0aae84094668bc934a1fc8dbaf7bc185b`, `6ec002185871686d3255f8256d81ba3c691fa02c`, and `58ccdd383ff197d033f2a874ed705e02ce5d645c`.
+
+No production branch mutation is authorized or implied by these research commits.
+
+## Regression evidence
+
+### Run #9 — refined contract
+
+Workflow: `Signal Engine Effective-Date State Audit`
+
+- run: `35063691151`
+- job: `104689249389`
+- head: `58ccdd383ff197d033f2a874ed705e02ce5d645c`
+- result: **SUCCESS**
+- dedicated refined contract tests: **12 / 12 PASS**
+
+The suite covers current failed rows, current-member missing rows, out-of-universe historical symbols, stale-row exclusion, absence-state non-actionability, restoration, universe re-entry, lifecycle equivalents, and latest/current-universe consistency.
+
+### Run #10 — contract + downstream regression
+
+The workflow was then strengthened on the research branch to run the existing alert/lifecycle regression suite after the frozen contract characterization. Workflow update commit: `11d7eed5af2f509e16c109d311c7ac113f66fa30`.
+
+- run: `35063901480`
+- job: `104689883526`
+- head: `11d7eed5af2f509e16c109d311c7ac113f66fa30`
+- result: **SUCCESS**
+- refined effective-date contract: **12 / 12 PASS**
+- existing alert-state regression: **5 / 5 PASS**
+- candidate-lifecycle module was included in the regression command and produced no failure.
+
+This closes the research implementation/regression gate. It does **not** constitute untouched validation because the validation dataset/scenarios must be governed independently from the development characterization used to build the correction.
 
 ## Correction boundary
 
-The smallest intended correction surface is:
+The implemented research correction remains confined to:
 
-- orchestration: pass current READY-universe membership to state/lifecycle consumers;
-- alert-state semantics: distinguish current-member/no-current-row from no-longer-current-member;
-- candidate lifecycle semantics: preserve the same distinction;
-- tests: explicitly cover both absence causes.
+- orchestration membership propagation;
+- alert-state semantics;
+- candidate lifecycle semantics;
+- tests and research-only audit workflow.
 
-It does **not** require changing:
-
-- R2 OHLCV facts,
-- feature formulas,
-- Investability aggregation,
-- Tradability aggregation,
-- terminal EMA calculation,
-- production entry formula,
-- historical persisted observations.
-
-No production merge is authorized by this document.
-
-## Required research-branch tests
-
-At minimum, tests must prove:
-
-1. prior monitored + current row present + Investability below `NEAR_PASS` => `INVALIDATED`;
-2. prior monitored + still in current READY universe + no current-date row => `DATA_UNAVAILABLE`;
-3. prior monitored + absent from current READY universe => `OUT_OF_UNIVERSE`;
-4. neither absence state can become `ACTIONABLE` or create a production entry;
-5. stale older row cannot be used as current state;
-6. current row restored on a later run resumes ordinary state evaluation without rewriting historical facts;
-7. universe re-entry is evaluated from current facts rather than stale prior signal state;
-8. active-position missing-current-data protection remains fail-closed/fail-fast;
-9. ordinary current-date alert/lifecycle transitions remain regression-equivalent to existing behavior.
-
-The existing 8-test effective-date suite validates the first-stage `INVALIDATED` versus `DATA_UNAVAILABLE` correction but does not provide current-universe membership and therefore does not yet validate this refined three-way contract.
+It does **not** change R2 OHLCV facts, feature formulas, Investability/Tradability aggregation, terminal EMA calculation, production entry formula, historical persisted observations, or active-position fail-fast behavior.
 
 ## Governance disposition
 
-This refined document satisfies the root-cause/intended-contract prerequisite under G0.8 for the newly exposed universe-membership distinction. The previous research implementation is now explicitly **incomplete**, not production-ready.
+G0.8 root-cause/intended-contract-before-code is satisfied. The refined research implementation and downstream regression gate are now satisfied. The previous first-stage implementation is superseded by the explicit three-way membership contract.
 
-Next gate:
+Current gate:
 
-`refined frozen correction spec -> research tests that expose the missing distinction -> research implementation -> regression -> untouched governed validation -> explicit production decision`
+`refined frozen correction spec -> research implementation -> 12/12 contract PASS -> downstream regression PASS -> UNTOUCHED GOVERNED VALIDATION -> explicit production decision`
 
-No production mutation was made.
+**Untouched validation remains pending. Production remains unchanged.**
