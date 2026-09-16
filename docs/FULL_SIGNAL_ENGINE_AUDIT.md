@@ -59,7 +59,7 @@ Actual current path:
 
 The R2 adapter does **not** make the complete engine R2-only. It replaces stock-universe OHLCV, while `feature_engine.build_feature_store()` still downloads SPY/QQQ/VIX/sector ETF benchmark data externally. Therefore stock facts and benchmark facts have different ingestion/readiness contracts and potentially different session/freshness semantics.
 
-## Initial findings register
+## Findings register
 
 | ID | Severity | Component | Classification | Finding |
 |---|---|---|---|---|
@@ -73,6 +73,11 @@ The R2 adapter does **not** make the complete engine R2-only. It replaces stock-
 | FSE-008 | HIGH | R2 warm-up | NEEDS_EVIDENCE | Most stock features are calculated from the rows present in the ready Parquet. Canonical long-history state currently repairs terminal EMA only. Stage30w, 52-week high, RS63, pivot60, ATR percentile63 and volume windows still depend on R2-ready history depth and must be checked against actual readiness distribution. |
 | FSE-009 | INFO | Regime architecture | MATCH | Decision-layer Investability correctly excludes regime. However `hard_filter_status` still includes regime; audit downstream consumers to ensure they do not accidentally substitute it for Investability. |
 | FSE-010 | MEDIUM | Breakout temporal semantics | MATCH | Tradability compares T0 raw close to a shifted prior-row rolling high, so the current bar is not inside the pivot used for the T0 breakout decision. Signal is knowable only after T0 close; executable-entry governance remains T+1 Open. |
+| FSE-011 | MEDIUM | Downstream decision contracts | VALID USSY DEFINITION | Watchlist/actionability and production-position entry intentionally use different downstream contracts: alerts are Investability/Tradability based, while production entry preserves the governed hard-filter + breakout + volume-confirmation backtest-parity contract. The distinction must remain explicit rather than being silently unified. |
+| FSE-012 | LOW | Entry-price semantics | VALID USSY DEFINITION | Position registration preserves T0 trigger facts while realistic execution is evaluated at the first available T+1 Open using T0 ATR for the provisional stop. Naming/documentation must distinguish trigger price from executable entry price. |
+| FSE-013 | HIGH | Effective-date lifecycle state | MISMATCH | Common-date cross-sectional selection is correct, but downstream alert/candidate lifecycle previously treated absence of a current-date row as signal `INVALIDATED`. Evidence 10 freezes the intended distinction: current-date evaluation failure is invalidation; unavailable current data is a separate non-actionable data state. Research-branch correction and dedicated regression tests exist; production remains unchanged pending governed validation. |
+| FSE-014 | HIGH | Liquidity / corporate actions | MISMATCH | Raw-share-volume rolling windows can span structurally incomparable pre/post split share-count units. Evidence 11 empirically confirms exposure in the corporate-action-sensitive population. A governed correction specification is still required before any production change. |
+| FSE-015 | HIGH | R2 READY volume completeness | MISMATCH | Evidence 12 shows the Sep-14 READY terminal volume population was materially incomplete: 933/1,223 securities were below every prior-50 volume observation. The unchanged diagnostic on refreshed finalized Sep-15 data falls to 19/1,220 and normal volume ratios, validating the TrendFoll percentile formula and observed new-session finalization. Historical same-date reconciliation remains open because append-only upstream updates do not themselves repair an already persisted partial bar. |
 
 ## Initial feature matrix
 
@@ -99,10 +104,14 @@ Authoritative methodology and USSY quantitative representation must remain separ
 
 ## Sep-10 lifecycle diagnostic addendum
 
-The detailed operational checklist now includes a dedicated Sep-4 through Sep-10 workflow-continuity audit and a symbol-level reconstruction of the Sep-10 lifecycle jump: cumulative 100 -> +61 first-time -> 161, while current Investability >= NEAR_PASS was 85. The diagnostic explicitly tests market movement, pipeline continuity, R2 snapshot lineage, code/config changes, feature/warm-up effects, Stage/EMA/RS transitions, and other state-machine defects without presuming the jump is anomalous.
+The detailed operational checklist includes a dedicated Sep-4 through Sep-10 workflow-continuity audit and a symbol-level reconstruction of the Sep-10 lifecycle jump: cumulative 100 -> +61 first-time -> 161, while current Investability >= NEAR_PASS was 85. The diagnostic explicitly tests market movement, pipeline continuity, R2 snapshot lineage, code/config changes, feature/warm-up effects, Stage/EMA/RS transitions, and other state-machine defects without presuming the jump is anomalous.
 
 Legacy-universe contamination is treated as closed/disproven under the established membership result: current R2 READY 1,227; lifecycle 161; 161/161 present in current R2 READY; legacy-only 0.
 
+## Evidence 10–12 audit addendum
+
+Evidence 10 separates effective-date availability from genuine signal invalidation and freezes the intended state contract before correction. Evidence 11 closes the empirical corporate-action checks for RS, liquidity, and nominal price semantics: adjusted-close RS is appropriate for corporate-action-adjusted return comparison; nominal raw-close price floor remains a valid explicit USSY definition; raw-share-volume windows are corporate-action sensitive and require a correction specification. Evidence 12 identifies the Sep-14 mass terminal-volume anomaly as an upstream READY completeness defect rather than a TrendFoll percentile-formula defect. The post-refresh Sep-15 rerun validates new-session finalization behavior but does not close historical same-date reconciliation.
+
 ## Next audit milestone
 
-Follow `docs/FULL_SIGNAL_ENGINE_AUDIT_PROGRESS.md` in order. Immediate work is the Sep-4–Sep-10 session/run continuity ledger together with R2 history/readiness coverage, followed by symbol-level reconstruction of the 61 first-time Sep-10 lifecycle entries. Production remains untouched.
+Follow `docs/FULL_SIGNAL_ENGINE_AUDIT_PROGRESS.md` in order. Immediate remaining governance includes historical READY reconciliation, effective-date universe-removal semantics, feature methodology/threshold evidence, untouched validation, and final production decision. Production remains untouched.
