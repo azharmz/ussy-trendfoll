@@ -1,0 +1,43 @@
+name: Sep10 Admission Attribution Audit
+
+on:
+  workflow_dispatch: {}
+  push:
+    branches:
+      - research/exit-development-hypotheses
+    paths:
+      - audit_sep10_admission_attribution.py
+      - .github/workflows/audit-sep10-admission-attribution.yml
+
+jobs:
+  audit:
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - name: Install dependencies
+        run: |
+          pip install -r requirements.txt
+          pip install boto3 pyarrow
+      - name: Attribute Sep10 first admissions
+        env:
+          SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
+          SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
+          R2_ENDPOINT: ${{ secrets.R2_ENDPOINT }}
+          R2_ACCESS_KEY_ID: ${{ secrets.R2_ACCESS_KEY_ID }}
+          R2_SECRET_ACCESS_KEY: ${{ secrets.R2_SECRET_ACCESS_KEY }}
+          R2_BUCKET_NAME: ${{ secrets.R2_BUCKET_NAME }}
+        run: python audit_sep10_admission_attribution.py
+      - name: Upload evidence
+        if: success()
+        uses: actions/upload-artifact@v4
+        with:
+          name: sep10-admission-attribution-${{ github.run_number }}
+          path: |
+            sep10_admission_attribution_summary.json
+            sep10_admission_attribution.csv
+          if-no-files-found: error
+          retention-days: 90
