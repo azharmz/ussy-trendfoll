@@ -15,18 +15,27 @@ class EffectiveDateStateContractTests(unittest.TestCase):
     def test_current_row_with_failed_investability_is_invalidated(self):
         previous = frame([{"symbol": "AAA", "date": "2026-09-13", "investability_status": "NEAR_PASS", "tradability_status": "FAIL"}])
         latest = frame([{"symbol": "AAA", "date": "2026-09-14", "investability_status": "FAIL", "tradability_status": "FAIL", "close_raw": 8.0}])
-        events = compute_alert_transitions(latest, previous)
+        events = compute_alert_transitions(latest, previous, {"AAA"})
         self.assertEqual(len(events), 1)
         self.assertEqual(events[0]["event"], "INVALIDATED")
 
-    def test_missing_current_row_is_data_unavailable_not_signal_invalidation(self):
+    def test_current_universe_member_missing_current_row_is_data_unavailable(self):
         previous = frame([{"symbol": "BBB", "date": "2026-09-13", "investability_status": "NEAR_PASS", "tradability_status": "FAIL"}])
         latest = frame([{"symbol": "AAA", "date": "2026-09-14", "investability_status": "PASS", "tradability_status": "FAIL", "close_raw": 10.0}])
-        events = compute_alert_transitions(latest, previous)
+        events = compute_alert_transitions(latest, previous, {"AAA", "BBB"})
         bbb = [e for e in events if e["symbol"] == "BBB"]
         self.assertEqual(len(bbb), 1)
         self.assertEqual(bbb[0]["event"], "DATA_UNAVAILABLE")
         self.assertEqual(bbb[0]["current_state"], "DATA_UNAVAILABLE")
+
+    def test_previous_symbol_absent_from_current_universe_is_out_of_universe(self):
+        previous = frame([{"symbol": "BBB", "date": "2026-09-13", "investability_status": "NEAR_PASS", "tradability_status": "FAIL"}])
+        latest = frame([{"symbol": "AAA", "date": "2026-09-14", "investability_status": "PASS", "tradability_status": "FAIL", "close_raw": 10.0}])
+        events = compute_alert_transitions(latest, previous, {"AAA"})
+        bbb = [e for e in events if e["symbol"] == "BBB"]
+        self.assertEqual(len(bbb), 1)
+        self.assertEqual(bbb[0]["event"], "OUT_OF_UNIVERSE")
+        self.assertEqual(bbb[0]["current_state"], "OUT_OF_UNIVERSE")
 
     def test_older_row_is_not_present_in_common_date_snapshot(self):
         features = frame([
@@ -37,35 +46,55 @@ class EffectiveDateStateContractTests(unittest.TestCase):
         latest = features[features["date"] == as_of_date].copy()
         self.assertEqual(set(latest["symbol"]), {"AAA"})
 
-    def test_missing_current_symbol_cannot_become_actionable(self):
-        previous = frame([{"symbol": "BBB", "date": "2026-09-13", "investability_status": "PASS", "tradability_status": "FAIL"}])
+    def test_absence_states_cannot_become_actionable(self):
+        previous = frame([
+            {"symbol": "BBB", "date": "2026-09-13", "investability_status": "PASS", "tradability_status": "FAIL"},
+            {"symbol": "CCC", "date": "2026-09-13", "investability_status": "PASS", "tradability_status": "FAIL"},
+        ])
         latest = frame([{"symbol": "AAA", "date": "2026-09-14", "investability_status": "PASS", "tradability_status": "PASS", "close_raw": 10.0}])
-        events = compute_alert_transitions(latest, previous)
-        bbb = [e for e in events if e["symbol"] == "BBB"]
-        self.assertTrue(bbb)
-        self.assertTrue(all(e["event"] != "ACTIONABLE" for e in bbb))
+        events = compute_alert_transitions(latest, previous, {"AAA", "BBB"})
+        absent = [e for e in events if e["symbol"] in {"BBB", "CCC"}]
+        self.assertEqual({e["event"] for e in absent}, {"DATA_UNAVAILABLE", "OUT_OF_UNIVERSE"})
+        self.assertTrue(all(e["event"] != "ACTIONABLE" for e in absent))
 
     def test_current_data_restoration_resumes_normal_evaluation(self):
         previous = frame([{"symbol": "BBB", "date": "2026-09-13", "investability_status": "NEAR_PASS", "tradability_status": "FAIL"}])
         latest = frame([{"symbol": "BBB", "date": "2026-09-15", "investability_status": "PASS", "tradability_status": "PASS", "close_raw": 12.0}])
-        events = compute_alert_transitions(latest, previous)
+        events = compute_alert_transitions(latest, previous, {"BBB"})
         self.assertEqual(len(events), 1)
         self.assertEqual(events[0]["event"], "ACTIONABLE")
         self.assertEqual(events[0]["as_of_date"], "2026-09-15")
 
-    def test_lifecycle_missing_current_row_is_data_unavailable(self):
+    def test_universe_reentry_uses_current_facts(self):
+        previous = frame([{"symbol": "BBB", "date": "2026-09-13", "investability_status": "PASS", "tradability_status": "PASS"}])
+        latest = frame([{"symbol": "BBB", "date": "2026-09-16", "investability_status": "FAIL", "tradability_status": "FAIL", "close_raw": 7.0}])
+        events = compute_alert_transitions(latest, previous, {"BBB"})
+        self.assertEqual(len(events), 1)
+        self.assertEqual(events[0]["event"], "INVALIDATED")
+        self.assertEqual(events[0]["investability_status"], "FAIL")
+
+    def test_lifecycle_current_member_missing_row_is_data_unavailable(self):
         history = frame([{"symbol": "BBB", "date": "2026-09-13", "investability_status": "NEAR_PASS", "tradability_status": "FAIL"}])
         latest = frame([{"symbol": "AAA", "date": "2026-09-14", "investability_status": "PASS", "tradability_status": "FAIL"}])
-        lifecycle = build_candidate_lifecycle(history, latest)
+        lifecycle = build_candidate_lifecycle(history, latest, {"AAA", "BBB"})
         bbb = lifecycle[lifecycle["symbol"] == "BBB"].iloc[0]
         self.assertEqual(bbb["current_state"], "DATA_UNAVAILABLE")
+        self.assertFalse(bool(bbb["currently_monitored"]))
+        self.assertFalse(bool(bbb["currently_actionable"]))
+
+    def test_lifecycle_out_of_universe_is_distinct(self):
+        history = frame([{"symbol": "BBB", "date": "2026-09-13", "investability_status": "NEAR_PASS", "tradability_status": "FAIL"}])
+        latest = frame([{"symbol": "AAA", "date": "2026-09-14", "investability_status": "PASS", "tradability_status": "FAIL"}])
+        lifecycle = build_candidate_lifecycle(history, latest, {"AAA"})
+        bbb = lifecycle[lifecycle["symbol"] == "BBB"].iloc[0]
+        self.assertEqual(bbb["current_state"], "OUT_OF_UNIVERSE")
         self.assertFalse(bool(bbb["currently_monitored"]))
         self.assertFalse(bool(bbb["currently_actionable"]))
 
     def test_lifecycle_present_failed_row_is_invalidated(self):
         history = frame([{"symbol": "BBB", "date": "2026-09-13", "investability_status": "NEAR_PASS", "tradability_status": "FAIL"}])
         latest = frame([{"symbol": "BBB", "date": "2026-09-14", "investability_status": "FAIL", "tradability_status": "FAIL"}])
-        lifecycle = build_candidate_lifecycle(history, latest)
+        lifecycle = build_candidate_lifecycle(history, latest, {"BBB"})
         bbb = lifecycle.iloc[0]
         self.assertEqual(bbb["current_state"], "INVALIDATED")
         self.assertFalse(bool(bbb["currently_monitored"]))
@@ -73,11 +102,16 @@ class EffectiveDateStateContractTests(unittest.TestCase):
     def test_lifecycle_restored_current_row_resumes_actionable(self):
         history = frame([{"symbol": "BBB", "date": "2026-09-13", "investability_status": "NEAR_PASS", "tradability_status": "FAIL"}])
         latest = frame([{"symbol": "BBB", "date": "2026-09-15", "investability_status": "PASS", "tradability_status": "PASS"}])
-        lifecycle = build_candidate_lifecycle(history, latest)
+        lifecycle = build_candidate_lifecycle(history, latest, {"BBB"})
         bbb = lifecycle.iloc[0]
         self.assertEqual(bbb["current_state"], "ACTIONABLE")
         self.assertTrue(bool(bbb["currently_monitored"]))
         self.assertTrue(bool(bbb["currently_actionable"]))
+
+    def test_latest_must_be_subset_of_current_universe(self):
+        latest = frame([{"symbol": "AAA", "date": "2026-09-14", "investability_status": "PASS", "tradability_status": "FAIL"}])
+        with self.assertRaises(ValueError):
+            compute_alert_transitions(latest, pd.DataFrame(), {"BBB"})
 
 
 if __name__ == "__main__":
