@@ -6,6 +6,7 @@ on:
     paths:
       - audit_latest_volume_completeness.py
       - .github/workflows/audit-latest-volume-completeness.yml
+# Evidence 12 post-READY-refresh rerun: 2026-09-16
 jobs:
   audit:
     runs-on: ubuntu-latest
