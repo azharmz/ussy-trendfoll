@@ -1,0 +1,24 @@
+name: Signal Engine Effective-Date Untouched Validation V2
+
+on:
+  push:
+    branches:
+      - research/exit-development-hypotheses
+    paths:
+      - 'tests/test_effective_date_state_validation_v2.py'
+      - '.github/workflows/audit-effective-date-untouched-validation-v2.yml'
+
+# V1 was invalidated because its fixtures omitted required `date` fields.
+# V1 remains unchanged. V2 corrects fixture validity only and is frozen before first run.
+jobs:
+  untouched-validation-v2:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - name: Install validation dependencies
+        run: pip install pandas
+      - name: Run frozen untouched validation V2
+        run: python -m unittest -v tests.test_effective_date_state_validation_v2
