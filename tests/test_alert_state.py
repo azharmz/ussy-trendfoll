@@ -8,13 +8,17 @@ def frame(rows):
     return pd.DataFrame(rows)
 
 
+def universe(latest):
+    return set(latest["symbol"].astype(str))
+
+
 class AlertStateTests(unittest.TestCase):
     def test_new_watch_and_immediate_actionable(self):
         latest = frame([
             {"symbol": "AAA", "date": "2026-09-14", "investability_status": "NEAR_PASS", "tradability_status": "FAIL", "close_raw": 10},
             {"symbol": "BBB", "date": "2026-09-14", "investability_status": "PASS", "tradability_status": "PASS", "close_raw": 20},
         ])
-        events = compute_alert_transitions(latest, pd.DataFrame())
+        events = compute_alert_transitions(latest, pd.DataFrame(), universe(latest))
         self.assertEqual([(e["event"], e["symbol"]) for e in events], [("ACTIONABLE", "BBB"), ("NEW_WATCH", "AAA")])
 
     def test_upgrade_to_actionable(self):
@@ -24,7 +28,7 @@ class AlertStateTests(unittest.TestCase):
         latest = frame([
             {"symbol": "AAA", "date": "2026-09-14", "investability_status": "PASS", "tradability_status": "PASS", "close_raw": 11},
         ])
-        events = compute_alert_transitions(latest, previous)
+        events = compute_alert_transitions(latest, previous, universe(latest))
         self.assertEqual(len(events), 1)
         self.assertEqual(events[0]["event"], "ACTIONABLE")
 
@@ -35,7 +39,7 @@ class AlertStateTests(unittest.TestCase):
         latest = frame([
             {"symbol": "AAA", "date": "2026-09-14", "investability_status": "PASS", "tradability_status": "FAIL", "close_raw": 9},
         ])
-        events = compute_alert_transitions(latest, previous)
+        events = compute_alert_transitions(latest, previous, universe(latest))
         self.assertEqual(len(events), 1)
         self.assertEqual(events[0]["event"], "LOST_TRADABILITY")
 
@@ -46,7 +50,7 @@ class AlertStateTests(unittest.TestCase):
         latest = frame([
             {"symbol": "AAA", "date": "2026-09-14", "investability_status": "FAIL", "tradability_status": "FAIL", "close_raw": 8},
         ])
-        events = compute_alert_transitions(latest, previous)
+        events = compute_alert_transitions(latest, previous, universe(latest))
         self.assertEqual(len(events), 1)
         self.assertEqual(events[0]["event"], "INVALIDATED")
 
@@ -57,7 +61,7 @@ class AlertStateTests(unittest.TestCase):
         latest = frame([
             {"symbol": "AAA", "date": "2026-09-14", "investability_status": "NEAR_PASS", "tradability_status": "FAIL", "close_raw": 10},
         ])
-        self.assertEqual(compute_alert_transitions(latest, previous), [])
+        self.assertEqual(compute_alert_transitions(latest, previous, universe(latest)), [])
 
 
 if __name__ == "__main__":
