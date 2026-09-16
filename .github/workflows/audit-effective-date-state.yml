@@ -10,6 +10,8 @@ on:
       - 'candidate_lifecycle.py'
       - 'positions.py'
       - 'r2_main.py'
+      - 'tests/test_alert_state.py'
+      - 'tests/test_candidate_lifecycle.py'
       - 'tests/test_effective_date_state_contract.py'
       - '.github/workflows/audit-effective-date-state.yml'
 
@@ -28,3 +30,6 @@ jobs:
 
       - name: Run frozen effective-date state characterization
         run: python -m unittest -v tests.test_effective_date_state_contract
+
+      - name: Run downstream alert and lifecycle regression
+        run: python -m unittest -v tests.test_alert_state tests.test_candidate_lifecycle
