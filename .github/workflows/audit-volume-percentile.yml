@@ -36,3 +36,5 @@ jobs:
             volume_percentile_audit_targets.csv
           if-no-files-found: error
           retention-days: 90
+
+# Rerun after upstream Sep14 finalized-bar repair and READY rebuild.
