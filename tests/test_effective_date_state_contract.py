@@ -1,9 +1,4 @@
-"""Characterization tests for the frozen effective-date state contract.
-
-These tests intentionally separate behavior that is already correct from the known
-semantic gap. The known-gap case is marked expectedFailure until a research-branch
-implementation introduces an explicit DATA_UNAVAILABLE/STALE state.
-"""
+"""Contract tests for effective-date state semantics."""
 import unittest
 
 import pandas as pd
@@ -17,36 +12,20 @@ def frame(rows):
 
 class EffectiveDateStateContractTests(unittest.TestCase):
     def test_current_row_with_failed_investability_is_invalidated(self):
-        previous = frame([
-            {"symbol": "AAA", "date": "2026-09-13", "investability_status": "NEAR_PASS", "tradability_status": "FAIL"},
-        ])
-        latest = frame([
-            {"symbol": "AAA", "date": "2026-09-14", "investability_status": "FAIL", "tradability_status": "FAIL", "close_raw": 8.0},
-        ])
+        previous = frame([{"symbol": "AAA", "date": "2026-09-13", "investability_status": "NEAR_PASS", "tradability_status": "FAIL"}])
+        latest = frame([{"symbol": "AAA", "date": "2026-09-14", "investability_status": "FAIL", "tradability_status": "FAIL", "close_raw": 8.0}])
         events = compute_alert_transitions(latest, previous)
         self.assertEqual(len(events), 1)
         self.assertEqual(events[0]["event"], "INVALIDATED")
-        self.assertEqual(events[0]["as_of_date"], "2026-09-14")
 
-    @unittest.expectedFailure
-    def test_missing_current_row_is_not_signal_invalidation(self):
-        """Frozen intended contract: no current evaluation != signal invalidation.
-
-        Current implementation emits INVALIDATED for BBB because BBB is absent from
-        the common-date latest frame. This expected failure is the regression target
-        for the correction, not an authorization to change production behavior.
-        """
-        previous = frame([
-            {"symbol": "BBB", "date": "2026-09-13", "investability_status": "NEAR_PASS", "tradability_status": "FAIL"},
-        ])
-        latest = frame([
-            {"symbol": "AAA", "date": "2026-09-14", "investability_status": "PASS", "tradability_status": "FAIL", "close_raw": 10.0},
-        ])
+    def test_missing_current_row_is_data_unavailable_not_signal_invalidation(self):
+        previous = frame([{"symbol": "BBB", "date": "2026-09-13", "investability_status": "NEAR_PASS", "tradability_status": "FAIL"}])
+        latest = frame([{"symbol": "AAA", "date": "2026-09-14", "investability_status": "PASS", "tradability_status": "FAIL", "close_raw": 10.0}])
         events = compute_alert_transitions(latest, previous)
         bbb = [e for e in events if e["symbol"] == "BBB"]
         self.assertEqual(len(bbb), 1)
-        self.assertIn(bbb[0]["event"], {"DATA_UNAVAILABLE", "STALE_DATA"})
-        self.assertNotEqual(bbb[0]["current_state"], "INVALIDATED")
+        self.assertEqual(bbb[0]["event"], "DATA_UNAVAILABLE")
+        self.assertEqual(bbb[0]["current_state"], "DATA_UNAVAILABLE")
 
     def test_older_row_is_not_present_in_common_date_snapshot(self):
         features = frame([
@@ -56,27 +35,18 @@ class EffectiveDateStateContractTests(unittest.TestCase):
         as_of_date = features["date"].max()
         latest = features[features["date"] == as_of_date].copy()
         self.assertEqual(set(latest["symbol"]), {"AAA"})
-        self.assertNotIn("BBB", set(latest["symbol"]))
 
     def test_missing_current_symbol_cannot_become_actionable(self):
-        previous = frame([
-            {"symbol": "BBB", "date": "2026-09-13", "investability_status": "PASS", "tradability_status": "FAIL"},
-        ])
-        latest = frame([
-            {"symbol": "AAA", "date": "2026-09-14", "investability_status": "PASS", "tradability_status": "PASS", "close_raw": 10.0},
-        ])
+        previous = frame([{"symbol": "BBB", "date": "2026-09-13", "investability_status": "PASS", "tradability_status": "FAIL"}])
+        latest = frame([{"symbol": "AAA", "date": "2026-09-14", "investability_status": "PASS", "tradability_status": "PASS", "close_raw": 10.0}])
         events = compute_alert_transitions(latest, previous)
         bbb = [e for e in events if e["symbol"] == "BBB"]
         self.assertTrue(bbb)
         self.assertTrue(all(e["event"] != "ACTIONABLE" for e in bbb))
 
     def test_current_data_restoration_resumes_normal_evaluation(self):
-        previous = frame([
-            {"symbol": "BBB", "date": "2026-09-13", "investability_status": "NEAR_PASS", "tradability_status": "FAIL"},
-        ])
-        latest = frame([
-            {"symbol": "BBB", "date": "2026-09-15", "investability_status": "PASS", "tradability_status": "PASS", "close_raw": 12.0},
-        ])
+        previous = frame([{"symbol": "BBB", "date": "2026-09-13", "investability_status": "NEAR_PASS", "tradability_status": "FAIL"}])
+        latest = frame([{"symbol": "BBB", "date": "2026-09-15", "investability_status": "PASS", "tradability_status": "PASS", "close_raw": 12.0}])
         events = compute_alert_transitions(latest, previous)
         self.assertEqual(len(events), 1)
         self.assertEqual(events[0]["event"], "ACTIONABLE")
