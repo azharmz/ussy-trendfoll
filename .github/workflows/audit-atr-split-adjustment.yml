@@ -1,0 +1,23 @@
+name: Signal Engine ATR Split Adjustment Research Gate
+
+on:
+  push:
+    branches:
+      - research/exit-development-hypotheses
+    paths:
+      - 'atr_split_adjustment.py'
+      - 'tests/test_atr_split_adjustment.py'
+      - '.github/workflows/audit-atr-split-adjustment.yml'
+  workflow_dispatch:
+
+jobs:
+  atr-split-contract:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - run: pip install pandas numpy
+      - name: Run frozen ATR split-adjustment contract tests
+        run: python -m unittest -v tests.test_atr_split_adjustment
