@@ -92,6 +92,7 @@ Rules:
 - [x] Post-fix production-pipeline acceptance run `35035406879` completed successfully.
 - [x] 27 pre-fix ledger rows were retained as audit evidence and classified as invalid/quarantined bootstrap evidence; they are not admissible Section E evidence.
 - [x] Post-fix acceptance created no additional contaminated operational evidence and duplicate invariant keys remained zero.
+- [x] First normal scheduled post-fix production run `35041036914` completed successfully and created no retrospective/contaminated shadow evidence.
 
 **Gate:** IMPLEMENTATION + BOOTSTRAP ACCEPTANCE COMPLETE.
 
@@ -107,8 +108,9 @@ This is the **PRIMARY EXIT WORKSTREAM**. Do not start a new exit candidate while
 - [x] Smoke execution discovered a real bootstrap defect before E1 was accepted.
 - [x] Bootstrap defect corrected without changing frozen CAND-003 scientific parameters.
 - [x] Post-fix production acceptance passed.
+- [x] Normal scheduled production execution after the fix passed.
 - [x] Pre-fix 27 ledger rows explicitly excluded from admissible operational evidence.
-- [x] Clean operational evidence count after acceptance = **0**.
+- [x] Clean operational evidence count after scheduled run = **0**.
 - [x] No synthetic/backfilled row may be used to satisfy E1.
 - [x] Next admissible evidence must originate from a newly registered production position observed on its genuine T+1 market session.
 
@@ -146,7 +148,9 @@ This is the **PRIMARY EXIT WORKSTREAM**. Do not start a new exit candidate while
 
 ## E4. Operational evidence sufficiency gate
 
-- [ ] Define and evidence-lock operational sufficiency criteria without inspecting/tuning candidate parameters.
+- [x] Define and evidence-lock operational sufficiency criteria without inspecting/tuning candidate parameters: `docs/CAND003_OPERATIONAL_EVIDENCE_SUFFICIENCY.md`.
+- [x] Sufficiency gate explicitly excludes the 27 invalid-bootstrap rows and requires genuine sequential T+1 evidence, lifecycle completeness for terminal comparisons, invariant integrity, comparator non-feedback, outcome maturity, and multiple independent entry cohorts.
+- [x] No favorable return/win-rate/candidate-superiority threshold is used as a sufficiency condition.
 - [ ] Reach locked sufficiency criteria.
 - [ ] Produce operational shadow evidence report.
 - [ ] Freeze operational dataset/evidence snapshot used for governance review.
@@ -200,14 +204,14 @@ Blocked until Section E has sufficient locked operational evidence. Current auth
 
 **Current marker:**
 
-`RC-004 SUPPORTED → CAND-003 DEVELOPMENT PASS → UNTOUCHED VALIDATION PASS → SHADOW + APPEND-ONLY LEDGER DEPLOYED → BOOTSTRAP DEFECT FOUND/FIXED → REGRESSION + PRODUCTION ACCEPTANCE PASS → 27 PRE-FIX ROWS QUARANTINED → CLEAN OPERATIONAL EVIDENCE = 0 → OBSERVATION ACTIVE → NO PRODUCTION EXIT CHANGE`
+`RC-004 SUPPORTED → CAND-003 DEVELOPMENT PASS → UNTOUCHED VALIDATION PASS → SHADOW + APPEND-ONLY LEDGER DEPLOYED → BOOTSTRAP DEFECT FOUND/FIXED → REGRESSION + PRODUCTION ACCEPTANCE PASS → NORMAL SCHEDULED RUN PASS → 27 PRE-FIX ROWS QUARANTINED → PRE-OUTCOME OPERATIONAL SUFFICIENCY GATE FROZEN → CLEAN OPERATIONAL EVIDENCE = 0 → OBSERVATION ACTIVE → NO PRODUCTION EXIT CHANGE`
 
 **NEXT ACTION:**
 
 1. Let the normal daily pipeline continue; do not manufacture or backfill E1 evidence.
 2. On each new run, check whether a newly opened production position has reached genuine T+1 and created the first admissible post-fix ledger row.
 3. As soon as one exists, execute E1 completely in the same work cycle: live uniqueness → source-position/session confirmation → independent recomputation → stop/lookahead/gap ordering → production non-mutation → evidence lock.
-4. Then continue E2–E4 under the frozen observational contract.
+4. Then continue E2–E4 under the frozen observational and pre-outcome sufficiency contracts.
 
 ## Approximate progress indicator
 
@@ -215,5 +219,6 @@ Blocked until Section E has sufficient locked operational evidence. Current auth
 - Candidate development: **100%**
 - Untouched validation: **100%**
 - Shadow implementation + bootstrap acceptance: **100%**
+- Operational sufficiency criteria definition: **100% / frozen pre-outcome**
 - Operational shadow observation: **0% clean evidence / active**
 - Final production governance: **0% / blocked on operational evidence**
