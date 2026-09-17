@@ -1,0 +1,25 @@
+name: Production Pipeline Consolidation Regression
+
+on:
+  push:
+    branches:
+      - refactor/consolidate-production-pipeline
+  workflow_dispatch: {}
+
+jobs:
+  architecture-regression:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - name: Verify consolidated production architecture
+        run: |
+          python -m py_compile main.py feature_engine.py r2_integration.py r2_ready.py r2_shared_ema.py canonical_ema.py benchmark_readiness.py
+          test ! -e r2_main.py
+          test ! -e r2_feature_engine.py
+          grep -q 'run: python main.py' .github/workflows/daily.yml
+          grep -q 'from r2_integration import build_feature_store_from_r2' main.py
+          grep -q 'import feature_engine as fe' r2_integration.py
+          ! grep -R 'r2_feature_engine' --include='*.py' --include='*.yml' --exclude='canonical-production-consolidation.yml' .

@@ -1,4 +1,9 @@
-"""R2 production adapter; feature formulas remain owned by feature_engine.py."""
+"""R2 integration boundary for the single feature engine in feature_engine.py.
+
+This module owns storage/source adaptation and production readiness fences only.
+It does not own feature formulas.  There is exactly one feature calculation
+engine: feature_engine.py.
+"""
 from __future__ import annotations
 
 import pandas as pd
@@ -20,10 +25,7 @@ def build_feature_store_from_r2(sector_map=None, ready=None, manifest=None) -> d
     if not universe:
         raise RuntimeError("R2 ready universe kosong")
 
-    print(
-        f"[R2] snapshot={manifest.get('snapshot_date')} "
-        f"securities={len(universe)} rows={len(raw_universe)}"
-    )
+    print(f"[R2] snapshot={manifest.get('snapshot_date')} securities={len(universe)} rows={len(raw_universe)}")
 
     original_download_universe = fe.download_universe
     original_download_raw_ohlcv = fe.download_raw_ohlcv
@@ -37,11 +39,9 @@ def build_feature_store_from_r2(sector_map=None, ready=None, manifest=None) -> d
         return df
 
     try:
-        # R2 READY supplies stock OHLCV. Benchmarks/regime and non-EMA feature
-        # formulas remain in feature_engine. EMA is deliberately replaced for
-        # the entire READY timeline by the canonical adj_close implementation;
-        # this removes the historical raw-close/terminal-adj-close split while
-        # leaving nominal/raw-price strategy contracts untouched.
+        # R2 READY supplies stock OHLCV. The single feature engine retains all
+        # formulas. Only its source hooks and EMA implementation are adapted
+        # for this production invocation.
         fe.download_universe = lambda symbols: raw_universe.copy()
         fe.download_raw_ohlcv = _download_raw_ohlcv_ns
         fe.compute_ema_features = compute_canonical_ema_features
@@ -51,30 +51,16 @@ def build_feature_store_from_r2(sector_map=None, ready=None, manifest=None) -> d
         fe.download_raw_ohlcv = original_download_raw_ohlcv
         fe.compute_ema_features = original_compute_ema_features
 
-    # FSE-007: RS is an exact-date SPY comparison. Fail closed before any
-    # downstream decision if the global R2 T0 lacks an exact SPY observation.
     spy = result.get("benchmarks", {}).get(fe.MARKET_BENCHMARK)
     if spy is None or "date" not in spy.columns:
         raise RuntimeError("SPY benchmark unavailable for R2 readiness validation")
     benchmark_readiness = validate_spy_readiness(
-        raw_universe["date"],
-        spy["date"],
-        as_of_date=raw_universe["date"].max(),
+        raw_universe["date"], spy["date"], as_of_date=raw_universe["date"].max()
     )
     result["benchmark_readiness"] = benchmark_readiness
-    print(
-        "[benchmark readiness] exact SPY T0 verified: "
-        f"as_of={benchmark_readiness['as_of_date'].date()}"
-    )
+    print(f"[benchmark readiness] exact SPY T0 verified: as_of={benchmark_readiness['as_of_date'].date()}")
 
-    # Terminal rows are still replaced by the governed persisted ussy-data EMA
-    # state. This is both the production source of truth and an end-to-end
-    # equivalence/lineage fence for the local canonical calculation.
-    migrated, ema_report = apply_shared_ema_terminal(
-        result["features"],
-        ready,
-        manifest,
-    )
+    migrated, ema_report = apply_shared_ema_terminal(result["features"], ready, manifest)
     result["features"] = migrated
     result["shared_ema_report"] = ema_report
     result["ready_manifest"] = manifest

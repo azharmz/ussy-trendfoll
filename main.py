@@ -1,97 +1,88 @@
-"""
-USSY TrendFoll — Main Pipeline (dijalankan harian via GitHub Actions)
-========================================================================
-Urutan:
-  1. Ambil sector mapping
-  2. Build feature store
-  3. Hard filter
-  4. Decision layer (Investability/Tradability/Explainability)
-  5. Ambil snapshot terbaru + hitung state transition vs watchlist sebelumnya
-  6. Simpan watchlist + kirim notifikasi hanya bila ada state change
-  7. Position tracking
-  8. EXIT-CAND-003 non-decisioning shadow (observational only)
-"""
+"""USSY TrendFoll — authoritative production pipeline.
 
+R2 READY is the production stock-data source. Feature formulas are owned by
+feature_engine.py; r2_integration.py is only the source/readiness boundary.
+"""
 import sys
 import pandas as pd
-
-from feature_engine import UNIVERSE, build_feature_store
 from hard_filter import compute_hard_filter, STATUS_RANK
 from decision_layer import compute_decision_layer, explain_candidate
 from sector_cache import get_sector_map
 from alert_state import compute_alert_transitions
-import database
-import notify
-import positions
+from near_trigger_shadow import add_near_trigger_shadow
+from near_trigger_forward_progress import write_forward_validation_progress
+from candidate_lifecycle import write_candidate_lifecycle
+from r2_ready import load_ready_dataset
+from r2_integration import build_feature_store_from_r2
+import database, notify, positions
 import exit_candidate003_shadow
+
+SHADOW_ARTIFACT_PATH = "near_trigger_shadow_snapshot.csv"
+LIFECYCLE_ARTIFACT_PATH = "candidate_lifecycle.csv"
+VALIDATION_PROGRESS_PATH = "near_trigger_validation_progress.json"
+VALIDATION_EPISODES_PATH = "near_trigger_validation_episodes.csv"
+
+
+def _write_near_trigger_shadow_snapshot(latest: pd.DataFrame, as_of_date):
+    shadow = add_near_trigger_shadow(latest)
+    monitored = shadow[shadow["investability_status"].map(STATUS_RANK) >= STATUS_RANK["NEAR_PASS"]].copy()
+    cols = ["symbol", "date", "close_raw", "investability_status", "tradability_status",
+            "has_breakout", "prev_pivot_high", "atr14", "distance_to_prev_pivot_pct",
+            "distance_to_prev_pivot_atr", "near_trigger_shadow"]
+    monitored[cols].to_csv(SHADOW_ARTIFACT_PATH, index=False)
+    n_shadow = int(monitored["near_trigger_shadow"].sum()) if not monitored.empty else 0
+    print(f"[near_trigger shadow] {n_shadow}/{len(monitored)} monitored ticker memenuhi frozen development candidate <= 0.60 ATR pada {pd.Timestamp(as_of_date).date()}.")
 
 
 def main():
     client = database.get_client()
-
-    print("=== [1/8] Sector mapping ===")
-    sector_map = get_sector_map(client, UNIVERSE)
-
-    print("=== [2/8] Build feature store ===")
-    result = build_feature_store(UNIVERSE, sector_map=sector_map)
-    features = result["features"]
-
-    print("=== [3/8] Hard filter ===")
+    ready, manifest = load_ready_dataset()
+    universe = sorted(ready["ticker"].dropna().unique().tolist())
+    if not universe:
+        raise RuntimeError("R2 ready universe kosong")
+    current_universe = set(universe)
+    print(f"[R2] snapshot={manifest.get('snapshot_date')} securities={len(universe)} rows={len(ready)}")
+    sector_map = get_sector_map(client, universe)
+    features = build_feature_store_from_r2(sector_map=sector_map, ready=ready, manifest=manifest)["features"]
     filtered = compute_hard_filter(features)
-
-    print("=== [4/8] Decision layer ===")
-    decided = compute_decision_layer(filtered)
-    decided = decided.sort_values(["symbol", "date"])
+    decided = compute_decision_layer(filtered).sort_values(["symbol", "date"])
     decided["prev_close"] = decided.groupby("symbol")["close_raw"].shift(1)
-
-    print("=== [5/8] Latest snapshot + alert state transition ===")
     as_of_date = decided["date"].max()
     latest = decided[decided["date"] == as_of_date].copy()
-    candidates = latest[
-        latest["investability_status"].map(STATUS_RANK) >= STATUS_RANK["NEAR_PASS"]
-    ].copy()
-    print(f"Tanggal: {pd.Timestamp(as_of_date).date()} — {len(candidates)} kandidat dari {len(latest)} ticker.")
+    candidates = latest[latest["investability_status"].map(STATUS_RANK) >= STATUS_RANK["NEAR_PASS"]].copy()
+    missing_latest = sorted(current_universe - set(latest["symbol"].unique()))
+    print(f"Tanggal {pd.Timestamp(as_of_date).date()}: {len(candidates)} kandidat / {len(latest)} latest / {len(universe)} ready")
+    if missing_latest:
+        print(f"[R2 freshness] {len(missing_latest)} ready ticker tanpa bar latest: {missing_latest[:20]}")
+
+    _write_near_trigger_shadow_snapshot(latest, as_of_date)
+    write_forward_validation_progress(decided, progress_path=VALIDATION_PROGRESS_PATH, episode_path=VALIDATION_EPISODES_PATH)
 
     positions.validate_active_position_coverage(client, latest)
-
-    previous_watchlist = database.get_previous_watchlist(client, as_of_date)
-    transitions = compute_alert_transitions(latest, previous_watchlist)
-    if transitions:
-        print(f"[alert] {len(transitions)} state change:")
-        for event in transitions:
-            print(
-                f"  {event['event']}: {event['symbol']} "
-                f"({event['previous_state']} -> {event['current_state']}; "
-                f"investability={event.get('investability_status')}, "
-                f"tradability={event.get('tradability_status')})"
-            )
-    else:
-        print("[alert] Tidak ada state change.")
-
-    explanations = {row["symbol"]: explain_candidate(row) for _, row in candidates.iterrows()}
-
-    print("=== [6/8] Simpan watchlist + notification gate ===")
+    previous = database.get_previous_watchlist(client, as_of_date)
+    transitions = compute_alert_transitions(latest, previous, current_universe)
+    for e in transitions:
+        print(f"[alert] {e['event']}: {e['symbol']} ({e['previous_state']} -> {e['current_state']})")
+    explanations = {r["symbol"]: explain_candidate(r) for _, r in candidates.iterrows()}
     database.upsert_watchlist(client, candidates, explanations)
+
+    watchlist_history = database.get_watchlist_history(client)
+    write_candidate_lifecycle(watchlist_history, latest, LIFECYCLE_ARTIFACT_PATH, current_universe)
+
     if transitions:
         notify.send_watchlist_summary(candidates, as_of_date)
     else:
-        print("[notify] Watchlist tidak berubah bermakna — skip digest Telegram.")
+        print("[notify] Tidak ada state change — skip digest Telegram.")
 
-    print("=== [7/8] Authoritative production position tracking ===")
-    all_trading_dates = decided["date"].unique()
+    dates = decided["date"].unique()
     positions.fill_realistic_entry_prices(client, decided, as_of_date)
     positions.align_active_stops_to_filled_entry(client)
-    exits = positions.check_exits(client, latest, as_of_date, all_trading_dates)
+    exits = positions.check_exits(client, latest, as_of_date, dates)
     notify.send_exit_alerts(exits)
     positions.register_new_positions(client, latest, as_of_date)
 
-    print("=== [8/8] EXIT-CAND-003 shadow (NON-DECISIONING) ===")
-    # Deliberately runs only after authoritative production exits/registration.
-    # The shadow module never writes to `positions` and its outputs are not
-    # consumed by notification, entry, or exit decision paths.
-    exit_candidate003_shadow.run_shadow(client, decided, as_of_date, all_trading_dates)
-
-    print("Selesai.")
+    print("[EXIT-CAND-003 shadow] non-decisioning observational pass")
+    exit_candidate003_shadow.run_shadow(client, decided, as_of_date, dates)
 
 
 if __name__ == "__main__":
