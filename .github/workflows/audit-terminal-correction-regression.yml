@@ -1,0 +1,43 @@
+name: Signal Engine Terminal Correction Set Regression
+
+on:
+  push:
+    branches:
+      - research/exit-development-hypotheses
+    paths:
+      - 'r2_feature_engine.py'
+      - 'benchmark_readiness.py'
+      - 'alert_state.py'
+      - 'candidate_lifecycle.py'
+      - 'r2_main.py'
+      - 'tests/test_benchmark_readiness.py'
+      - 'tests/test_effective_date_state_contract.py'
+      - 'tests/test_effective_date_state_validation_v2.py'
+      - 'tests/test_alert_state.py'
+      - 'tests/test_candidate_lifecycle.py'
+      - 'tests/test_decision_contracts.py'
+      - '.github/workflows/audit-terminal-correction-regression.yml'
+  workflow_dispatch:
+
+jobs:
+  terminal-correction-regression:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - name: Install focused regression dependencies
+        run: pip install pandas numpy
+      - name: Benchmark readiness contract
+        run: python -m unittest -v tests.test_benchmark_readiness
+      - name: Effective-date frozen contract
+        run: python -m unittest -v tests.test_effective_date_state_contract
+      - name: Effective-date untouched validation V2
+        run: python -m unittest -v tests.test_effective_date_state_validation_v2
+      - name: Alert-state regression
+        run: python -m unittest -v tests.test_alert_state
+      - name: Candidate-lifecycle regression
+        run: python -m unittest -v tests.test_candidate_lifecycle
+      - name: Decision aggregation regression
+        run: python -m unittest -v tests.test_decision_contracts
