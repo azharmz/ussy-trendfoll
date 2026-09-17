@@ -20,20 +20,13 @@ After that historical canonicalization, `apply_shared_ema_terminal()` still repl
 
 ## Regression evidence
 
-Branch: `fix/canonical-historical-ema-adj-close`
-
 Implementation commit: `47eac431df7edc6c481619e5c8856aad8f086370`
 
 CI commit: `afd4fd70d5cea8e1cfa01f638a2e5e4c6a437a14`
 
 GitHub Actions run: `35236746582` — **SUCCESS**
 
-The focused regression verifies:
-
-- EMA20/50/150/200 equal pandas `ewm(span=period, adjust=False)` on `close_adj` exactly within tight tolerance;
-- a synthetic split discontinuity in raw close cannot contaminate canonical EMA;
-- `ema_stack_aligned` is evaluated against adjusted close;
-- missing/non-numeric adjusted close fails closed.
+The focused regression verifies EMA20/50/150/200 against pandas `ewm(span=period, adjust=False)` on `close_adj`, a synthetic split discontinuity cannot contaminate canonical EMA, stack alignment uses adjusted close, and missing/non-numeric adjusted close fails closed.
 
 A prior observational migration audit had already shown that raw-vs-adjusted historical EMA differences are real but aggregate event overlap is high. That evidence was reused rather than repeating expensive research compute.
 
