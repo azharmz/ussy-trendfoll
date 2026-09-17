@@ -16,12 +16,12 @@ jobs:
           python-version: "3.12"
       - name: Verify consolidated production architecture
         run: |
-          python -m py_compile main.py feature_engine.py r2_integration.py r2_feature_engine.py r2_ready.py r2_shared_ema.py canonical_ema.py benchmark_readiness.py
+          python -m py_compile main.py feature_engine.py r2_integration.py r2_ready.py r2_shared_ema.py canonical_ema.py benchmark_readiness.py research_near_trigger.py run_shared_ema_downstream_impact.py run_signal_path_diagnostic.py
           test ! -e r2_main.py
           grep -q 'run: python main.py' .github/workflows/daily.yml
           grep -q 'from r2_integration import build_feature_store_from_r2' main.py
           grep -q 'import feature_engine as fe' r2_integration.py
-          test "$(grep -c '^from r2_integration import build_feature_store_from_r2$' r2_feature_engine.py)" -eq 1
-          ! grep -q '^import feature_engine' r2_feature_engine.py
+          test ! -e r2_feature_engine.py
+          ! grep -R --include='*.py' --exclude='test_production_architecture.py' -n 'r2_feature_engine' .
       - name: Run architecture contract tests
         run: python -m unittest -v tests.test_production_architecture
