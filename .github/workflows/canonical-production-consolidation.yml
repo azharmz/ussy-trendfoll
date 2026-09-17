@@ -23,3 +23,5 @@ jobs:
           grep -q 'import feature_engine as fe' r2_integration.py
           test "$(grep -c '^from r2_integration import build_feature_store_from_r2$' r2_feature_engine.py)" -eq 1
           ! grep -q '^import feature_engine' r2_feature_engine.py
+      - name: Run architecture contract tests
+        run: python -m unittest -v tests.test_production_architecture
