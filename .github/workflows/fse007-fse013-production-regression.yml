@@ -1,0 +1,41 @@
+name: FSE-007 FSE-013 Production Regression
+
+on:
+  push:
+    branches:
+      - audit-production/fse007-fse013
+      - main
+    paths:
+      - 'alert_state.py'
+      - 'candidate_lifecycle.py'
+      - 'r2_main.py'
+      - 'benchmark_readiness.py'
+      - 'r2_feature_engine.py'
+      - 'tests/test_alert_state.py'
+      - 'tests/test_benchmark_readiness.py'
+      - 'tests/test_effective_date_state_contract.py'
+      - '.github/workflows/fse007-fse013-production-regression.yml'
+  pull_request:
+    paths:
+      - 'alert_state.py'
+      - 'candidate_lifecycle.py'
+      - 'r2_main.py'
+      - 'benchmark_readiness.py'
+      - 'r2_feature_engine.py'
+
+jobs:
+  correction-regression:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - name: Install focused dependencies
+        run: pip install pandas numpy
+      - name: Benchmark readiness contract
+        run: python -m unittest -v tests.test_benchmark_readiness
+      - name: Effective-date lifecycle contract
+        run: python -m unittest -v tests.test_effective_date_state_contract
+      - name: Alert-state regression
+        run: python -m unittest -v tests.test_alert_state
