@@ -16,11 +16,16 @@ class ProductionArchitectureContract(unittest.TestCase):
         integration = (ROOT / "r2_integration.py").read_text(encoding="utf-8")
         self.assertIn("from r2_integration import build_feature_store_from_r2", main)
         self.assertIn("import feature_engine as fe", integration)
+        self.assertFalse((ROOT / "r2_feature_engine.py").exists())
 
-    def test_legacy_r2_feature_module_is_shim_only(self):
-        shim = (ROOT / "r2_feature_engine.py").read_text(encoding="utf-8")
-        self.assertIn("from r2_integration import build_feature_store_from_r2", shim)
-        self.assertNotIn("import feature_engine", shim)
+    def test_no_python_consumer_uses_retired_module(self):
+        offenders = []
+        for path in ROOT.rglob("*.py"):
+            if path == Path(__file__):
+                continue
+            if "r2_feature_engine" in path.read_text(encoding="utf-8"):
+                offenders.append(str(path.relative_to(ROOT)))
+        self.assertEqual([], offenders)
 
 
 if __name__ == "__main__":
