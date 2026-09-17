@@ -1,6 +1,6 @@
 # Feature Engine Reachability Audit
 
-Status: **CLOSED / PRODUCTION-REACHABLE / HISTORICAL EMA MIGRATION VALIDATED**
+Status: **CLOSED / PRODUCTION-REACHABLE / HISTORICAL EMA MIGRATION CI-VALIDATED / PRODUCTION ADOPTION PENDING TERMINAL RUN**
 
 ## Current production path
 
@@ -49,4 +49,4 @@ A prior observational migration audit had already shown that raw-vs-adjusted his
 
 ## Decision
 
-FSE-005 historical EMA price-basis consistency is validated for adoption: R2 historical feature rows and governed terminal EMA now share the same mathematical `adj_close` EMA definition. The legacy feature engine remains in place because it owns other production-reachable formulas. Broader feature-engine refactoring is separate architecture work and is not required for this correctness remediation.
+FSE-005 historical EMA price-basis consistency has passed focused CI and is ready for production adoption. It is not marked terminally CLOSED/VERIFIED until a normal `USSY TrendFoll — Daily Watchlist` production run succeeds on the adopted main commit (or a descendant containing the same remediation). The legacy feature engine remains because it owns other production-reachable formulas. Broader feature-engine refactoring is separate architecture work.
