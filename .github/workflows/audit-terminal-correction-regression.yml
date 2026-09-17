@@ -38,6 +38,6 @@ jobs:
       - name: Alert-state regression
         run: python -m unittest -v tests.test_alert_state
       - name: Candidate-lifecycle regression
-        run: pytest -q tests/test_candidate_lifecycle.py
+        run: PYTHONPATH=. pytest -q tests/test_candidate_lifecycle.py
       - name: Decision aggregation regression
         run: python -m unittest -v tests.test_decision_contracts
