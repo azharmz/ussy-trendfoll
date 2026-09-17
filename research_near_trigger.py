@@ -14,7 +14,7 @@ from hard_filter import compute_hard_filter, STATUS_RANK
 from decision_layer import compute_decision_layer
 from sector_cache import get_sector_map
 from r2_ready import load_ready_dataset
-from r2_feature_engine import build_feature_store_from_r2
+from r2_integration import build_feature_store_from_r2
 import database
 
 LAGS = (1, 2, 3, 5)
