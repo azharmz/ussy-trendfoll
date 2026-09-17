@@ -13,7 +13,7 @@ import pandas as pd
 
 from decision_layer import compute_decision_layer
 from hard_filter import STATUS_RANK, compute_hard_filter
-from r2_feature_engine import build_feature_store_from_r2
+from r2_integration import build_feature_store_from_r2
 from r2_ready import load_ready_dataset
 from shared_ema_state import PERIODS, load_shared_ema_state
 
