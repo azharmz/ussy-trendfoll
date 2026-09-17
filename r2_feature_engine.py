@@ -1,10 +1,11 @@
-"""Adapter kecil: stock OHLCV dari R2, formula feature tetap milik feature_engine.py."""
+"""R2 production adapter; feature formulas remain owned by feature_engine.py."""
 from __future__ import annotations
 
 import pandas as pd
 
 import feature_engine as fe
 from benchmark_readiness import validate_spy_readiness
+from canonical_ema import compute_canonical_ema_features
 from r2_ready import load_ready_dataset, to_feature_contract
 from r2_shared_ema import apply_shared_ema_terminal
 
@@ -26,6 +27,7 @@ def build_feature_store_from_r2(sector_map=None, ready=None, manifest=None) -> d
 
     original_download_universe = fe.download_universe
     original_download_raw_ohlcv = fe.download_raw_ohlcv
+    original_compute_ema_features = fe.compute_ema_features
 
     def _download_raw_ohlcv_ns(*args, **kwargs):
         df = original_download_raw_ohlcv(*args, **kwargs)
@@ -35,16 +37,19 @@ def build_feature_store_from_r2(sector_map=None, ready=None, manifest=None) -> d
         return df
 
     try:
-        # Hanya mengganti source raw saham. Benchmark/regime dan seluruh formula
-        # feature tetap dieksekusi oleh feature_engine.build_feature_store().
-        # Normalisasi resolusi datetime diperlukan di Pandas 3 agar merge_asof
-        # tidak menolak pasangan datetime64[ns] vs datetime64[s].
+        # R2 READY supplies stock OHLCV. Benchmarks/regime and non-EMA feature
+        # formulas remain in feature_engine. EMA is deliberately replaced for
+        # the entire READY timeline by the canonical adj_close implementation;
+        # this removes the historical raw-close/terminal-adj-close split while
+        # leaving nominal/raw-price strategy contracts untouched.
         fe.download_universe = lambda symbols: raw_universe.copy()
         fe.download_raw_ohlcv = _download_raw_ohlcv_ns
+        fe.compute_ema_features = compute_canonical_ema_features
         result = fe.build_feature_store(universe, sector_map=sector_map)
     finally:
         fe.download_universe = original_download_universe
         fe.download_raw_ohlcv = original_download_raw_ohlcv
+        fe.compute_ema_features = original_compute_ema_features
 
     # FSE-007: RS is an exact-date SPY comparison. Fail closed before any
     # downstream decision if the global R2 T0 lacks an exact SPY observation.
@@ -62,6 +67,9 @@ def build_feature_store_from_r2(sector_map=None, ready=None, manifest=None) -> d
         f"as_of={benchmark_readiness['as_of_date'].date()}"
     )
 
+    # Terminal rows are still replaced by the governed persisted ussy-data EMA
+    # state. This is both the production source of truth and an end-to-end
+    # equivalence/lineage fence for the local canonical calculation.
     migrated, ema_report = apply_shared_ema_terminal(
         result["features"],
         ready,
@@ -72,8 +80,8 @@ def build_feature_store_from_r2(sector_map=None, ready=None, manifest=None) -> d
     result["ready_manifest"] = manifest
     result["universe"] = universe
     print(
-        "[shared EMA] canonical adj_close state applied to "
-        f"{ema_report['terminal_rows_replaced']} terminal rows; "
+        "[shared EMA] canonical adj_close timeline + governed terminal state; "
+        f"terminal_rows_replaced={ema_report['terminal_rows_replaced']} "
         f"equivalence_verified={ema_report['equivalence_verified']}"
     )
     return result
