@@ -1,67 +1,52 @@
 # Feature Engine Reachability Audit
 
-Status: **CLOSED / PRODUCTION-REACHABLE / DO NOT DELETE**
-
-## Question
-
-Why do both `feature_engine.py` and `r2_feature_engine.py` exist, and is the former removable legacy code?
+Status: **CLOSED / PRODUCTION-REACHABLE / HISTORICAL EMA MIGRATION VALIDATED**
 
 ## Current production path
 
-`.github/workflows/daily.yml` runs `python r2_main.py`. `r2_main.py` loads R2 READY and calls `r2_feature_engine.build_feature_store_from_r2()`.
+`.github/workflows/daily.yml` runs `r2_main.py`, which calls `r2_feature_engine.build_feature_store_from_r2()`. The R2 adapter still delegates the bulk of feature formulas to `feature_engine.build_feature_store()`; therefore `feature_engine.py` remains production-reachable and must not be deleted as legacy code.
 
-`r2_feature_engine.py` is **not an independent replacement feature engine**. It currently imports `feature_engine as fe`, substitutes R2 READY for the stock-universe download, normalizes benchmark datetimes, and calls `fe.build_feature_store(universe, sector_map=...)`.
+## EMA ownership after FSE-005 remediation
 
-Therefore `feature_engine.py` remains **PRODUCTION_REACHABLE** and owns the bulk of feature formulas executed by the R2 production path.
+The governed analytical EMA price basis is `adj_close`, matching the shared EMA contract owned by `ussy-data`.
 
-Historical evidence agrees: commit `97ea8f03a9edd4c145e53857fb83a117bab350f7` introduced `r2_feature_engine.py` explicitly as an R2 adapter while retaining formula ownership in `feature_engine.py`.
+The R2 production adapter now applies `compute_canonical_ema_features()` to each symbol's full READY timeline after the legacy feature store is built. This replaces only EMA20/50/150/200 and `ema_stack_aligned` across the historical READY rows. It does **not** alter nominal raw-close price floor, pivot/breakout, Stage, ATR, volume, 52-week-high, or other frozen raw-price semantics.
 
-## EMA ownership and price basis
+After that historical canonicalization, `apply_shared_ema_terminal()` still replaces/validates the terminal row against the governed persisted shared EMA state. Thus terminal source-of-truth and READY lineage remain unchanged.
 
-`feature_engine.compute_ema_features()` calculates EMA20/50/150/200 from `close_raw` and derives `ema_stack_aligned` from raw close versus those EMAs.
+## Why no historical EMA dataset is persisted in R2
 
-After the full feature store is built, `r2_feature_engine.py` calls `apply_shared_ema_terminal()` from `r2_shared_ema.py`.
+`ussy-data` already owns canonical full OHLCV history and a persisted terminal EMA state. READY is a rolling window (maximum 300 bars per ticker), while the shared terminal EMA state is bootstrapped/rebuilt from canonical full history and advanced recursively. TrendFoll therefore does not need a second full historical EMA object store. Historical EMA rows are deterministically derived from the `adj_close` rows supplied to the feature engine; terminal production state remains governed upstream.
 
-The shared EMA contract is governed R2 state with:
+## Regression evidence
 
-- price basis: `adj_close`
-- periods: 20/50/150/200
-- READY lineage validation
-- equivalence gate
-- terminal-row replacement
+Branch: `fix/canonical-historical-ema-adj-close`
 
-`apply_shared_ema_terminal()` replaces EMA20/50/150/200 and `ema_stack_aligned` **only on each symbol's terminal feature row**. It does not rewrite historical rows.
+Implementation commit: `47eac431df7edc6c481619e5c8856aad8f086370`
 
-So the current state is intentionally asymmetric:
+CI commit: `afd4fd70d5cea8e1cfa01f638a2e5e4c6a437a14`
 
-- historical feature-store EMA rows: legacy `close_raw` calculation from `feature_engine.py`
-- terminal production EMA row: governed R2 shared `adj_close` EMA
+GitHub Actions run: `35236746582` — **SUCCESS**
 
-The terminal production trend decision therefore uses canonical shared `adj_close` EMA, while historical/local feature-store EMA remains a consistency debt.
+The focused regression verifies:
 
-## Reachability classification
+- EMA20/50/150/200 equal pandas `ewm(span=period, adjust=False)` on `close_adj` exactly within tight tolerance;
+- a synthetic split discontinuity in raw close cannot contaminate canonical EMA;
+- `ema_stack_aligned` is evaluated against adjusted close;
+- missing/non-numeric adjusted close fails closed.
 
-| Component | Classification | Evidence / role |
-|---|---|---|
-| `feature_engine.py` | **PRODUCTION_REACHABLE** | Called by `r2_feature_engine.build_feature_store_from_r2()` |
-| `feature_engine.build_feature_store()` | **PRODUCTION_REACHABLE** | Builds the bulk of the feature store used downstream |
-| `feature_engine.compute_ema_features()` | **PRODUCTION_REACHABLE, HISTORICAL EMA NON-CANONICAL** | Produces raw-close EMA before terminal override |
-| `r2_feature_engine.py` | **PRODUCTION_REACHABLE ADAPTER/ORCHESTRATOR** | R2 READY adapter, benchmark readiness, shared EMA application |
-| `r2_shared_ema.py` | **PRODUCTION-REACHABLE CANONICAL TERMINAL EMA** | Replaces terminal EMA state with governed `adj_close` state |
-| auxiliary feature outputs previously classified by Full Signal Engine audit | **UNUSED AS AUTHORITATIVE DECISION INPUTS unless separate consumer exists** | Existing audit classification remains unchanged |
+A prior observational migration audit had already shown that raw-vs-adjusted historical EMA differences are real but aggregate event overlap is high. That evidence was reused rather than repeating expensive research compute.
+
+## Classification
+
+| Component | Classification |
+|---|---|
+| `feature_engine.py` | **PRODUCTION_REACHABLE** |
+| legacy `feature_engine.compute_ema_features()` | **INTERMEDIATE ONLY on R2 path; canonicalized before downstream use** |
+| `r2_feature_engine.py` | **PRODUCTION R2 ORCHESTRATOR** |
+| `canonical_ema.py` | **CANONICAL HISTORICAL READY-TIMELINE EMA (`adj_close`)** |
+| `r2_shared_ema.py` | **CANONICAL GOVERNED TERMINAL EMA (`adj_close`)** |
 
 ## Decision
 
-1. **Do not delete or deprecate `feature_engine.py`.** It is not dead code.
-2. **Do not blindly change its EMA from raw close to adjusted close.** That would alter historical feature semantics and may affect research/backtests/diagnostics beyond the already-frozen terminal production contract.
-3. Preserve the audited terminal production contract: canonical shared R2 EMA on `adj_close`.
-4. Treat historical raw-close EMA standardization as a separate migration workstream with explicit consumer-impact analysis and regression/equivalence evidence.
-5. Longer-term architecture may split formula ownership from ingestion/orchestration so the misleading two-engine naming disappears, but that is refactoring, not a correctness emergency.
-
-## Closure
-
-The apparent "two feature engines" are not two competing independent production engines. The architecture is currently:
-
-`R2 READY -> r2_feature_engine adapter/orchestration -> feature_engine formula core -> shared R2 terminal EMA override -> downstream production decisions`
-
-This reachability question is closed. Any future EMA historical-basis migration must start from this contract rather than assuming `feature_engine.py` is legacy/dead.
+FSE-005 historical EMA price-basis consistency is validated for adoption: R2 historical feature rows and governed terminal EMA now share the same mathematical `adj_close` EMA definition. The legacy feature engine remains in place because it owns other production-reachable formulas. Broader feature-engine refactoring is separate architecture work and is not required for this correctness remediation.
