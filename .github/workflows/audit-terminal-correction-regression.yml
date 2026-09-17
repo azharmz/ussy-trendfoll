@@ -28,7 +28,7 @@ jobs:
         with:
           python-version: '3.12'
       - name: Install focused regression dependencies
-        run: pip install pandas numpy
+        run: pip install pandas numpy pytest
       - name: Benchmark readiness contract
         run: python -m unittest -v tests.test_benchmark_readiness
       - name: Effective-date frozen contract
@@ -38,6 +38,6 @@ jobs:
       - name: Alert-state regression
         run: python -m unittest -v tests.test_alert_state
       - name: Candidate-lifecycle regression
-        run: python -m unittest -v tests.test_candidate_lifecycle
+        run: pytest -q tests/test_candidate_lifecycle.py
       - name: Decision aggregation regression
         run: python -m unittest -v tests.test_decision_contracts
