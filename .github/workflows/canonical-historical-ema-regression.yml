@@ -1,0 +1,26 @@
+name: Canonical Historical EMA Regression
+
+on:
+  push:
+    branches:
+      - fix/canonical-historical-ema-adj-close
+    paths:
+      - canonical_ema.py
+      - r2_feature_engine.py
+      - tests/test_canonical_ema.py
+      - .github/workflows/canonical-historical-ema-regression.yml
+  workflow_dispatch:
+
+jobs:
+  unit-regression:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - name: Install minimal dependencies
+        run: pip install pandas numpy
+      - name: Run canonical EMA regression
+        run: python -m unittest -v tests.test_canonical_ema
