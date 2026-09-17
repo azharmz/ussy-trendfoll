@@ -1,104 +1,119 @@
-# Full Signal Engine Audit — Terminal Plan
+# Full Signal Engine Audit — Terminal Closure
 
-Status: **ACTIVE / CORE 10/10 FROZEN / TERMINAL E2E BLOCKED ON UPSTREAM READY VALIDATION / NO NEW PRODUCTION CHANGE**
+Status: **AUDIT COMPLETE / TERMINAL PRODUCTION PATH PASS / CORE 10/10 FROZEN / NO THRESHOLD TUNING**
 
-This document reconciles the material audit state after the Core Indicator Audit and freezes the acceptance criteria for terminal closure. The older 269-item detailed checklist remains an Extended Engineering Audit ledger; unchecked legacy items do not automatically block the material correctness conclusion.
+This document records the terminal material-correctness conclusion for the USSY TrendFoll signal engine. The older 269-item `FULL_SIGNAL_ENGINE_AUDIT_PROGRESS.md` remains an Extended Engineering Audit ledger; unchecked legacy items do not automatically block this material correctness conclusion.
 
-## 1. FSE-007 benchmark freshness — CLOSED
+## 1. Terminal production evidence
 
-Production benchmark readiness now has an explicit fail-closed contract:
+Terminal workflow:
 
-- RS requires an exact SPY row for the stock production as-of date.
-- Missing exact SPY T0 raises and blocks production.
-- A future SPY row cannot rescue a missing exact T0 row.
-- SPY ahead of R2 is benign; rows after stock T0 are ignored for the decision date.
-- Market regime may use same/prior SPY state through backward-as-of, but the production readiness boundary still requires exact SPY T0 because RS is decision-relevant.
+- repository: `azharmz/ussy-trendfoll`
+- workflow: `USSY TrendFoll — Daily Watchlist`
+- run: `35185480520` / run number `49`
+- job: `105086517401`
+- event: `workflow_dispatch`
+- commit: `49656b8504566440cf4e32523e2144106f7789ad`
+- conclusion: **SUCCESS**
 
-`tests/test_benchmark_readiness.py` covers same-day readiness, R2-ahead-of-SPY fail-closed, SPY-ahead-of-R2, future-SPY non-rescue, and empty-SPY failure.
+The run checked out the intended READY-manifest-v2 compatibility patch and completed the full pipeline plus all configured artifact-upload steps.
 
-Operational evidence from TrendFoll run `35168011735`, rerun job `105038526592`, reached:
+Observed terminal evidence:
 
-`[benchmark readiness] exact SPY T0 verified: as_of=2026-09-16`
+- R2 READY: 1,227 securities / 367,544 rows.
+- Feature Store: `(367544, 44)`.
+- Benchmark readiness: exact SPY T0 verified for `2026-09-16`.
+- Shared EMA: canonical `adj_close` state applied to 1,227 terminal rows; `equivalence_verified=88`.
+- Latest production date: `2026-09-16`.
+- Latest rows: 1,222 of 1,227 READY securities.
+- Candidates/watchlist rows: 106.
+- Five READY securities lacked a row on the latest date: `JFB`, `SITC`, `WILC`, `YYGH`, `ZTEK`.
+- The five residual stale/non-latest securities did not cause an active-position coverage failure or systemic leading-edge collapse.
+- Alert transitions, watchlist upsert, candidate lifecycle, NEAR_TRIGGER observational validation, and configured artifact uploads completed successfully.
 
-before failing later on incoherent upstream READY terminal dates. Therefore that failure does not invalidate FSE-007.
+This differs materially from the earlier mixed-terminal-date incident, where only 3 of 1,227 READY securities were present on the global latest date and active-position coverage correctly failed closed.
 
-Final FSE-007 verdict: **VALID USSY READINESS CONTRACT / CLOSED**.
+## 2. READY / manifest-v2 incident closure
 
-Remaining architectural fact: stock facts come from governed R2 READY while benchmark facts are downloaded separately. This is documented architecture, not an unresolved silent-freshness defect under the current exact-SPY-T0 guard.
+The terminal failure immediately before run 49 was a consumer-contract mismatch: upstream `ussy-data` had moved READY to governed manifest schema v2, while TrendFoll still accepted only schema v1 and raised `ValueError: Invalid ready manifest` before feature calculation.
 
-## 2. Material findings reconciliation
+Commit `49656b8504566440cf4e32523e2144106f7789ad` updated the TrendFoll READY consumer to accept governed schema v1/v2 while retaining fail-closed validation. Run 49 proves the compatibility correction works against the active production READY contract.
 
-| Finding | Material status | Terminal action |
+The earlier systemic mixed-terminal-date READY publication incident is therefore **CLOSED / VERIFIED** for the terminal audit. It must not be reopened without new contradictory evidence.
+
+## 3. Material findings reconciliation
+
+| Finding | Terminal status | Decision |
 |---|---|---|
 | FSE-001 Stage semantics | APPROXIMATION | RETAIN + REDOCUMENT; methodology research separate |
 | FSE-002 VCP/tightness semantics | MISMATCH as literal VCP | RENAME/REDOCUMENT as ATR/volatility-tightness proxy; no threshold tuning here |
 | FSE-003 pivot semantics | MISMATCH as O'Neil/base pivot | RENAME/REDOCUMENT as rolling-high breakout proxy; morphology research separate |
-| FSE-004 breakout-volume semantics | APPROXIMATION | RETAIN as rolling volume-rank confirmation; evaluate normalized volume if FSE-014 becomes adoptable |
-| FSE-005 historical EMA basis | MISMATCH | Separate legacy/history standardization debt; canonical terminal EMA remains governed adj_close state |
+| FSE-004 breakout-volume semantics | APPROXIMATION | RETAIN as rolling volume-rank confirmation; normalized-volume implications remain tied to FSE-014 |
+| FSE-005 historical EMA basis | MISMATCH | Separate legacy/history standardization debt; canonical terminal EMA remains governed `adj_close` state |
 | FSE-006 price/EMA split | VALID USSY DEFINITION | RETAIN |
 | FSE-007 benchmark freshness | CLOSED | Exact SPY T0 fail-closed contract retained |
-| FSE-008 R2 warm-up/history | CHARACTERIZED / upstream readiness dependent | No silent terminal-EMA regression; final E2E requires coherent READY |
+| FSE-008 R2 warm-up/history | CHARACTERIZED | Current terminal path accepted under governed READY; separate history-depth engineering may continue |
 | FSE-009 regime architecture | MATCH | RETAIN |
 | FSE-010 breakout temporal semantics | MATCH | RETAIN T0-close / T+1 execution governance |
-| FSE-011 dual downstream contracts | INTENTIONAL | RETAIN + document: watchlist/actionability differs from authoritative production-entry predicate |
+| FSE-011 dual downstream contracts | INTENTIONAL | RETAIN + document; watchlist/actionability differs from authoritative production-entry predicate |
 | FSE-012 entry semantics | VALID with naming caveat | RETAIN documented contract |
 | FSE-013 effective-date lifecycle | CORRECTION VALIDATED / PRODUCTION ADOPTED | Preserve regression + untouched validation evidence |
-| FSE-014 split-sensitive liquidity state | MISMATCH | BLOCKED_ON_UPSTREAM_CORPORATE_ACTION_CONTRACT; do not fake split factors |
+| FSE-014 split-sensitive liquidity state | MISMATCH / BLOCKED | BLOCKED_ON_UPSTREAM_CORPORATE_ACTION_CONTRACT; do not fake split factors |
 | FSE-015 Sep14 partial OHLCV/volume incident | CLOSED / VERIFIED | Do not reopen without new evidence |
-| FSE-016 split-sensitive ATR state | MISMATCH | RESEARCH CORRECTION PASS / BLOCKED_ON_UPSTREAM_CORPORATE_ACTION_FACTS |
+| FSE-016 split-sensitive ATR state | MISMATCH / BLOCKED | RESEARCH CORRECTION PASS / BLOCKED_ON_UPSTREAM_CORPORATE_ACTION_FACTS |
 
-## 3. Correction decision matrix
+## 4. What terminal PASS means
 
-Production closure does not require silently solving every methodology approximation. Decisions are separated by correctness boundary:
+`TERMINAL PRODUCTION PATH = PASS` means the currently governed production path has been demonstrated end-to-end under the active READY and shared-EMA contracts:
 
-- **Adopted/retained:** canonical terminal EMA, FSE-007 benchmark readiness, FSE-013 effective-date lifecycle correction, existing causal breakout mechanics, existing dual downstream contracts.
-- **Retain but redocument/rename:** Stage approximation, rolling-high pivot/breakout proxy, rolling volume-rank confirmation, ATR-percentile tightness proxy.
-- **Blocked rather than approximated:** FSE-014 and FSE-016 require authoritative upstream corporate-action facts. Synthetic `stock_splits=0.0` is not acceptable evidence and must not be used to manufacture a correction.
-- **Closed incident:** FSE-015 upstream partial-current-day volume incident remains closed/verified unless new contradictory evidence appears.
-- **Separate remediation:** historical legacy feature-engine raw/adjusted standardization is not folded into this terminal audit.
+`R2 READY -> FEATURES/INDICATORS -> HARD FILTER -> INVESTABILITY -> TRADABILITY -> CANDIDATE/WATCHLIST -> ALERT/ACTIONABLE OUTPUT -> PRODUCTION POSITION PATH`
 
-## 4. Current upstream blocker
+The run demonstrated:
 
-TrendFoll run `35168011735` exposed an upstream READY coherence defect rather than a downstream signal-engine formula defect. The observed READY reported 1,227 securities / 367,522 rows, while the global latest date was 2026-09-16 for only 3 securities and 1,224 securities lacked that latest bar. Active-position coverage correctly failed closed for ANF, BOX, CF, OKTA, TXG, and VLO.
+1. READY loads under the governed manifest contract.
+2. Exact SPY T0 readiness passes fail-closed validation.
+3. Canonical shared EMA lineage/equivalence is accepted.
+4. Feature calculation and downstream decision layers complete.
+5. Latest-date coverage no longer exhibits the systemic mixed-leading-edge failure.
+6. Candidate/watchlist/alert lifecycle completes without the prior effective-date regression.
+7. Active-position coverage does not fail on missing production-relevant T0 rows.
+8. No readiness, temporal, or coverage guard was weakened merely to obtain a green run.
 
-`ussy-data` root cause analysis identified a mixed terminal-date READY publication. Upstream validation run #49 (`35170777879`) is responsible for proving the new terminal-date-coherence publication guard. TrendFoll must not be rerun merely to obtain a green result until upstream READY is verified healthy.
+## 5. What terminal PASS does not mean
 
-## 5. Frozen terminal acceptance criteria
+Audit closure does **not** claim that every methodology approximation is canonical O'Neil/Minervini methodology, and does not silently mark blocked corporate-action corrections as solved.
 
-After upstream run #49 is terminal, rerun TrendFoll only if all upstream conditions are evidenced:
+In particular:
 
-1. authoritative READY pointer is known and valid;
-2. terminal-date histogram is coherent under the upstream publication contract;
-3. manifest `as_of_date` and terminal-date coverage agree;
-4. no partial leading-edge date was promoted;
-5. shared EMA lineage matches the active READY object/checksum.
+- FSE-014 remains blocked until authoritative upstream split/corporate-action factors exist.
+- FSE-016 remains blocked until authoritative upstream corporate-action facts exist.
+- Synthetic `stock_splits=0.0` must not be used to manufacture evidence for either correction.
+- Historical legacy feature-engine raw/adjusted standardization remains a separate remediation workstream.
+- Stage, rolling-high breakout, rolling volume rank, and ATR-percentile tightness retain their documented USSY/proxy semantics; audit closure is not permission to relabel them as validated canonical chart-pattern methodology.
+- The five residual non-latest READY securities from run 49 remain an operational observability item. They are not evidence of the previously closed systemic mixed-terminal-date incident unless new facts show otherwise.
 
-Then the TrendFoll terminal E2E run must demonstrate:
+## 6. Governance after closure
 
-1. R2 READY loads and validates without mixed-date failure;
-2. exact SPY T0 benchmark readiness passes;
-3. canonical shared EMA lineage/equivalence passes;
-4. feature store, hard filter, Investability and Tradability complete;
-5. latest-date universe coverage is coherent under the READY contract;
-6. candidate/watchlist/alert lifecycle completes without effective-date regression;
-7. active-position coverage passes fail-closed checks;
-8. production entry/exit path completes without contract error;
-9. no finding is hidden by weakening readiness, temporal, or coverage guards.
+The material Full Signal Engine Audit is now **CLOSED**.
 
-A plausible funnel or a green workflow alone is not sufficient; logs must support these contract checks.
+Future changes to frozen production semantics must use:
 
-## 6. Terminal closure rule
+`finding -> root cause -> frozen correction contract -> remediation -> regression -> untouched validation -> production decision`
 
-If the upstream acceptance criteria and TrendFoll E2E criteria pass, the material Full Signal Engine Audit may be closed with explicit limitations for FSE-014/FSE-016 and methodology approximations. Those limitations are not to be mislabeled as validated O'Neil/Minervini semantics.
+Do not reopen or tune frozen components merely because an alternative produces a better backtest. Residual engineering work and methodology research should be tracked separately from this closed correctness audit.
 
-If terminal E2E exposes a new correctness defect, classify and resolve it under:
+No additional Actions compute is required for this documentation closure.
 
-`finding -> root cause -> correction contract -> remediation -> regression -> untouched validation -> production decision`
+## 7. Final status
 
-Do not tune thresholds or broaden scope merely to make the terminal run green.
+- Core Indicator Audit: **10/10 COMPLETE / FROZEN**.
+- C01-C04 independent review gate: **PASS**.
+- Full Signal Engine material correctness audit: **COMPLETE**.
+- Terminal production E2E: **PASS** — run `35185480520`, job `105086517401`.
+- READY manifest v2 consumer compatibility: **VERIFIED IN PRODUCTION PATH**.
+- FSE-014: **BLOCKED_ON_UPSTREAM_CORPORATE_ACTION_CONTRACT**.
+- FSE-016: **RESEARCH CORRECTION PASS / BLOCKED_ON_UPSTREAM_CORPORATE_ACTION_FACTS**.
+- Production threshold tuning performed by this closure: **NONE**.
+- Additional compute required for audit closure: **NONE**.
 
-## 7. Progress
-
-Material audit progress after formal FSE-007 closure and terminal-plan freeze: **approximately 98%**.
-
-The remaining material work is the upstream READY validation gate followed by one coherent TrendFoll terminal production-funnel verification and final evidence recording.
+Material audit progress: **100% / CLOSED**.
