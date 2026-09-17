@@ -4,6 +4,7 @@ from __future__ import annotations
 import pandas as pd
 
 import feature_engine as fe
+from benchmark_readiness import validate_spy_readiness
 from r2_ready import load_ready_dataset, to_feature_contract
 from r2_shared_ema import apply_shared_ema_terminal
 
@@ -44,6 +45,22 @@ def build_feature_store_from_r2(sector_map=None, ready=None, manifest=None) -> d
     finally:
         fe.download_universe = original_download_universe
         fe.download_raw_ohlcv = original_download_raw_ohlcv
+
+    # FSE-007: RS is an exact-date SPY comparison. Fail closed before any
+    # downstream decision if the global R2 T0 lacks an exact SPY observation.
+    spy = result.get("benchmarks", {}).get(fe.MARKET_BENCHMARK)
+    if spy is None or "date" not in spy.columns:
+        raise RuntimeError("SPY benchmark unavailable for R2 readiness validation")
+    benchmark_readiness = validate_spy_readiness(
+        raw_universe["date"],
+        spy["date"],
+        as_of_date=raw_universe["date"].max(),
+    )
+    result["benchmark_readiness"] = benchmark_readiness
+    print(
+        "[benchmark readiness] exact SPY T0 verified: "
+        f"as_of={benchmark_readiness['as_of_date'].date()}"
+    )
 
     migrated, ema_report = apply_shared_ema_terminal(
         result["features"],
