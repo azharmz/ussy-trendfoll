@@ -16,6 +16,13 @@ import pandas as pd
 
 READY_POINTER = "production/ready/current.json"
 READY_PREFIX = "production/ready/runs/"
+SUPPORTED_READY_SCHEMA_VERSIONS = {1, 2}
+READY_V2_REQUIRED_FIELDS = {
+    "as_of_date",
+    "as_of_security_count",
+    "terminal_date_min",
+    "terminal_date_max",
+}
 
 
 def make_r2_client():
@@ -32,6 +39,31 @@ def make_r2_client():
     )
 
 
+def _validate_ready_manifest(manifest: dict) -> str:
+    """Validate the upstream READY pointer without weakening fail-closed semantics.
+
+    Schema v2 was introduced by ussy-data to publish terminal-date/as-of
+    coherence metadata. TrendFoll accepts both the historical v1 contract and
+    the governed v2 contract, while v2 must carry its required coherence fields
+    and must declare terminal_date_max == as_of_date.
+    """
+    schema_version = manifest.get("schema_version")
+    key = manifest.get("parquet_key")
+    if schema_version not in SUPPORTED_READY_SCHEMA_VERSIONS:
+        raise ValueError(f"Invalid ready manifest schema_version: {schema_version!r}")
+    if not isinstance(key, str) or not key.startswith(READY_PREFIX):
+        raise ValueError("Invalid ready manifest parquet_key")
+
+    if schema_version == 2:
+        missing = READY_V2_REQUIRED_FIELDS - set(manifest)
+        if missing:
+            raise ValueError(f"Invalid ready v2 manifest; missing fields: {sorted(missing)}")
+        if manifest["terminal_date_max"] != manifest["as_of_date"]:
+            raise ValueError("READY v2 as-of/max terminal-date mismatch")
+
+    return key
+
+
 def load_ready_dataset(s3=None, bucket: str | None = None):
     s3 = s3 or make_r2_client()
     bucket = bucket or os.environ.get("R2_BUCKET_NAME", "ussy-data")
@@ -39,9 +71,7 @@ def load_ready_dataset(s3=None, bucket: str | None = None):
     manifest = json.loads(
         s3.get_object(Bucket=bucket, Key=READY_POINTER)["Body"].read()
     )
-    key = manifest.get("parquet_key")
-    if manifest.get("schema_version") != 1 or not isinstance(key, str) or not key.startswith(READY_PREFIX):
-        raise ValueError("Invalid ready manifest")
+    key = _validate_ready_manifest(manifest)
 
     body = s3.get_object(Bucket=bucket, Key=key)["Body"].read()
     if hashlib.sha256(body).hexdigest() != manifest.get("sha256"):
