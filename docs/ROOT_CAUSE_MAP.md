@@ -80,6 +80,15 @@ Current canonical READY mapping is one-to-one under the audited contract; no col
 
 Status: **RESOLVED / EVIDENCE LOCKED — PREVENTIVE LOADER HARDENING**.
 
+## RC-007 — Alert delivery lacked durable event identity and acknowledgement state
+
+Linked problems: `PROB-003`, `PROB-004`.
+Evidence: `docs/EVIDENCE_PROB_003_004.md`.
+
+The old pipeline computed transitions in memory and called Telegram directly. Watchlist persistence stored state observations, not alert-event identity or transport outcomes. Same-day replay could therefore recreate the same transition and resend it, while transport failures were swallowed.
+
+Status: **RESOLVED / EVIDENCE LOCKED**. Semantic events, transport delivery state and append-only attempts are now persisted separately; normal replay/concurrency is database-arbitrated and failures remain retryable. Telegram Bot API crash-window exactly-once delivery remains an explicit transport limitation.
+
 ## Still unresolved
 
 - Point-in-time universe membership / survivorship bias.

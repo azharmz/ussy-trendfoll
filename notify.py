@@ -116,3 +116,41 @@ def _send(token: str, chat_id: str, text: str):
             print(f"[notify] Gagal kirim Telegram: {resp.status_code} {resp.text}")
     except Exception as e:
         print(f"[notify] Error kirim Telegram: {type(e).__name__}: {e}")
+
+
+def build_transition_message(event: dict) -> str:
+    """Render one canonical alert transition without changing alert-state semantics."""
+    return (
+        f"🔔 USSY TrendFoll — {event['as_of_date']}\n\n"
+        f"{event['symbol']}: {event['previous_state']} → {event['current_state']}\n"
+        f"Event: {event['event']}\n"
+        + (f"Close: ${float(event['close_raw']):.2f}\n" if event.get("close_raw") is not None else "")
+        + "\nDetail lengkap: cek dashboard web."
+    )
+
+
+def send_transition_event(event: dict) -> dict:
+    """Send one transition and return Telegram acknowledgement metadata.
+
+    Raises on transport/API failure so the persistent delivery ledger can keep
+    the event retryable. Bot API sendMessage has no application idempotency-key
+    parameter, so a crash after Telegram accepts the message but before DB
+    acknowledgement remains an explicitly documented residual duplicate window.
+    """
+    token = os.environ.get("TELEGRAM_BOT_TOKEN")
+    chat_id = os.environ.get("TELEGRAM_CHAT_ID")
+    if not token or not chat_id:
+        raise RuntimeError("Telegram credentials are not configured")
+    text = build_transition_message(event)
+    resp = requests.post(
+        TELEGRAM_API.format(token=token),
+        json={"chat_id": chat_id, "text": text},
+        timeout=15,
+    )
+    if resp.status_code != 200:
+        raise RuntimeError(f"Telegram HTTP {resp.status_code}: {resp.text[:500]}")
+    payload = resp.json()
+    if not payload.get("ok"):
+        raise RuntimeError(f"Telegram API rejected sendMessage: {str(payload)[:500]}")
+    result = payload.get("result") or {}
+    return {"message_id": result.get("message_id"), "chat_id": str(chat_id)}

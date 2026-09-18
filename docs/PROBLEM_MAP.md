@@ -20,8 +20,8 @@ Rules:
 | ID | Class | Priority | Problem / question | Next evidence |
 |---|---|---:|---|---|
 | PROB-001 | CONFIRMED | High | Production alert semantics call monitored non-actionable candidates `NEAR_TRIGGER`, while <=0.60 ATR proximity remains shadow-only. | Complete frozen forward validation before semantic promotion. |
-| PROB-003 | ENGINEERING DEBT | High | Telegram lacks persistent exact transition delivery semantics. | Persistent transition/event delivery design. |
-| PROB-004 | ENGINEERING DEBT | High | Same-day reruns can recompute/resend transitions because no persistent idempotency ledger exists. | Persistent alert-event identity and delivery status. |
+| PROB-003 | **RESOLVED / EVIDENCE LOCKED** | — | Alert transitions now have transport-independent persistent semantic identity plus durable delivery state/history. | Maintain ledger contract and observe scheduled production. |
+| PROB-004 | **RESOLVED / EVIDENCE LOCKED** | — | Same-event replay resolves to one canonical event; delivered events are skipped and failed/stale deliveries remain retryable under a leased claim. | Maintain replay/concurrency tests and operational evidence. |
 | PROB-005 | **RESOLVED / EVIDENCE LOCKED** | — | TrendFoll now validates the security_id→ticker→(symbol,date) identity boundary and fails closed before feature computation on any many-to-one or duplicate market-observation mapping. | Maintain loader identity guard; upstream audit evidence recorded separately. |
 | PROB-007 | CONFIRMED | Medium | Position tracking is forward paper tracking, not realistic portfolio/capital simulation. | Keep research-path claims separate from portfolio performance. |
 | PROB-008 | CONFIRMED | High | T0 signal close differs from executable T+1 open. | Preserve T+1-open execution anchor in all governed research. |
