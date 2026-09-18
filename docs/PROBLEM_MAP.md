@@ -22,7 +22,7 @@ Rules:
 | PROB-001 | CONFIRMED | High | Production alert semantics call monitored non-actionable candidates `NEAR_TRIGGER`, while <=0.60 ATR proximity remains shadow-only. | Complete frozen forward validation before semantic promotion. |
 | PROB-003 | ENGINEERING DEBT | High | Telegram lacks persistent exact transition delivery semantics. | Persistent transition/event delivery design. |
 | PROB-004 | ENGINEERING DEBT | High | Same-day reruns can recompute/resend transitions because no persistent idempotency ledger exists. | Persistent alert-event identity and delivery status. |
-| PROB-005 | ENGINEERING DEBT | Medium | Mapped `(symbol,date)` collision still needs explicit R2 loader contract validation. | Loader guard + tests. |
+| PROB-005 | **RESOLVED / EVIDENCE LOCKED** | — | TrendFoll now validates the security_id→ticker→(symbol,date) identity boundary and fails closed before feature computation on any many-to-one or duplicate market-observation mapping. | Maintain loader identity guard; upstream audit evidence recorded separately. |
 | PROB-007 | CONFIRMED | Medium | Position tracking is forward paper tracking, not realistic portfolio/capital simulation. | Keep research-path claims separate from portfolio performance. |
 | PROB-008 | CONFIRMED | High | T0 signal close differs from executable T+1 open. | Preserve T+1-open execution anchor in all governed research. |
 | PROB-009 | RESOLVED DIAGNOSIS | — | Strong T0 momentum expands MFE/MAE dispersion but does not show monotonic T+5 decay. | Evidence locked by DIAG-001/002; no momentum cutoff authorized. |

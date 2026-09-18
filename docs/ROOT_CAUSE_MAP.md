@@ -69,6 +69,17 @@ Current interpretation: signal-path linkage must not silently select one duplica
 
 Status: **RESOLVED / EVIDENCE LOCKED**. Canonical lifecycle linkage is `positions.id`; `(symbol, entry_date)` is a replay/idempotency invariant, not the downstream foreign key.
 
+## RC-006 — R2 symbol/date mapping ambiguity can contaminate feature timelines
+
+Linked problem: `PROB-005`.
+Evidence: `docs/EVIDENCE_PROB_005.md`.
+
+TrendFoll historically validated upstream `(security_id,date)` uniqueness but dropped `security_id` when adapting READY rows to the feature-engine contract. Therefore a future many-to-one `security_id -> ticker` mapping could collapse into the same downstream `(symbol,date)` timeline without an explicit boundary guard.
+
+Current canonical READY mapping is one-to-one under the audited contract; no collision evidence was found in the available production/validation lineage. The remediation is preventive and fail-closed.
+
+Status: **RESOLVED / EVIDENCE LOCKED — PREVENTIVE LOADER HARDENING**.
+
 ## Still unresolved
 
 - Point-in-time universe membership / survivorship bias.

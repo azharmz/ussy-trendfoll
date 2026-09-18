@@ -89,15 +89,69 @@ def load_ready_dataset(s3=None, bucket: str | None = None):
         raise ValueError("Ready manifest/data security-id mismatch")
 
     frame = frame.copy()
-    frame["date"] = pd.to_datetime(frame["date"], errors="raise")
-    if frame.duplicated(["security_id", "date"]).any():
-        raise ValueError("Duplicate security/date rows in ready dataset")
+    frame["security_id"] = frame["security_id"].astype(str)
+    frame["ticker"] = frame["ticker"].astype(str)
+    frame["date"] = pd.to_datetime(frame["date"], errors="raise").dt.tz_localize(None).dt.normalize()
+    validate_ready_identity_contract(frame)
 
     return frame.sort_values(["security_id", "date"]).reset_index(drop=True), manifest
 
 
+def validate_ready_identity_contract(frame: pd.DataFrame) -> dict:
+    """Fail closed before ticker/date becomes TrendFoll's market-observation key.
+
+    Upstream security_id remains the stronger security identity. TrendFoll's
+    feature engine groups by ticker/symbol, so each downstream (symbol, date)
+    must resolve to exactly one upstream security/date observation.
+    """
+    required = {"security_id", "ticker", "date", "open", "high", "low", "close", "adj_close", "volume"}
+    missing = required - set(frame.columns)
+    if missing:
+        raise ValueError(f"Ready identity validation missing columns: {sorted(missing)}")
+    work = frame.copy()
+    work["security_id"] = work["security_id"].astype(str)
+    work["ticker"] = work["ticker"].astype(str)
+    work["date"] = pd.to_datetime(work["date"], errors="raise").dt.tz_localize(None).dt.normalize()
+
+    if work.duplicated(["security_id", "date"]).any():
+        bad = work.loc[work.duplicated(["security_id", "date"], keep=False), ["security_id", "ticker", "date"]]
+        raise ValueError(f"Duplicate canonical security/date rows in READY: {bad.head(20).to_dict('records')}")
+
+    mapping = work[["security_id", "ticker"]].drop_duplicates()
+    if mapping["security_id"].duplicated().any():
+        bad = mapping.loc[mapping["security_id"].duplicated(keep=False)]
+        raise ValueError(f"READY security_id maps to multiple tickers: {bad.head(20).to_dict('records')}")
+    if mapping["ticker"].duplicated().any():
+        bad = mapping.loc[mapping["ticker"].duplicated(keep=False)]
+        raise ValueError(f"READY ticker maps from multiple security_ids: {bad.head(20).to_dict('records')}")
+
+    collisions = work.loc[work.duplicated(["ticker", "date"], keep=False)].sort_values(["ticker", "date", "security_id"])
+    if not collisions.empty:
+        value_cols = ["open", "high", "low", "close", "adj_close", "volume"]
+        groups = []
+        for (ticker, date), group in collisions.groupby(["ticker", "date"], sort=True):
+            distinct_values = group[value_cols].drop_duplicates()
+            groups.append({
+                "symbol": ticker,
+                "date": str(pd.Timestamp(date).date()),
+                "security_ids": sorted(group["security_id"].unique().tolist()),
+                "rows": len(group),
+                "kind": "exact_duplicate" if len(distinct_values) == 1 else "conflicting",
+            })
+        raise ValueError(f"Ambiguous downstream (symbol,date) mapping in READY: {groups[:20]}")
+
+    return {
+        "source_securities": int(work["security_id"].nunique()),
+        "mapped_symbols": int(work["ticker"].nunique()),
+        "rows": int(len(work)),
+        "unique_symbol_dates": int(work[["ticker", "date"]].drop_duplicates().shape[0]),
+        "collision_groups": 0,
+    }
+
+
 def to_feature_contract(frame: pd.DataFrame) -> pd.DataFrame:
     """Map ussy-data ready schema into the legacy TrendFoll feature contract."""
+    validate_ready_identity_contract(frame)
     out = frame.rename(columns={
         "ticker": "symbol",
         "open": "open_raw",
