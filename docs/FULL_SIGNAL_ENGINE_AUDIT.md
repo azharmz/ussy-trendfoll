@@ -29,7 +29,7 @@ Audit classifications: `MATCH`, `VALID USSY DEFINITION`, `APPROXIMATION`, `MISMA
 
 ## A. Actual production execution map
 
-GitHub Actions `.github/workflows/daily.yml` executes `python r2_main.py`.
+GitHub Actions `.github/workflows/daily.yml` executes `python main.py`.
 
 Actual current path:
 
@@ -37,7 +37,7 @@ Actual current path:
 → `r2_ready.load_ready_dataset()`
 → manifest/schema/checksum/security-id validation
 → `r2_ready.to_feature_contract()`
-→ `r2_feature_engine.build_feature_store_from_r2()`
+→ `r2_integration.build_feature_store_from_r2()`
 → legacy `feature_engine.build_feature_store()` with R2 stock OHLCV injected
 → benchmark OHLCV still downloaded independently by `feature_engine`
 → per-symbol EMA / structure / volume / RS / weekly stage
