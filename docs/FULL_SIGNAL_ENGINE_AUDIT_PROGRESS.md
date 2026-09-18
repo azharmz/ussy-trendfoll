@@ -1,18 +1,32 @@
 # Full Signal Engine Audit — Detailed Progress Checklist
 
-Status: **ACTIVE AUDIT CONTROL DOCUMENT / DIAGNOSTIC ONLY / NO PRODUCTION CHANGE**
+Status: **ARCHIVED EXECUTION LEDGER / AUDIT TERMINALLY CLOSED**
 
-Branch: `research/exit-development-hypotheses`
+Terminal production branch: `main`
 
 Companion audit: `docs/FULL_SIGNAL_ENGINE_AUDIT.md`
 
 ## Purpose
 
-This file is the operational checklist and progress ledger for the full USSY TrendFoll signal-engine audit. It is the primary execution guide for the audit. `FULL_SIGNAL_ENGINE_AUDIT.md` remains the evidence/findings document.
+This file preserves the historical execution checklist for the full USSY TrendFoll signal-engine audit. It is **not an active backlog**. Unchecked boxes below are historical decomposition items that were either resolved by later focused audits/remediations, superseded by terminal evidence, or intentionally blocked/deferred under governance. Do not reopen them merely because the old checkbox remains unchecked. `FULL_SIGNAL_ENGINE_AUDIT.md`, `FULL_SIGNAL_ENGINE_STATIC_CLOSURE.md`, and `FEATURE_ENGINE_REACHABILITY_AUDIT.md` carry the terminal evidence/state.
 
 The audit covers the complete path from R2 READY input through feature calculation, Investability, Tradability, lifecycle persistence, alerts, and production entry semantics. EXIT-CAND-003 remains separate and must not influence this audit.
 
-## Governance / stop rules
+## Terminal closure marker
+
+**FULL SIGNAL ENGINE MATERIAL AUDIT = 100% / CLOSED**  
+**CORE INDICATOR AUDIT = 10/10 COMPLETE / FROZEN**  
+**TERMINAL PRODUCTION PATH = PASS**
+
+Production architecture after consolidation:
+
+```text
+daily.yml → main.py → r2_integration.py → feature_engine.py → r2_shared_ema.py → downstream
+```
+
+FSE-005 is **CORRECTED / CI VALIDATED / PRODUCTION ADOPTED / TERMINAL VERIFIED / CLOSED**. FSE-014 and FSE-016 remain upstream-blocked/deferred and are not reasons to reopen this audit. Production-equivalence run `35283636542` and subsequent normal scheduled run `35292138481` both succeeded on the consolidated path.
+
+## Historical governance / stop rules
 
 - [x] G0.1 Audit is diagnostic; production behavior remains unchanged.
 - [x] G0.2 EXIT-CAND-003 is explicitly outside the signal-engine audit decision path.
