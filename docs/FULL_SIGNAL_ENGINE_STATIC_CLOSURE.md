@@ -47,7 +47,7 @@ Verdict: **VALID USSY DEFINITION / fail-closed semantics retained**.
 
 ## 4. Production position coverage and T0/T+1 boundary
 
-Before lifecycle/position processing, `r2_main.py` calls `validate_active_position_coverage()`. Any active position missing from the common-date latest snapshot raises and fails the run. The Sep-16 mixed-date READY incident demonstrated this guard operating as intended.
+Before lifecycle/position processing, `main.py` calls `validate_active_position_coverage()`. Any active position missing from the common-date latest snapshot raises and fails the run. The Sep-16 mixed-date READY incident demonstrated this guard operating as intended.
 
 New positions are triggered from T0 close-state facts. The trigger record initially stores T0 close and ATR14(T0). `fill_realistic_entry_prices()` later fills `realistic_entry_price` from the first subsequent trading row's `open_raw` and reanchors the active stop to H+1 Open - 2*ATR14(T0). Thus modeled realistic execution is separated from T0 signal detection.
 
@@ -55,7 +55,7 @@ Verdict: **temporal boundary PASS**, while FSE-016 remains applicable to the cor
 
 ## 5. Latest-date contract
 
-`r2_main.py` currently defines `as_of_date = decided.date.max()` and constructs `latest` from that date. This is safe only when upstream READY has a coherent terminal-date publication contract. The Sep-16 incident showed why a mixed leading edge is unsafe. The upstream `ussy-data` terminal-date histogram publication guard is therefore a required external precondition for terminal E2E closure; TrendFoll must not weaken its active-position fail-closed guard to accommodate mixed READY.
+`main.py` currently defines `as_of_date = decided.date.max()` and constructs `latest` from that date. This is safe only when upstream READY has a coherent terminal-date publication contract. The Sep-16 incident showed why a mixed leading edge is unsafe. The upstream `ussy-data` terminal-date histogram publication guard is therefore a required external precondition for terminal E2E closure; TrendFoll must not weaken its active-position fail-closed guard to accommodate mixed READY.
 
 Verdict: **downstream behavior correct under coherent READY precondition / dynamic verification pending upstream #49**.
 
