@@ -6,7 +6,7 @@ on:
       - migration/shared-ema-adj
     paths:
       - 'r2_shared_ema.py'
-      - 'r2_feature_engine.py'
+      - 'r2_integration.py'
       - 'run_canonical_ema_migration_shadow.py'
       - 'tests/test_r2_shared_ema.py'
       - '.github/workflows/canonical-ema-migration-shadow.yml'

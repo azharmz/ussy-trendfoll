@@ -6,7 +6,7 @@ on:
       - fix/canonical-historical-ema-adj-close
     paths:
       - canonical_ema.py
-      - r2_feature_engine.py
+      - r2_integration.py
       - tests/test_canonical_ema.py
       - .github/workflows/canonical-historical-ema-regression.yml
   workflow_dispatch:

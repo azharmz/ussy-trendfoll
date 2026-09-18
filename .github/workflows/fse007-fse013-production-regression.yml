@@ -8,9 +8,9 @@ on:
     paths:
       - 'alert_state.py'
       - 'candidate_lifecycle.py'
-      - 'r2_main.py'
+      - 'main.py'
       - 'benchmark_readiness.py'
-      - 'r2_feature_engine.py'
+      - 'r2_integration.py'
       - 'tests/test_alert_state.py'
       - 'tests/test_benchmark_readiness.py'
       - 'tests/test_effective_date_state_contract.py'
@@ -19,9 +19,9 @@ on:
     paths:
       - 'alert_state.py'
       - 'candidate_lifecycle.py'
-      - 'r2_main.py'
+      - 'main.py'
       - 'benchmark_readiness.py'
-      - 'r2_feature_engine.py'
+      - 'r2_integration.py'
 
 jobs:
   correction-regression:
