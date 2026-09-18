@@ -208,6 +208,33 @@ def align_active_stops_to_filled_entry(client):
         print(f"[positions] {aligned} posisi aktif memakai stop berbasis Entry H+1.")
 
 
+def _get_signal_positions(client, symbol, entry_date):
+    """Rows sharing one production signal occurrence; never pick one heuristically."""
+    return (client.table("positions").select("*")
+            .eq("symbol", symbol).eq("entry_date", str(entry_date))
+            .order("id").execute().data or [])
+
+
+def assert_position_identity_integrity(client):
+    """Fail closed if production history contains ambiguous logical identities."""
+    rows = client.table("positions").select("id,symbol,entry_date,status").execute().data or []
+    seen = {}
+    duplicates = {}
+    for row in rows:
+        key = (row["symbol"], str(row["entry_date"]))
+        if key in seen:
+            duplicates.setdefault(key, [seen[key]]).append(row)
+        else:
+            seen[key] = row
+    if duplicates:
+        detail = "; ".join(
+            f"{s}/{d}: ids={[r['id'] for r in rs]}"
+            for (s, d), rs in sorted(duplicates.items())
+        )
+        raise RuntimeError("Ambiguous production position identity; canonical lookup must use id. " + detail)
+    return True
+
+
 def register_new_positions(client, latest: pd.DataFrame, as_of_date):
     """
     latest: baris hari ini untuk SELURUH universe (bukan cuma watchlist
@@ -230,9 +257,23 @@ def register_new_positions(client, latest: pd.DataFrame, as_of_date):
 
     existing_active = _get_active_symbols(client)
     new_rows = []
+    signal_date = pd.Timestamp(as_of_date).date().isoformat()
     for _, r in entry_ready.iterrows():
-        if r["symbol"] in existing_active:
-            continue  # sudah ada posisi aktif untuk symbol ini, skip
+        symbol = r["symbol"]
+        # Logical signal occurrence is (symbol, signal/entry_date). A replay must
+        # never create a second lifecycle row, even if the first row became closed
+        # earlier in the same rerun. Immutable positions.id remains canonical for
+        # all downstream lifecycle linkage.
+        existing_signal = _get_signal_positions(client, symbol, signal_date)
+        if existing_signal:
+            if len(existing_signal) > 1:
+                raise RuntimeError(
+                    f"Ambiguous existing position identity for {symbol}/{signal_date}: "
+                    f"ids={[x['id'] for x in existing_signal]}"
+                )
+            continue
+        if symbol in existing_active:
+            continue  # posisi aktif dari signal occurrence sebelumnya
         entry_price = float(r["close_raw"])
         atr14 = float(r.get("atr14")) if pd.notna(r.get("atr14")) else None
         if atr14 is None:
@@ -244,8 +285,8 @@ def register_new_positions(client, latest: pd.DataFrame, as_of_date):
         stop_price = entry_price - ATR_STOP_MULTIPLIER * atr14
         prev_close = float(r.get("prev_close")) if pd.notna(r.get("prev_close")) else None
         new_rows.append({
-            "symbol": r["symbol"],
-            "entry_date": pd.Timestamp(as_of_date).date().isoformat(),
+            "symbol": symbol,
+            "entry_date": signal_date,
             "entry_price": entry_price,
             "atr14_at_entry": atr14,
             "prev_close": prev_close,               # untuk metrik T-1->T0 momentum
@@ -286,6 +327,10 @@ def check_exits(client, latest_features: pd.DataFrame, as_of_date, all_trading_d
 
     for pos in active:
         symbol = pos["symbol"]
+        # A position is only executable from T+1 open. Same-signal-date reruns
+        # must not apply exit logic to the T0 bar.
+        if pd.Timestamp(as_of_date).normalize() <= pd.Timestamp(pos["entry_date"]).normalize():
+            continue
         if symbol not in feat_by_symbol.index:
             continue  # ticker tidak ada data hari ini (delisted/gap), skip
 

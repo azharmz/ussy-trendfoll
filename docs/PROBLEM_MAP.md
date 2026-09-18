@@ -33,7 +33,7 @@ Rules:
 | PROB-014 | OPEN DIAGNOSIS | Medium-High | Regime dependence remains insufficiently identified because governed entry-ready corpus is constrained by the current hard filter. | Separate pre-registered regime study if still decision-relevant. |
 | PROB-015 | OPEN DIAGNOSIS | Medium | Investability components are largely non-identifiable inside entry-ready events because PASS is required by construction. | Use a separately governed broader candidate corpus if component attribution is pursued. |
 | PROB-016 | GOVERNED VALIDATION | High | <=0.60 ATR proximity remains in frozen forward validation; not profitability evidence. | Continue frozen Cycle 1 independently. |
-| PROB-017 | ENGINEERING DEBT | High | Supabase position history contains duplicate `(symbol, entry_date)` identity with conflicting rows. | Audit lifecycle and enforce canonical uniqueness semantics. |
+| PROB-017 | **RESOLVED / EVIDENCE LOCKED** | — | Historical Supabase position history had one conflicting duplicate `(symbol, entry_date)` group; canonical lifecycle identity is immutable `positions.id`, while `(symbol, entry_date)` is the idempotency key for the current single-strategy signal occurrence. | Preserve historical conflict; enforce fail-closed/idempotent future writes. |
 | PROB-018 | RESOLVED VALIDITY GATE | — | Rolling ~300-bar ready history is not a valid full historical feature/backtest window. | Evidence locked; use research-history contract. |
 | PROB-019 | RESOLVED ARCHITECTURE | — | Governed full-history + 500-bar pre-roll research architecture is implemented/audited. | Maintain contract. |
 

@@ -48,3 +48,34 @@ alter table positions add column if not exists mark_price numeric;
 alter table positions add column if not exists prev_close numeric;
 alter table positions add column if not exists max_close_since_entry numeric;
 alter table positions add column if not exists min_close_since_entry numeric;
+
+
+-- PROB-017 identity hardening.
+-- Canonical immutable lifecycle identity is positions.id.
+-- Under the current single-strategy production contract, one signal occurrence
+-- per symbol/day is valid; replay/retry must reuse it rather than insert another.
+-- Historical conflicts are preserved. This trigger blocks NEW duplicates without
+-- destructively rewriting the existing audit trail.
+create index if not exists idx_positions_symbol_entry_date
+    on positions (symbol, entry_date);
+
+create or replace function reject_duplicate_position_signal_identity()
+returns trigger language plpgsql
+set search_path = public
+as $
+begin
+    if exists (
+        select 1 from positions p
+        where p.symbol = new.symbol and p.entry_date = new.entry_date
+    ) then
+        raise exception 'duplicate production position signal identity: (%, %)',
+            new.symbol, new.entry_date;
+    end if;
+    return new;
+end;
+$$;
+
+drop trigger if exists trg_positions_reject_duplicate_signal_identity on positions;
+create trigger trg_positions_reject_duplicate_signal_identity
+before insert on positions
+for each row execute function reject_duplicate_position_signal_identity();

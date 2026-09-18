@@ -67,7 +67,7 @@ Evidence from production-linked position history: duplicate `(symbol, entry_date
 
 Current interpretation: signal-path linkage must not silently select one duplicate and treat it as canonical. This engineering/data-integrity issue remains independent of the historical research-path evidence.
 
-Status: **CONFIRMED ENGINEERING/DATA-INTEGRITY ROOT CAUSE**.
+Status: **RESOLVED / EVIDENCE LOCKED**. Canonical lifecycle linkage is `positions.id`; `(symbol, entry_date)` is a replay/idempotency invariant, not the downstream foreign key.
 
 ## Still unresolved
 
