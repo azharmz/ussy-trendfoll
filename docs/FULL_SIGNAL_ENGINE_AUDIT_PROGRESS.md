@@ -30,7 +30,7 @@ The audit covers the complete path from R2 READY input through feature calculati
 # Phase A — Production execution map
 
 - [x] A1 Identify scheduled production workflow.
-- [x] A2 Confirm workflow entry point is `r2_main.py` for current R2 production path.
+- [x] A2 Confirm workflow entry point is `main.py` for current R2 production path.
 - [x] A3 Trace R2 READY loader and validation.
 - [x] A4 Trace R2-to-feature adapter.
 - [x] A5 Trace legacy feature-engine reuse underneath R2 adapter.
