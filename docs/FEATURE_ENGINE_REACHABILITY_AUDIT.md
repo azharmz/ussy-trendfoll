@@ -1,45 +1,100 @@
 # Feature Engine Reachability Audit
 
-Status: **CLOSED / PRODUCTION-REACHABLE / HISTORICAL EMA MIGRATION CI-VALIDATED / PRODUCTION ADOPTION PENDING TERMINAL RUN**
+Status: **CLOSED / PRODUCTION-VERIFIED / CONSOLIDATED**
 
 ## Current production path
 
-`.github/workflows/daily.yml` runs `r2_main.py`, which calls `r2_feature_engine.build_feature_store_from_r2()`. The R2 adapter still delegates the bulk of feature formulas to `feature_engine.build_feature_store()`; therefore `feature_engine.py` remains production-reachable and must not be deleted as legacy code.
+`.github/workflows/daily.yml` runs `main.py`.
+
+```text
+daily.yml
+→ main.py
+→ r2_integration.py
+→ feature_engine.py
+→ hard_filter.py / decision_layer.py
+→ watchlist / alert / position tracking
+```
+
+There is one production orchestrator (`main.py`) and one feature calculation engine
+(`feature_engine.py`). `r2_integration.py` is the R2 source/readiness boundary, not
+a second feature engine. The former `r2_main.py` and `r2_feature_engine.py` were
+retired after architecture regression and a full production-equivalence run.
 
 ## EMA ownership after FSE-005 remediation
 
-The governed analytical EMA price basis is `adj_close`, matching the shared EMA contract owned by `ussy-data`.
+The governed analytical EMA price basis is `adj_close`, matching the shared EMA
+contract owned by `ussy-data`.
 
-The R2 production adapter now applies `compute_canonical_ema_features()` to each symbol's full READY timeline after the legacy feature store is built. This replaces only EMA20/50/150/200 and `ema_stack_aligned` across the historical READY rows. It does **not** alter nominal raw-close price floor, pivot/breakout, Stage, ATR, volume, 52-week-high, or other frozen raw-price semantics.
+For the rolling READY timeline, production invokes `compute_canonical_ema_features()`
+through the R2 integration boundary. These intermediate READY rows are an
+**ADJ-CLOSE-BASIS LOCAL EMA / ROLLING-WINDOW DERIVATION**. READY is capped at about
+300 bars and these intermediate EMA rows must not be described as full-history-seeded
+canonical EMA.
 
-After that historical canonicalization, `apply_shared_ema_terminal()` still replaces/validates the terminal row against the governed persisted shared EMA state. Thus terminal source-of-truth and READY lineage remain unchanged.
+The terminal production row is then replaced/validated by
+`apply_shared_ema_terminal()` against the governed persisted shared EMA state from
+`ussy-data`. That state is bootstrapped/rebuilt from canonical full history and
+advanced recursively. Therefore terminal production EMA is
+**CANONICAL GOVERNED FULL-HISTORY-SEEDED EMA**.
+
+This does not change nominal raw-close price floor, pivot/breakout, Stage, ATR,
+volume, 52-week-high, or other frozen raw-price semantics.
 
 ## Why no historical EMA dataset is persisted in R2
 
-`ussy-data` already owns canonical full OHLCV history and a persisted terminal EMA state. READY is a rolling window (maximum 300 bars per ticker), while the shared terminal EMA state is bootstrapped/rebuilt from canonical full history and advanced recursively. TrendFoll therefore does not need a second full historical EMA object store. Historical EMA rows are deterministically derived from the `adj_close` rows supplied to the feature engine; terminal production state remains governed upstream.
+`ussy-data` owns canonical full OHLCV history and persisted terminal EMA state.
+TrendFoll does not need a second full historical EMA object store. READY supplies
+the rolling production feature window; terminal EMA correctness is governed by the
+upstream persisted state and equivalence fence.
 
-## Regression evidence
+## Validation evidence
 
-Implementation commit: `47eac431df7edc6c481619e5c8856aad8f086370`
+FSE-005 implementation commit:
+`47eac431df7edc6c481619e5c8856aad8f086370`
 
-CI commit: `afd4fd70d5cea8e1cfa01f638a2e5e4c6a437a14`
+Focused EMA CI:
+`35236746582` — **SUCCESS**
 
-GitHub Actions run: `35236746582` — **SUCCESS**
+Pre-consolidation terminal production verification:
+Daily Watchlist run `35238539180` (#50) — **SUCCESS**
 
-The focused regression verifies EMA20/50/150/200 against pandas `ewm(span=period, adjust=False)` on `close_adj`, a synthetic split discontinuity cannot contaminate canonical EMA, stack alignment uses adjusted close, and missing/non-numeric adjusted close fails closed.
+Pipeline consolidation architecture regression:
+run `35283171630` — **SUCCESS**
 
-A prior observational migration audit had already shown that raw-vs-adjusted historical EMA differences are real but aggregate event overlap is high. That evidence was reused rather than repeating expensive research compute.
+Consolidated full production-equivalence verification:
+Daily Watchlist run `35283636542` (#51), job `105410986767` — **SUCCESS**
+
+Run #51 reproduced the material baseline #50 state:
+- R2 READY: 1,227 securities / 367,544 rows
+- Feature Store: 367,544 × 43
+- exact SPY T0 readiness: PASS as-of 2026-09-16
+- terminal shared EMA rows replaced: 1,227
+- EMA equivalence verified: 50
+- latest rows: 1,222 / 1,227
+- candidates/watchlist: 106
+- same five READY securities without a terminal-date bar: JFB, SITC, WILC, YYGH, ZTEK
+- near-trigger shadow: 18 / 106
+- database watchlist upsert: 106
 
 ## Classification
 
 | Component | Classification |
 |---|---|
-| `feature_engine.py` | **PRODUCTION_REACHABLE** |
-| legacy `feature_engine.compute_ema_features()` | **INTERMEDIATE ONLY on R2 path; canonicalized before downstream use** |
-| `r2_feature_engine.py` | **PRODUCTION R2 ORCHESTRATOR** |
-| `canonical_ema.py` | **CANONICAL HISTORICAL READY-TIMELINE EMA (`adj_close`)** |
-| `r2_shared_ema.py` | **CANONICAL GOVERNED TERMINAL EMA (`adj_close`)** |
+| `main.py` | **SOLE PRODUCTION ORCHESTRATOR** |
+| `feature_engine.py` | **SOLE FEATURE CALCULATION ENGINE / PRODUCTION-REACHABLE** |
+| `r2_integration.py` | **R2 SOURCE + READINESS ADAPTER / NOT A FEATURE ENGINE** |
+| `canonical_ema.py` | **ADJ-CLOSE READY-TIMELINE EMA DERIVATION** |
+| `r2_ready.py` | **CANONICAL R2 READY LOADER/CONTRACT** |
+| `r2_shared_ema.py` | **CANONICAL GOVERNED TERMINAL EMA VALIDATION/OVERRIDE** |
+| `r2_main.py` | **RETIRED / ABSENT** |
+| `r2_feature_engine.py` | **RETIRED / ABSENT** |
 
 ## Decision
 
-FSE-005 historical EMA price-basis consistency has passed focused CI and is ready for production adoption. It is not marked terminally CLOSED/VERIFIED until a normal `USSY TrendFoll — Daily Watchlist` production run succeeds on the adopted main commit (or a descendant containing the same remediation). The legacy feature engine remains because it owns other production-reachable formulas. Broader feature-engine refactoring is separate architecture work.
+**FSE-005 = CORRECTED / CI VALIDATED / PRODUCTION ADOPTED / TERMINAL VERIFIED / CLOSED.**
+
+**PRODUCTION PIPELINE CONSOLIDATION = ADOPTED / PRODUCTION-EQUIVALENT / VERIFIED / CLOSED.**
+
+Do not recreate a parallel R2 entrypoint or R2 feature engine. Any future architecture
+change must preserve the production invariants above and be regression-validated
+against the consolidated path.
