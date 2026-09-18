@@ -1,6 +1,6 @@
 # USSY TrendFoll — Daily Watchlist & Paper Trading Pipeline
 
-Pipeline harian: fetch OHLCV → hitung feature → hard filter → decision layer
+Pipeline harian: load canonical R2 READY OHLCV → hitung feature → hard filter → decision layer
 (Investability/Tradability/Explainability) → simpan ke Supabase → notifikasi
 Telegram → tracking posisi otomatis (paper trading, bukan eksekusi riil).
 Dijalankan otomatis via GitHub Actions.
@@ -28,6 +28,10 @@ Repo → Settings → Secrets and variables → Actions → New repository secre
 | `SUPABASE_SERVICE_ROLE_KEY` | dari Supabase → Settings → API → `service_role` key |
 | `TELEGRAM_BOT_TOKEN` | token bot dari @BotFather |
 | `TELEGRAM_CHAT_ID` | chat ID tujuan notifikasi |
+| `R2_ENDPOINT` | endpoint Cloudflare R2 |
+| `R2_ACCESS_KEY_ID` | access key R2 |
+| `R2_SECRET_ACCESS_KEY` | secret access key R2 |
+| `R2_BUCKET_NAME` | bucket canonical OHLCV (`ussy-data`) |
 
 ### 4. Test manual dulu sebelum andalkan cron
 Tab **Actions** di repo → pilih workflow "USSY TrendFoll — Daily Watchlist" →
@@ -41,8 +45,12 @@ Sudah di-set jalan Senin-Jumat jam 22:30 UTC di `.github/workflows/daily.yml`
 
 ## Struktur file
 
-- `feature_engine.py`, `hard_filter.py`, `decision_layer.py` — modul riset asli
-  (Sprint 1-3 + Phase 2), dipakai apa adanya
+- `feature_engine.py` — satu-satunya feature calculation engine; formula strategy tetap dimiliki di sini
+- `r2_integration.py` — boundary/adaptor R2 READY + benchmark readiness + governed terminal EMA; bukan feature engine
+- `r2_ready.py` — loader/contract canonical R2 READY
+- `r2_shared_ema.py` — validator/consumer governed terminal EMA state dari `ussy-data`
+- `canonical_ema.py` — derivasi EMA berbasis `adj_close` untuk timeline READY
+- `hard_filter.py`, `decision_layer.py` — filter dan decision layer production
 - `sector_cache.py` — cache sector mapping di Supabase (refresh cuma kalau
   >30 hari)
 - `database.py` — upsert hasil ke tabel `watchlist`
@@ -52,7 +60,20 @@ Sudah di-set jalan Senin-Jumat jam 22:30 UTC di `.github/workflows/daily.yml`
   harian 3 kondisi exit, isi realistic_entry_price (open H+1), update
   mark_price + MFE/MAE tiap hari
 - `backtests/` — notebook eksperimen; tidak dipakai pipeline produksi
-- `main.py` — orkestrator, dipanggil GitHub Actions
+- `main.py` — satu-satunya production orchestrator, dipanggil GitHub Actions
+
+Production path:
+
+```text
+.github/workflows/daily.yml
+→ main.py
+→ r2_integration.py
+→ feature_engine.py
+→ hard_filter.py / decision_layer.py
+→ watchlist / alert / position tracking
+```
+
+`r2_main.py` dan `r2_feature_engine.py` sudah retired setelah production-equivalence validation; jangan dibuat kembali sebagai parallel pipeline.
 
 ## Kondisi masuk Posisi Aktif
 
