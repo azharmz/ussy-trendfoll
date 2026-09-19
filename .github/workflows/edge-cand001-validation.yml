@@ -1,0 +1,48 @@
+name: EDGE-CAND-001 Untouched Validation
+
+on:
+  workflow_dispatch:
+  push:
+    branches:
+      - diagnostic/edge-decomposition
+    paths:
+      - run_edge_cand001_validation.py
+      - docs/EDGE_CAND_001_VALIDATION_CONTRACT.md
+      - .github/workflows/edge-cand001-validation.yml
+
+jobs:
+  validate:
+    runs-on: ubuntu-latest
+    env:
+      R2_ACCESS_KEY_ID: ${{ secrets.R2_ACCESS_KEY_ID }}
+      R2_SECRET_ACCESS_KEY: ${{ secrets.R2_SECRET_ACCESS_KEY }}
+      R2_ENDPOINT: ${{ secrets.R2_ENDPOINT }}
+      R2_BUCKET_NAME: ${{ secrets.R2_BUCKET_NAME }}
+      PYTHONUNBUFFERED: '1'
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+          cache: pip
+      - run: python -m pip install --disable-pip-version-check -r requirements.txt boto3 pyarrow
+      - name: Contract regression
+        run: python -m unittest tests.test_edge_decomposition tests.test_research_history
+      - name: Untouched validation
+        run: python run_edge_cand001_validation.py
+      - name: Publish summary
+        if: always()
+        run: |
+          if [ -f edge_cand001_validation.json ]; then
+            echo '## EDGE-CAND-001 Untouched Validation' >> "$GITHUB_STEP_SUMMARY"
+            cat edge_cand001_validation.json >> "$GITHUB_STEP_SUMMARY"
+          fi
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: edge-cand001-validation-${{ github.run_number }}
+          path: |
+            edge_cand001_validation.json
+            edge_cand001_holdout_events.csv
+          if-no-files-found: warn
+          retention-days: 90
