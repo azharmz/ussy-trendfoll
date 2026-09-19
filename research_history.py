@@ -1,7 +1,7 @@
 """Governed research-history / pre-roll contract for TrendFoll.
 
 R2 readiness remains the universe authority. Stock history is read from the
-ussy-data full-history objects at ``backtest/ohlcv/{security_id}.parquet``.
+ussy-data full-history objects at ``history/ohlcv/{security_id}.parquet``.
 Pre-roll rows initialize features only; research outcomes must be restricted to
 ``research_eligible == True``.
 
@@ -20,7 +20,7 @@ import pandas as pd
 import feature_engine as fe
 from r2_ready import load_ready_dataset, make_r2_client
 
-HISTORY_PREFIX = "backtest/ohlcv/"
+HISTORY_PREFIX = "history/ohlcv/"
 HISTORY_COLUMNS = [
     "date", "security_id", "ticker", "open", "high", "low", "close",
     "adj_close", "volume",
@@ -45,7 +45,7 @@ class ResearchHistoryReport:
     eligible_securities: int
     source_prefix: str = HISTORY_PREFIX
     universe_authority: str = "R2 production/ready/current.json"
-    stock_history_source: str = "R2 backtest/ohlcv/{security_id}.parquet"
+    stock_history_source: str = "R2 history/ohlcv/{security_id}.parquet"
     ema_price_basis: str = CANONICAL_EMA_PRICE_BASIS
 
 
