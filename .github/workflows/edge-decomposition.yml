@@ -1,0 +1,56 @@
+name: Edge Decomposition
+
+on:
+  workflow_dispatch:
+  push:
+    branches:
+      - diagnostic/edge-decomposition
+    paths:
+      - edge_decomposition.py
+      - run_edge_decomposition.py
+      - research_history.py
+      - hard_filter.py
+      - decision_layer.py
+      - feature_engine.py
+      - tests/test_edge_decomposition.py
+      - docs/EDGE_DECOMPOSITION_CONTRACT.md
+      - .github/workflows/edge-decomposition.yml
+
+jobs:
+  diagnostic:
+    runs-on: ubuntu-latest
+    env:
+      R2_ACCESS_KEY_ID: ${{ secrets.R2_ACCESS_KEY_ID }}
+      R2_SECRET_ACCESS_KEY: ${{ secrets.R2_SECRET_ACCESS_KEY }}
+      R2_ENDPOINT: ${{ secrets.R2_ENDPOINT }}
+      R2_BUCKET_NAME: ${{ secrets.R2_BUCKET_NAME }}
+      PYTHONUNBUFFERED: '1'
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+          cache: pip
+      - name: Install dependencies
+        run: python -m pip install --disable-pip-version-check -r requirements.txt boto3 pyarrow
+      - name: Run repository tests
+        run: python -m unittest discover -s tests
+      - name: Run edge decomposition
+        run: python run_edge_decomposition.py
+      - name: Publish summary
+        if: always()
+        run: |
+          if [ -f edge_decomposition_summary.json ]; then
+            echo '## Edge Decomposition' >> "$GITHUB_STEP_SUMMARY"
+            cat edge_decomposition_summary.json >> "$GITHUB_STEP_SUMMARY"
+          fi
+      - name: Upload evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: edge-decomposition-${{ github.run_number }}
+          path: |
+            edge_decomposition_summary.json
+            edge_decomposition_events.csv
+          if-no-files-found: warn
+          retention-days: 90
