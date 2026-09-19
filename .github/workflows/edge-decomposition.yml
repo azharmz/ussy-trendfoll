@@ -2,20 +2,6 @@ name: Edge Decomposition
 
 on:
   workflow_dispatch:
-  push:
-    branches:
-      - diagnostic/edge-decomposition
-    paths:
-      - edge_decomposition.py
-      - run_edge_decomposition.py
-      - research_history.py
-      - hard_filter.py
-      - decision_layer.py
-      - feature_engine.py
-      - tests/test_edge_decomposition.py
-      - tests/test_research_history.py
-      - docs/EDGE_DECOMPOSITION_CONTRACT.md
-      - .github/workflows/edge-decomposition.yml
 
 jobs:
   diagnostic:
