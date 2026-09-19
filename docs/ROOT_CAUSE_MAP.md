@@ -58,7 +58,9 @@ Current interpretation:
 - the day-45 counterfactual is diagnostic, not a hold-45 strategy recommendation;
 - any replacement exit hypothesis requires a separate evidence-backed development and untouched-validation cycle.
 
-Status: **SUPPORTED MATERIAL ROOT CAUSE / MECHANISM UNRESOLVED — DEVELOPMENT HYPOTHESIS REQUIRED BEFORE ANY TUNING**.
+Status: **SUPPORTED MATERIAL ROOT CAUSE / MECHANISM ISOLATED / EXIT-CAND-003 OOS-SUPPORTED + SHADOW ACTIVE**.
+
+Subsequent governed component isolation (`EXIT-ISO-001`) identified the fixed 2 ATR stop as the primary implicated conversion mechanism. Frozen `EXIT-CAND-003` then passed development and untouched validation, improving median return, positive rate, and median MAE versus the frozen CURRENT comparator. It remains not production-authorized and is accumulating genuine shadow evidence.
 
 ## RC-005 — Position-history integrity can contaminate forward-outcome attribution
 
@@ -94,8 +96,8 @@ Status: **RESOLVED / EVIDENCE LOCKED**. Semantic events, transport delivery stat
 - Point-in-time universe membership / survivorship bias.
 - Regime dependence beyond the currently identifiable corpus.
 - Investability component causal contribution where components are constant by construction.
-- Correct alternative entry rule.
-- Correct alternative exit rule and which current exit component causes the conversion loss.
+- Correct production-authorized alternative entry rule. EDGE-CAND-001 acceptance is structurally informative but closed for promotion under the tested economic representation.
+- Production authorization for an alternative exit remains unresolved. EXIT-CAND-003 is the current frozen OOS-supported candidate in operational shadow; the fixed 2 ATR stop is the primary implicated current component.
 - Portfolio/capital-level performance.
 
 ## Handoff after diagnostics
@@ -108,3 +110,12 @@ DIAG-001/002/003 now support the following governance sequence:
 5. Freeze the selected development representation before outcome comparison; then perform untouched validation with no post-validation tuning.
 6. Continue PROB-016 frozen forward validation independently.
 7. Harden engineering debts PROB-003/004/005/017 without changing trading semantics.
+
+## RC-008 — T+1 breakout rejection is structurally weaker but acceptance did not solve realized economics
+
+Linked problems: `PROB-008`, `PROB-012`, `PROB-013`.
+Evidence: `docs/EVIDENCE_EDGE_DECOMP_001.md`, `docs/EVIDENCE_EDGE_CAND_001_OOS.md`, `docs/EVIDENCE_EDGE_ECON_001.md`.
+
+Development and security-holdout evidence support a descriptive distinction between T+1 acceptance and rejection relative to the existing TrendFoll rolling-60D breakout reference. A frozen causal acceptance candidate passed path-level OOS gates. However, combining the accepted T+2 entry with frozen EXIT-CAND-003 still yielded negative realized median economics at every tested cost sensitivity, with weak 2022–2026 results.
+
+Status: **STRUCTURAL FAILURE MODE SUPPORTED / PRODUCTION ENTRY REPLACEMENT NOT SUPPORTED UNDER TESTED REPRESENTATION**.
