@@ -2,13 +2,6 @@ name: EDGE-CAND-001 Untouched Validation
 
 on:
   workflow_dispatch:
-  push:
-    branches:
-      - diagnostic/edge-decomposition
-    paths:
-      - run_edge_cand001_validation.py
-      - docs/EDGE_CAND_001_VALIDATION_CONTRACT.md
-      - .github/workflows/edge-cand001-validation.yml
 
 jobs:
   validate:
