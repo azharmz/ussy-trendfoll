@@ -4,7 +4,7 @@
 
 **Branch:** `main`
 
-**Last updated:** 2026-09-16
+**Last updated:** 2026-09-19
 
 ## Status legend
 
@@ -98,7 +98,7 @@ Rules:
 
 ---
 
-# E. Operational shadow evidence — ACTIVE / clean evidence 0
+# E. Operational shadow evidence — ACTIVE / E1 COMPLETE
 
 This is the **PRIMARY EXIT WORKSTREAM**. Do not start a new exit candidate while this phase is pending.
 
@@ -116,16 +116,16 @@ This is the **PRIMARY EXIT WORKSTREAM**. Do not start a new exit candidate while
 
 ## E1. First-real-session gate
 
-- [ ] Confirm first admissible post-fix `exit_candidate003_shadow_sessions` row is produced by an actual production-shadow T+1 session.
-- [ ] Confirm row corresponds to a real production position and real R2 market session.
-- [ ] Confirm `(position_id, session_date, contract_version)` uniqueness in live operation.
-- [ ] Confirm row is not one of the 27 quarantined bootstrap rows and is not synthetic/test evidence.
-- [ ] Recompute the first admissible row independently from its inputs and compare all persisted values.
-- [ ] Verify operative stop used on session t existed before session t.
-- [ ] Verify session-t Chandelier affects only `next_operative_stop`.
-- [ ] Verify gap-before-touch execution against actual OHLC.
-- [ ] Verify production comparison fields did not alter production state.
-- [ ] Record evidence document for the first admissible operational session.
+- [x] Confirm first admissible post-fix `exit_candidate003_shadow_sessions` rows were produced by an actual production-shadow T+1 session (2026-09-18; seven-position cohort).
+- [x] Confirm rows correspond to real production positions and real R2 market session.
+- [x] Confirm `(position_id, session_date, contract_version)` uniqueness in live operation: 7 rows / 7 unique keys.
+- [x] Confirm rows are not among the 27 quarantined bootstrap rows and are not synthetic/test evidence.
+- [x] Recompute admissible rows independently from inputs and compare persisted values.
+- [x] Verify operative stop used on session t existed before session t.
+- [x] Verify session-t Chandelier affects only `next_operative_stop`; IOVA provides a live ratchet boundary case.
+- [x] Verify gap-before-touch execution against actual OHLC.
+- [x] Verify production comparison fields did not alter production state.
+- [x] Evidence locked in `docs/EVIDENCE_EXIT_CAND_003_E1_FIRST_REAL_SESSION.md`.
 
 ## E2. Coverage and data-quality monitoring
 
@@ -155,7 +155,7 @@ This is the **PRIMARY EXIT WORKSTREAM**. Do not start a new exit candidate while
 - [ ] Produce operational shadow evidence report.
 - [ ] Freeze operational dataset/evidence snapshot used for governance review.
 
-**Gate:** PENDING FIRST NEW PRODUCTION POSITION + GENUINE T+1 SESSION.
+**Gate:** E1 COMPLETE / E2–E4 ACTIVE. Continue natural sequential observation; no production exit change.
 
 ---
 
@@ -204,14 +204,14 @@ Blocked until Section E has sufficient locked operational evidence. Current auth
 
 **Current marker:**
 
-`RC-004 SUPPORTED → CAND-003 DEVELOPMENT PASS → UNTOUCHED VALIDATION PASS → SHADOW + APPEND-ONLY LEDGER DEPLOYED → BOOTSTRAP DEFECT FOUND/FIXED → REGRESSION + PRODUCTION ACCEPTANCE PASS → NORMAL SCHEDULED RUN PASS → 27 PRE-FIX ROWS QUARANTINED → PRE-OUTCOME OPERATIONAL SUFFICIENCY GATE FROZEN → CLEAN OPERATIONAL EVIDENCE = 0 → OBSERVATION ACTIVE → NO PRODUCTION EXIT CHANGE`
+`RC-004 SUPPORTED → CAND-003 DEVELOPMENT PASS → UNTOUCHED VALIDATION PASS → SHADOW + APPEND-ONLY LEDGER DEPLOYED → BOOTSTRAP DEFECT FOUND/FIXED → REGRESSION + PRODUCTION ACCEPTANCE PASS → 27 PRE-FIX ROWS QUARANTINED → PRE-OUTCOME OPERATIONAL SUFFICIENCY GATE FROZEN → FIRST GENUINE T+1 COHORT 2026-09-18 → E1 PASS / EVIDENCE LOCKED → E2–E4 OBSERVATION ACTIVE → NO PRODUCTION EXIT CHANGE`
 
 **NEXT ACTION:**
 
-1. Let the normal daily pipeline continue; do not manufacture or backfill E1 evidence.
-2. On each new run, check whether a newly opened production position has reached genuine T+1 and created the first admissible post-fix ledger row.
-3. As soon as one exists, execute E1 completely in the same work cycle: live uniqueness → source-position/session confirmation → independent recomputation → stop/lookahead/gap ordering → production non-mutation → evidence lock.
-4. Then continue E2–E4 under the frozen observational and pre-outcome sufficiency contracts.
+1. Let the normal daily pipeline continue; do not manufacture or backfill operational evidence.
+2. Continue E2 coverage/data-quality monitoring on each genuine sequential session and each new entry cohort.
+3. Accumulate frozen E3 observational metrics without tuning CAND-003.
+4. Evaluate E4 only when the pre-locked operational sufficiency criteria are actually reached.
 
 ## Approximate progress indicator
 
@@ -220,5 +220,5 @@ Blocked until Section E has sufficient locked operational evidence. Current auth
 - Untouched validation: **100%**
 - Shadow implementation + bootstrap acceptance: **100%**
 - Operational sufficiency criteria definition: **100% / frozen pre-outcome**
-- Operational shadow observation: **0% clean evidence / active**
+- Operational shadow observation: **E1 complete; 7 clean first-session rows / E2–E4 active**
 - Final production governance: **0% / blocked on operational evidence**
