@@ -1,12 +1,6 @@
 name: EDGE-ECON-001 Economic Conversion
 on:
   workflow_dispatch:
-  push:
-    branches: [diagnostic/edge-decomposition]
-    paths:
-      - run_edge_econ001.py
-      - docs/EDGE_ECON_001_CONTRACT.md
-      - .github/workflows/edge-econ001.yml
 jobs:
   economic:
     runs-on: ubuntu-latest
