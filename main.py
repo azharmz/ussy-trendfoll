@@ -15,7 +15,6 @@ from candidate_lifecycle import write_candidate_lifecycle
 from r2_ready import load_ready_dataset
 from r2_integration import build_feature_store_from_r2
 import database, notify, positions
-import alert_delivery
 import exit_candidate003_shadow
 
 SHADOW_ARTIFACT_PATH = "near_trigger_shadow_snapshot.csv"
@@ -71,9 +70,10 @@ def main():
     write_candidate_lifecycle(watchlist_history, latest, LIFECYCLE_ARTIFACT_PATH, current_universe)
 
     if transitions:
-        alert_delivery.persist_and_deliver_transitions(client, transitions)
+        print(f"[notify] {len(transitions)} state change dicatat di log; Telegram watchlist dikirim sebagai satu digest harian.")
     else:
-        print("[notify] Tidak ada state change — tidak ada alert event baru.")
+        print("[notify] Tidak ada state change.")
+    notify.send_watchlist_summary(candidates, as_of_date)
 
     dates = decided["date"].unique()
     positions.fill_realistic_entry_prices(client, decided, as_of_date)
