@@ -454,7 +454,7 @@ def compute_days_to_next_earnings(ticker: str, as_of_date: pd.Timestamp) -> int:
 # 5. MAIN PIPELINE — gabungkan semua feature jadi Feature Store
 # ============================================================
 
-def build_feature_store(universe: list, sector_map: pd.DataFrame = None) -> dict:
+def build_feature_store(universe: list, sector_map: pd.DataFrame = None, include_sector: bool = True) -> dict:
     """
     Return dict berisi:
       - 'raw'      : raw OHLCV seluruh universe (kontrak Data Dictionary)
@@ -462,23 +462,30 @@ def build_feature_store(universe: list, sector_map: pd.DataFrame = None) -> dict
       - 'sector_map': mapping ticker -> sector benchmark
       - 'benchmarks': dict raw OHLCV benchmark (SPY, QQQ, VIX, 10 sector ETF)
 
-    sector_map: kalau sudah di-fetch sebelumnya (mis. dari cache produksi via
-    sector_cache.get_sector_map()), lewatkan di sini supaya tidak fetch ulang.
-    Kalau None, fetch baru seperti biasa (perilaku Sprint 1 original).
+    sector_map: mapping sector opsional. Kalau None dan include_sector=True,
+    fetch baru seperti perilaku Sprint 1 original.
+    include_sector=False menonaktifkan seluruh jalur sector (mapping, sector ETF,
+    sector_return_63d, rs_sector) untuk production invocation.
     """
     print("[1/6] Download universe OHLCV (period=max)...")
     raw_universe = download_universe(universe)
 
-    print("[2/6] Download benchmark OHLCV (SPY, QQQ, VIX, Sector ETFs)...")
-    sector_etfs = sorted({v for v in SECTOR_BENCHMARK_MAP.values() if v is not None})
+    print("[2/6] Download benchmark OHLCV (SPY, QQQ, VIX)...")
+    sector_etfs = []
+    if include_sector:
+        sector_etfs = sorted({v for v in SECTOR_BENCHMARK_MAP.values() if v is not None})
     benchmark_tickers = [MARKET_BENCHMARK, SECONDARY_MARKET_BENCHMARK, VOLATILITY_BENCHMARK] + sector_etfs
     benchmarks = {t: download_raw_ohlcv(t) for t in benchmark_tickers}
 
-    if sector_map is not None:
-        print("[3/6] Sector mapping: pakai yang sudah disediakan (cache)...")
+    if include_sector:
+        if sector_map is not None:
+            print("[3/6] Sector mapping: pakai yang sudah disediakan (cache)...")
+        else:
+            print("[3/6] Sector mapping (yfinance .info)...")
+            sector_map = build_sector_mapping(universe)
     else:
-        print("[3/6] Sector mapping (yfinance .info)...")
-        sector_map = build_sector_mapping(universe)
+        print("[3/6] Sector mapping: DISABLED (production path tidak menggunakan sector).")
+        sector_map = pd.DataFrame(columns=["symbol", "sector", "industry", "sector_benchmark"])
 
     print("[4/6] Hitung feature Regime dari benchmark...")
     regime_df = compute_market_regime(benchmarks[MARKET_BENCHMARK])
@@ -508,15 +515,16 @@ def build_feature_store(universe: list, sector_map: pd.DataFrame = None) -> dict
         df = df.merge(spy_ret_lookup, on="date", how="left")
         df["rs_spy"] = df["return_63d"] - df["spy_return_63d"]
 
-        bench_ticker = sector_map.loc[sector_map["symbol"] == symbol, "sector_benchmark"].values
-        bench_ticker = bench_ticker[0] if len(bench_ticker) else None
-        df["sector_benchmark"] = bench_ticker
-        if bench_ticker in sector_returns:
-            df = df.merge(sector_returns[bench_ticker], on="date", how="left")
-            df["rs_sector"] = df["return_63d"] - df["sector_return_63d"]
-        else:
-            df["sector_return_63d"] = None
-            df["rs_sector"] = None
+        if include_sector:
+            bench_ticker = sector_map.loc[sector_map["symbol"] == symbol, "sector_benchmark"].values
+            bench_ticker = bench_ticker[0] if len(bench_ticker) else None
+            df["sector_benchmark"] = bench_ticker
+            if bench_ticker in sector_returns:
+                df = df.merge(sector_returns[bench_ticker], on="date", how="left")
+                df["rs_sector"] = df["return_63d"] - df["sector_return_63d"]
+            else:
+                df["sector_return_63d"] = None
+                df["rs_sector"] = None
 
         # RS persistence dihitung di level weekly
         weekly_rs = df.set_index("date")["rs_spy"].resample("W-FRI").last()
@@ -562,7 +570,7 @@ def build_feature_store(universe: list, sector_map: pd.DataFrame = None) -> dict
     return {
         "raw": raw_universe,
         "features": feature_store,
-        "sector_map": sector_map,
+        "sector_map": sector_map if include_sector else None,
         "benchmarks": benchmarks,
     }
 
@@ -571,7 +579,8 @@ def save_feature_store(result: dict, output_dir: str = "."):
     """Simpan ke Parquet — Feature Store immutable, layer lain hanya membaca."""
     result["raw"].to_parquet(f"{output_dir}/ussy_swing_raw_ohlcv.parquet", index=False)
     result["features"].to_parquet(f"{output_dir}/ussy_swing_feature_store.parquet", index=False)
-    result["sector_map"].to_parquet(f"{output_dir}/ussy_swing_sector_map.parquet", index=False)
+    if result.get("sector_map") is not None:
+        result["sector_map"].to_parquet(f"{output_dir}/ussy_swing_sector_map.parquet", index=False)
 
     # Simpan benchmark OHLCV (SPY, QQQ, VIX, Sector ETF) terpisah — dibutuhkan
     # sebagai kalender referensi trading day di Acceptance Test (no_missing_trading_days),
