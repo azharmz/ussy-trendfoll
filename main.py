@@ -7,7 +7,6 @@ import sys
 import pandas as pd
 from hard_filter import compute_hard_filter, STATUS_RANK
 from decision_layer import compute_decision_layer, explain_candidate
-from sector_cache import get_sector_map
 from alert_state import compute_alert_transitions
 from near_trigger_shadow import add_near_trigger_shadow
 from near_trigger_forward_progress import write_forward_validation_progress
@@ -42,8 +41,7 @@ def main():
         raise RuntimeError("R2 ready universe kosong")
     current_universe = set(universe)
     print(f"[R2] snapshot={manifest.get('snapshot_date')} securities={len(universe)} rows={len(ready)}")
-    sector_map = get_sector_map(client, universe)
-    features = build_feature_store_from_r2(sector_map=sector_map, ready=ready, manifest=manifest)["features"]
+    features = build_feature_store_from_r2(ready=ready, manifest=manifest)["features"]
     filtered = compute_hard_filter(features)
     decided = compute_decision_layer(filtered).sort_values(["symbol", "date"])
     decided["prev_close"] = decided.groupby("symbol")["close_raw"].shift(1)
