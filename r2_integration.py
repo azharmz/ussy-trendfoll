@@ -45,7 +45,7 @@ def build_feature_store_from_r2(sector_map=None, ready=None, manifest=None) -> d
         fe.download_universe = lambda symbols: raw_universe.copy()
         fe.download_raw_ohlcv = _download_raw_ohlcv_ns
         fe.compute_ema_features = compute_canonical_ema_features
-        result = fe.build_feature_store(universe, sector_map=sector_map)
+        result = fe.build_feature_store(universe, sector_map=sector_map, include_sector=False)
     finally:
         fe.download_universe = original_download_universe
         fe.download_raw_ohlcv = original_download_raw_ohlcv
