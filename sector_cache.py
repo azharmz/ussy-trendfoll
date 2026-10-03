@@ -11,6 +11,7 @@ harian, cek dulu apakah cache masih ada dan belum terlalu basi (default:
 lewat feature_engine.build_sector_mapping() dan overwrite cache.
 """
 
+import math
 import pandas as pd
 from datetime import datetime, timezone
 
@@ -54,19 +55,30 @@ def _load_cache(supabase_client) -> pd.DataFrame:
 def _save_cache(supabase_client, sector_map: pd.DataFrame):
     now = datetime.now(timezone.utc).isoformat()
 
-    # JSON payload tidak menerima IEEE NaN. Normalisasi missing values
-    # menjadi JSON null (Python None) sebelum dikirim ke Supabase.
-    clean = sector_map.astype(object).where(pd.notna(sector_map), None)
+    # JSON payload tidak menerima IEEE NaN/Infinity. Normalisasi setiap
+    # scalar secara eksplisit karena nilai dari yfinance/pandas dapat berupa
+    # numpy scalar yang lolos dari normalisasi DataFrame biasa.
+    def _json_safe(value):
+        if value is None:
+            return None
+        try:
+            if pd.isna(value):
+                return None
+        except (TypeError, ValueError):
+            pass
+        if isinstance(value, (float, int)) and not math.isfinite(value):
+            return None
+        return value
 
     rows = [
         {
-            "symbol": r["symbol"],
-            "sector": r["sector"],
-            "industry": r["industry"],
-            "sector_benchmark": r["sector_benchmark"],
+            "symbol": _json_safe(r["symbol"]),
+            "sector": _json_safe(r["sector"]),
+            "industry": _json_safe(r["industry"]),
+            "sector_benchmark": _json_safe(r["sector_benchmark"]),
             "updated_at": now,
         }
-        for _, r in clean.iterrows()
+        for _, r in sector_map.iterrows()
     ]
 
     supabase_client.table("sector_cache").upsert(rows, on_conflict="symbol").execute()
