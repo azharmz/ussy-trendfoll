@@ -214,6 +214,15 @@ def update_shadows(client, feature_history: pd.DataFrame, as_of_date, all_tradin
     production = _production_position_map(client)
     hypothetical_exits, advanced = [], 0
     for s in active:
+        # Idempotent replay guard: if this shadow already advanced through
+        # the pipeline's as_of_date, do not re-evaluate the same session with
+        # the already-ratcheted stop. Re-evaluation would manufacture a
+        # different evidence payload and correctly trigger the divergence
+        # invariant. This is especially important when upstream data is
+        # temporarily stale and the same as_of_date is processed again.
+        last_session = s.get("last_session_date")
+        if last_session is not None and pd.Timestamp(last_session).normalize() >= today:
+            continue
         symbol = s["symbol"]
         if symbol not in latest.index: continue
         update, evidence = _evaluate_session(s, latest.loc[symbol], today, all_trading_dates)
