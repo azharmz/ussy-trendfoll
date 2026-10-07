@@ -24,4 +24,4 @@ jobs:
       - name: Install dependencies
         run: pip install -r requirements.txt
       - name: Run gap-aware stop execution tests
-        run: python tests/test_gap_aware_stop_execution.py
+        run: PYTHONPATH=. python tests/test_gap_aware_stop_execution.py
