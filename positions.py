@@ -26,8 +26,8 @@ Tiap hari, posisi yang masih "active" dicek terhadap 3 kondisi exit — PERSIS
 logika di portfolio_backtest.py (parameter final Sprint 3), diverifikasi
 baris-per-baris terhadap kode aslinya:
   1. stop_loss   : low_raw <= stop_price (intraday LOW, BUKAN close) —
-                   exit_price diasumsikan terisi PERSIS di stop_price, bukan
-                   di close hari itu (asumsi fill konservatif dari backtest)
+                   jika open_raw <= stop_price, fill di Open (gap-through);
+                   selain itu fill di stop_price (intraday touch)
   2. max_holding : 45 hari bursa sejak entry_date, exit_price = close_raw
   3. trend_exit  : close_raw < ema20 (BUKAN ema_stack_aligned/stage — itu
                    kriteria Investability yang beda tujuan) — exit_price = close_raw
@@ -308,7 +308,7 @@ def check_exits(client, latest_features: pd.DataFrame, as_of_date, all_trading_d
     """
     latest_features: baris hari ini untuk SELURUH universe (bukan cuma
     kandidat) — hasil decision_layer.compute_decision_layer(), difilter ke
-    as_of_date. Perlu kolom: symbol, close_raw, atr14, ema_stack_aligned, stage.
+    as_of_date. Perlu kolom: symbol, open_raw, low_raw, close_raw, ema20.
 
     all_trading_dates: array/Series tanggal bursa UNIK dari seluruh histori
     feature store (bukan cuma tanggal terbaru) — dipakai untuk hitung hari
