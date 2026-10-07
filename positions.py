@@ -341,21 +341,24 @@ def check_exits(client, latest_features: pd.DataFrame, as_of_date, all_trading_d
         days_held = _trading_days_between(entry_date, pd.Timestamp(as_of_date), trading_dates)
 
         exit_reason = exit_price = None
-        if low_raw <= float(pos["stop_price"]):
-            exit_reason, exit_price = "stop_loss", float(pos["stop_price"])
+        stop_fill_type = None
+        stop_fill = _resolve_stop_loss_fill(
+            row.get("open_raw"), low_raw, float(pos["stop_price"])
+        )
+        if stop_fill is not None:
+            stop_fill_type, exit_price = stop_fill
+            # Keep the canonical status/reason stable for existing dashboard
+            # and Supabase consumers; only correct the executable fill price.
+            exit_reason = "stop_loss"
         elif days_held >= MAX_HOLDING_DAYS:
             exit_reason, exit_price = "max_holding", close_raw
         elif pd.notna(row.get("ema20")) and close_raw < float(row["ema20"]):
             exit_reason, exit_price = "trend_exit", close_raw
 
         # MFE/MAE: basis close harian sejak entry — TAPI di hari exit, pakai
-        # exit_price (bukan close_raw penuh hari itu). Begitu stop tersentuh
-        # intraday dan tereksekusi, posisi sudah selesai — pergerakan harga
-        # SETELAH itu sampai closing bukan lagi pengalaman yang dialami,
-        # jadi tidak boleh ikut memperdalam MAE. Untuk trend_exit/max_holding
-        # ini tidak mengubah apapun (exit_price == close_raw hari itu),
-        # cuma relevan buat stop_loss (exit_price = level stop, bisa beda
-        # dari close hari itu).
+        # exit_price (bukan close_raw penuh hari itu). Untuk stop-loss, exit_price
+        # mengikuti gap-aware fill: Open jika Open <= stop, selain itu level stop.
+        # Harga setelah eksekusi tidak ikut excursion hari exit.
         price_for_excursion = exit_price if exit_reason else close_raw
         prev_max = pos.get("max_close_since_entry")
         prev_min = pos.get("min_close_since_entry")
@@ -385,6 +388,7 @@ def check_exits(client, latest_features: pd.DataFrame, as_of_date, all_trading_d
                 "exit_price": exit_price,
                 "pnl_pct": pnl_pct,
                 "days_held": int(days_held),
+                **({"stop_fill_type": stop_fill_type} if stop_fill_type else {}),
             })
         else:
             # Masih active — tetap update mark_price + MFE/MAE supaya
@@ -401,6 +405,27 @@ def check_exits(client, latest_features: pd.DataFrame, as_of_date, all_trading_d
         print(f"[positions] {len(exits)} posisi exit hari ini: "
               f"{', '.join(e['symbol'] for e in exits)}")
     return exits
+
+
+def _resolve_stop_loss_fill(open_raw, low_raw, stop_price):
+    """Return (fill_type, fill_price) for a triggered fixed stop, else None.
+
+    Gap-through: if the session opens at/below the stop, use observed Open.
+    Intraday touch: if Open is above stop and Low reaches it, use the stop.
+    Missing Open on a triggered stop fails closed rather than recording an
+    infeasible exact-stop fill. Returns canonical fill labels without changing
+    the persisted position status ("stop_loss").
+    """
+    stop = float(stop_price)
+    low = float(low_raw)
+    if low > stop:
+        return None
+    if open_raw is None or pd.isna(open_raw):
+        raise RuntimeError("Stop-loss triggered but open_raw is missing; refusing infeasible fill")
+    op = float(open_raw)
+    if op <= stop:
+        return "gap_open", op
+    return "stop_touch", stop
 
 
 def _trading_days_between(entry_date, as_of_date, trading_dates: pd.DatetimeIndex) -> int:
