@@ -6,7 +6,9 @@ from pathlib import Path
 
 import pandas as pd
 
-import sys\nfrom pathlib import Path as _Path\nsys.path.insert(0, str(_Path(__file__).resolve().parents[1]))\nfrom r2_ready import load_ready_dataset
+import sys
+sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
+from r2_ready import load_ready_dataset
 
 TARGETS = [
     ("CRSR", "2026-08-17"),
