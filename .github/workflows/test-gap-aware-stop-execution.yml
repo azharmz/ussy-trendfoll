@@ -1,0 +1,27 @@
+name: Gap-aware stop execution regression
+
+on:
+  pull_request:
+    paths:
+      - "positions.py"
+      - "notify.py"
+      - "tests/test_gap_aware_stop_execution.py"
+      - ".github/workflows/test-gap-aware-stop-execution.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  regression:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - name: Install dependencies
+        run: pip install -r requirements.txt
+      - name: Run gap-aware stop execution tests
+        run: PYTHONPATH=. python tests/test_gap_aware_stop_execution.py

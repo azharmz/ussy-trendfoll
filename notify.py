@@ -42,6 +42,8 @@ def send_exit_alerts(exits: list):
 
     for e in exits:
         label = reason_label.get(e["exit_reason"], e["exit_reason"])
+        if e.get("stop_fill_type") == "gap_open":
+            label = "🔴 STOP LOSS — GAP THROUGH (fill di Open)"
         text = (
             f"{label} — {e['symbol']}\n\n"
             f"Trigger: ${e['trigger_price']:.2f}\n"
