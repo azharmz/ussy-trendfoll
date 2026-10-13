@@ -1,6 +1,6 @@
 # PROB-017 — Position Identity / History Integrity Audit
 
-Status: **READ-ONLY AUDIT COMPLETED / AMBIGUITY CONFIRMED / NO DATABASE MUTATION**
+Status: **AUDIT COMPLETED / CANONICAL MAPPING RECORDED / ORIGINAL POSITION ROWS PRESERVED**
 
 Audit date: 2026-10-13
 Project: Supabase project `USSY Trendfoll`
@@ -21,7 +21,7 @@ Scope: `public.positions` identity and exit chronology.
 | 18 | stop_loss | 2026-08-26 | 144.70 | 2026-08-26 | 132.35 | 0 |
 | 19 | trend_exit | 2026-08-26 | 144.70 | 2026-09-23 | 132.25 | 19 |
 
-Both rows share the same trigger entry price (147.75), realistic entry price, and ATR14 at entry (7.6987), but carry conflicting exits and stop prices. Row 18's exit date equals its signal/entry date and `days_held=0`, despite the contract that realistic execution starts at T+1 open. That record is chronologically inconsistent with the intended executable-entry model. Row 19's 19-bar holding duration is chronologically plausible, but the audit does not silently declare it canonical or delete the other record.
+Both rows share the same trigger entry price (147.75), realistic entry price, and ATR14 at entry (7.6987), but carry conflicting exits and stop prices. Row 18's exit date equals its signal/entry date and `days_held=0`, despite the contract that realistic execution starts at T+1 open. That record is chronologically inconsistent with the intended executable-entry model. Row 19's 19-bar holding duration is chronologically plausible. The stop anchor also matches the executable-entry contract: 144.70 − 2 × 7.6987 ≈ 129.3025, unlike row 18's trigger-price anchor of 147.75 − 2 × 7.6987 ≈ 132.3525.
 
 ## Schema and code boundary
 
@@ -29,10 +29,24 @@ Both rows share the same trigger entry price (147.75), realistic entry price, an
 - `idx_positions_symbol_entry_date` is a non-unique index.
 - Current `positions.py` on the production default branch includes a same-signal-date exit guard and a duplicate-identity check before registering a new position for the same `symbol/entry_date`.
 - A global `assert_position_identity_integrity` helper exists, but the current `main.py` pipeline does not invoke it at startup. Therefore the historical duplicate remains in the database and is not globally surfaced by that helper during every run.
-- The current safeguards reduce repeat creation and same-day T0 exit risk going forward; they do not reconcile the existing rows.
+- The current safeguards reduce repeat creation and same-day T0 exit risk going forward; they did not reconcile the existing rows automatically.
 
-## Decision
+## Reconciliation decision — recorded 2026-10-13
 
-**PROB-017 remains confirmed and unresolved at the data-reconciliation layer.** Do not use the ANF pair as canonical forward-exit evidence or choose one row heuristically. No database rows were updated or deleted during this audit.
+The approved decision is recorded in Supabase table `public.position_identity_reconciliations`, ledger row ID **1**:
 
-Recommended next action is a separately approved, auditable reconciliation that preserves both original row IDs and the reason for the chosen canonical treatment. After reconciliation, add/verify a database-level uniqueness strategy for logical signal identity that is compatible with legitimate later re-entries, and wire a non-destructive integrity preflight into operations once historical data is clean.
+- Logical identity: `ANF / 2026-08-26`.
+- Canonical position: **ID 19** (`trend_exit`, 2026-09-23, 19 days held).
+- Retained anomaly: **ID 18** (`stop_loss`, signal-day exit, `days_held=0`).
+- Resolution status: `resolved`.
+- The ledger stores the rationale, verification booleans, and JSON snapshots of both original rows.
+
+Post-write verification confirmed that both original `public.positions` rows remain unchanged and the table still contains 66 rows / 65 distinct identities. No position row was updated or deleted. The reconciliation is logical and auditable, not a physical deduplication.
+
+## Remaining operational work
+
+**The ANF identity is reconciled in the ledger, but PROB-017 is not fully closed for every consumer.** Any query, dashboard, export, or analysis that reads `public.positions` directly and ignores `public.position_identity_reconciliations` can still double-count this identity. Before calling the whole integrity problem resolved:
+
+1. Make canonical-outcome readers consult the ledger or a governed canonical view.
+2. Add a non-destructive identity-integrity preflight to operations.
+3. Design uniqueness enforcement compatible with legitimate later re-entries; do not impose a naive unique `(symbol, entry_date)` constraint without validating lifecycle semantics.
