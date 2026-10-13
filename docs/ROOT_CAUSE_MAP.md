@@ -67,7 +67,7 @@ Evidence from production-linked position history: duplicate `(symbol, entry_date
 
 Current interpretation: signal-path linkage must not silently select one duplicate and treat it as canonical. This engineering/data-integrity issue remains independent of the historical research-path evidence.
 
-Status: **RESOLVED / EVIDENCE LOCKED**. Canonical lifecycle linkage is `positions.id`; `(symbol, entry_date)` is a replay/idempotency invariant, not the downstream foreign key.
+Status: **PARTIALLY RESOLVED / EVIDENCE LOCKED**. The ANF duplicate is mapped in the reconciliation ledger, with both source rows preserved. This branch adds a ledger-aware fail-closed preflight and canonical-history reader; dashboard/export consumers outside this repository still require explicit adoption before the issue is fully closed. Canonical lifecycle linkage remains `positions.id`; `(symbol, entry_date)` is the replay/idempotency key, not a downstream foreign key.
 
 ## RC-006 — R2 symbol/date mapping ambiguity can contaminate feature timelines
 
