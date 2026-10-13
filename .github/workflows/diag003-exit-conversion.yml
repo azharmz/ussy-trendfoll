@@ -1,0 +1,53 @@
+# Isolated diagnostic workflow. No production workflow or strategy is modified.
+name: DIAG-003 Exit Conversion
+
+on:
+  workflow_dispatch:
+  push:
+    branches:
+      - diagnostic/diag002-entry-attribution
+    paths:
+      - run_diag003_exit_conversion.py
+      - exit_conversion.py
+      - tests/test_diag003_exit_conversion.py
+      - docs/DIAG_003_EXIT_CONVERSION_CONTRACT.md
+      - .github/workflows/diag003-exit-conversion.yml
+
+jobs:
+  diagnostic:
+    runs-on: ubuntu-latest
+    env:
+      R2_ACCESS_KEY_ID: ${{ secrets.R2_ACCESS_KEY_ID }}
+      R2_SECRET_ACCESS_KEY: ${{ secrets.R2_SECRET_ACCESS_KEY }}
+      R2_ENDPOINT: ${{ secrets.R2_ENDPOINT }}
+      R2_BUCKET_NAME: ${{ secrets.R2_BUCKET_NAME }}
+      PYTHONUNBUFFERED: '1'
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+          cache: pip
+      - name: Install dependencies
+        run: python -m pip install --disable-pip-version-check -r requirements.txt boto3 pyarrow
+      - name: Run repository tests
+        run: python -m unittest discover -s tests
+      - name: Run DIAG-003
+        run: python run_diag003_exit_conversion.py
+      - name: Publish summary
+        if: always()
+        run: |
+          if [ -f diag003_exit_conversion_summary.json ]; then
+            echo 'DIAG-003 Exit Conversion summary follows:' >> "$GITHUB_STEP_SUMMARY"
+            cat diag003_exit_conversion_summary.json >> "$GITHUB_STEP_SUMMARY"
+          fi
+      - name: Upload diagnostic evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: diag003-exit-conversion-${{ github.run_number }}
+          path: |
+            diag003_exit_conversion_summary.json
+            diag003_exit_conversion_events.csv
+          if-no-files-found: warn
+          retention-days: 90
