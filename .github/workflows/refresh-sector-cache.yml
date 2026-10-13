@@ -44,7 +44,6 @@ jobs:
           symbols=sorted(set(df.ticker.dropna().astype(str).str.strip().str.upper())-{""})
           if not symbols: raise RuntimeError("Empty READY universe")
           print(f"Verified READY: {len(symbols)} symbols; {key}",flush=True)
-
           bm={"Technology":"XLK","Healthcare":"XLV","Consumer Cyclical":"XLY","Consumer Defensive":"XLP","Energy":"XLE","Industrials":"XLI","Basic Materials":"XLB","Utilities":"XLU","Communication Services":"XLC","Real Estate":"XLRE","Financial Services":None,"Financial":None}
           rows=[]; failures=[]
           for i,symbol in enumerate(symbols,1):
@@ -57,11 +56,9 @@ jobs:
                   failures.append({"symbol":symbol,"error":type(e).__name__+": "+str(e)[:160]})
               if i%25==0 or i==len(symbols): print(f"Progress {i}/{len(symbols)} success={len(rows)} failed={len(failures)}",flush=True)
               time.sleep(0.3)
-
           report={"ready_as_of_date":m.get("as_of_date"),"ready_snapshot_date":m.get("snapshot_date"),"ready_key":key,"ready_sha256_verified":True,"ready_symbols":len(symbols),"fetch_success":len(rows),"fetch_failed":len(failures),"failure_samples":failures[:100],"db_write_scope":"sector_cache only; upsert successful rows; no deletes"}
           with open("sector-cache-refresh-report.json","w") as f: json.dump(report,f,indent=2)
           if len(rows)/len(symbols)<0.70: raise RuntimeError("Refusing write: metadata coverage below 70%")
-
           token=os.environ["SUPABASE_SERVICE_ROLE_KEY"]
           url=os.environ["SUPABASE_URL"].rstrip("/")+"/rest/v1/sector_cache"
           headers={"apikey":token,"Authorization":"Bearer "+token,"Content-Type":"application/json","Prefer":"resolution=merge-duplicates,return=minimal"}
@@ -71,7 +68,7 @@ jobs:
           for start in range(0,len(payload),100):
               resp=requests.post(url,params={"on_conflict":"symbol"},headers=headers,json=payload[start:start+100],timeout=45)
               if not resp.ok: raise RuntimeError(f"Supabase upsert failed HTTP {resp.status_code}: {resp.text[:300]}")
-              written+=len(payload[start:start+100)
+              written+=len(payload[start:start+100])
           report.update({"db_write_attempted":True,"db_rows_upserted":written,"completed_at_utc":datetime.now(timezone.utc).isoformat()})
           with open("sector-cache-refresh-report.json","w") as f: json.dump(report,f,indent=2)
           with open(os.environ["GITHUB_STEP_SUMMARY"],"a") as f:
