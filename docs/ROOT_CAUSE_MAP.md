@@ -76,26 +76,25 @@ Current interpretation:
 - DIAG-003 provides descriptive evidence that stop exits are frequent and realized outcomes give back meaningful excursion under the current contract;
 - the day-45 survivor cohort shows additional upside potential after the cap but also meaningful drawdown, with strong survivor selection;
 - this does not identify a superior exit rule and does not authorize any production change;
-- linked production position history still needs integrity audit before it can serve as canonical forward evidence.
+- linked production position history must be read through the reconciliation ledger or an equivalent canonical reader before forward outcomes are treated as canonical.
 
 Status: **HIGH-PRIORITY OPEN ROOT CAUSE — DIAG-003 COMPLETED; EXIT HYPOTHESES STILL REQUIRE FROZEN VALIDATION**.
 
 ## RC-005 — Position-history integrity can contaminate forward-outcome attribution
 
 Linked problem: `PROB-017`.
-Evidence: read-only Supabase audit in `docs/EVIDENCE_PROB_017_POSITION_HISTORY_AUDIT.md`.
-- The current table has 66 rows but only 65 distinct `(symbol, entry_date)` keys; the sole duplicate is `ANF / 2026-08-26`, IDs 18 and 19.
-- ID 18 is `stop_loss` on the signal date with `days_held=0`, despite realistic entry being defined as T+1 open; ID 19 is a conflicting `trend_exit` on 2026-09-23 after 19 trading bars.
-- The partial unique index only covers active rows by symbol; historical logical identities are not database-unique.
-- Production `positions.py` has guards against same-day exit and same-signal duplicate registration, but the global identity assertion is not called by `main.py`; the existing pair remains unresolved.
+Evidence: `docs/EVIDENCE_PROB_017_POSITION_HISTORY_AUDIT.md` and Supabase reconciliation ledger row `public.position_identity_reconciliations.id=1`.
+- The table contains 66 rows but only 65 distinct `(symbol, entry_date)` keys; the sole duplicate is `ANF / 2026-08-26`, IDs 18 and 19.
+- ID 18 exits on its signal date with `days_held=0` and anchors its stop to trigger price 147.75. ID 19 uses realistic T+1 entry 144.70, the corresponding 2-ATR stop near 129.3025, and a later 19-bar EMA/trend exit.
+- The reconciliation ledger now records ID 19 as canonical and ID 18 as retained anomaly, with a rationale and immutable JSON snapshots of both rows. Neither original position row was modified or deleted.
+- The raw positions table still contains both rows. Readers that ignore the reconciliation ledger can still double-count this identity.
 
 Current interpretation:
-- do not select one row as canonical without an auditable review;
-- current safeguards address future duplicate-creation paths but do not reconcile historical records;
-- database reconciliation and an appropriate uniqueness strategy need a separately auditable change after the canonical treatment is approved.
+- the specific ANF identity is reconciled in an auditable ledger, not physically deduplicated;
+- global integrity remains open until canonical readers consume the ledger and operations run a non-destructive preflight;
+- do not add a naive unique `(symbol, entry_date)` constraint until legitimate re-entry semantics are verified.
 
-Status: **CONFIRMED ENGINEERING/DATA-INTEGRITY ROOT CAUSE — HISTORICAL RECONCILIATION OPEN**.
-
+Status: **SPECIFIC IDENTITY RECONCILED IN LEDGER — CONSUMER INTEGRATION / GLOBAL PREFLIGHT OPEN**.
 ## RC-006 — Volume/tightness show limited and mixed T+5 separation
 
 Linked problems: `PROB-012`, `PROB-015`.
@@ -129,6 +128,6 @@ Status: **WEAK / MIXED — NO ENTRY-GATE OR THRESHOLD CHANGE AUTHORIZED**.
 The valid-history rebuild changes the next questions. Recommended sequence:
 1. `DIAG-002` entry attribution **completed**; evidence is locked in `docs/EVIDENCE_DIAG_002_ENTRY_ATTRIBUTION.md`. No entry threshold or rule change is authorized.
 2. `DIAG-003` exit/risk conversion **completed**; evidence is locked in `docs/EVIDENCE_DIAG_003_EXIT_CONVERSION.md`. No production exit change is authorized.
-3. Repair/audit position-history integrity before treating linked forward-position outcomes as canonical; keep this separate from full historical event reconstruction.
+3. Position-history audit and the ANF identity decision are recorded in the reconciliation ledger. Next wire canonical-outcome readers to consult that ledger and add a non-destructive integrity preflight; keep this separate from full historical event reconstruction.
 4. Resolve regime/Investability identifiability with a separately defined pre-gate corpus if still needed; do not infer no effect from the entry-ready sample.
 5. Only then freeze a Roadmap/Development Plan from root causes that survive the governed diagnostics.
