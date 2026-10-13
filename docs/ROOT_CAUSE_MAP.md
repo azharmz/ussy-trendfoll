@@ -1,6 +1,6 @@
 # TrendFoll Root Cause Map
 
-Status: **REVISED AFTER VALID-HISTORY DIAG-001 + DIAG-002 / EVIDENCE-LINKED / NOT A ROADMAP**
+Status: **REVISED AFTER VALID-HISTORY DIAG-001 + DIAG-002 + DIAG-003 / EVIDENCE-LINKED / NOT A ROADMAP**
 
 This document translates diagnostic evidence into root-cause hypotheses. A root-cause hypothesis is not a development authorization. Historical conclusions from the original rolling-window DIAG-001 are superseded where they conflict with `docs/EVIDENCE_DIAG_001_RESEARCH_HISTORY.md`.
 
@@ -64,17 +64,21 @@ Status: **WEAK / UNRESOLVED HYPOTHESIS — DIAG-002 COMPLETED; DO NOT TUNE**.
 
 Linked problems: `PROB-011`, `PROB-013`.
 Evidence:
-- valid-history DIAG-001 event median T+5 is +0.15%;
-- MFE5 median is +2.57% while MAE5 median is -2.50%;
-- the valid-history rebuild intentionally does not link the small, later-calendar Supabase forward-position subset;
-- `docs/CANSLIM_EXIT_AUDIT.md` separately challenges the current 45-day maximum and identifies the current 2 ATR / EMA20 exit rules as TrendFoll-specific rules requiring evidence.
+- valid-history DIAG-001 event median T+5 is +0.15%; MFE5 median is +2.57% while MAE5 median is -2.50%;
+- DIAG-003 simulated 897 sequential event-level trades under the frozen current exit contract: 485 stop exits, 203 EMA20 exits, 209 day-45 exits; 642 same-symbol onsets were skipped while a position was active;
+- median realized return was -3.58%, positive-return rate 33.9%, median MFE +5.77%, median MAE -4.20%, and median MFE-to-exit give-back 7.64 percentage points;
+- 192/897 exits (21.4%) were stop/trend exits by future bar 5;
+- among 209 positions surviving to the day-45 cap, median day-90 close return was +11.27% and median post-day-45 best-high gain versus day-45 close was +9.29%, with median post-day-45 low excursion -7.38%; this is a selected survivor cohort, not proof the cap should be removed;
+- full evidence and censoring/survivorship limits are in `docs/EVIDENCE_DIAG_003_EXIT_CONVERSION.md`;
+- `docs/CANSLIM_EXIT_AUDIT.md` remains the methodology baseline, not a rule set to copy.
 
 Current interpretation:
-- DIAG-001 no longer supports a claim that signals are broadly decaying by T+5;
-- whether current stop/trend/time exits convert available excursion well remains unanswered;
-- this must be measured directly by DIAG-003 rather than inferred from the old linked-position subset.
+- DIAG-003 provides descriptive evidence that stop exits are frequent and realized outcomes give back meaningful excursion under the current contract;
+- the day-45 survivor cohort shows additional upside potential after the cap but also meaningful drawdown, with strong survivor selection;
+- this does not identify a superior exit rule and does not authorize any production change;
+- linked production position history still needs integrity audit before it can serve as canonical forward evidence.
 
-Status: **HIGH-PRIORITY OPEN ROOT CAUSE — DIAG-003 REQUIRED**.
+Status: **HIGH-PRIORITY OPEN ROOT CAUSE — DIAG-003 COMPLETED; EXIT HYPOTHESES STILL REQUIRE FROZEN VALIDATION**.
 
 ## RC-005 — Position-history integrity can contaminate forward-outcome attribution
 
@@ -122,7 +126,7 @@ Status: **WEAK / MIXED — NO ENTRY-GATE OR THRESHOLD CHANGE AUTHORIZED**.
 
 The valid-history rebuild changes the next questions. Recommended sequence:
 1. `DIAG-002` entry attribution **completed**; evidence is locked in `docs/EVIDENCE_DIAG_002_ENTRY_ATTRIBUTION.md`. No entry threshold or rule change is authorized.
-2. `DIAG-003` exit/risk conversion: measure early failure, current 2 ATR behavior, time-to-MFE, MFE/MAE, give-back, EMA20-loss timing, and the day-45 counterfactual under a frozen contract.
+2. `DIAG-003` exit/risk conversion **completed**; evidence is locked in `docs/EVIDENCE_DIAG_003_EXIT_CONVERSION.md`. No production exit change is authorized.
 3. Repair/audit position-history integrity before treating linked forward-position outcomes as canonical; keep this separate from full historical event reconstruction.
 4. Resolve regime/Investability identifiability with a separately defined pre-gate corpus if still needed; do not infer no effect from the entry-ready sample.
 5. Only then freeze a Roadmap/Development Plan from root causes that survive the governed diagnostics.
