@@ -77,7 +77,17 @@ def path_row(g, event):
         if pd.isna(first_ema20) and pd.notna(r.get("ema20")) and float(r["close_raw"]) < float(r["ema20"]):
             first_ema20 = day
         if float(r["low_raw"]) <= stop:
-            exit_reason, exit_day, exit_px = "stop_loss", day, stop; break
+            # Match production execution semantics: a gap through the stop
+            # fills at the observed session open, not at an unreachable stop.
+            open_px = r.get("open_raw")
+            if pd.isna(open_px):
+                raise RuntimeError(
+                    f"Stop triggered but open_raw is missing: {event['symbol']} "
+                    f"on {pd.Timestamp(r['date']).date()}"
+                )
+            fill_px = float(open_px) if float(open_px) <= stop else stop
+            exit_reason, exit_day, exit_px = "stop_loss", day, fill_px
+            break
         # production counts trading dates strictly after T0; T+1 is day 1.
         if day >= MAX_HOLD:
             exit_reason, exit_day, exit_px = "max_holding", day, float(r["close_raw"]); break
