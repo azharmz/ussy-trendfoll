@@ -40,7 +40,8 @@ def load_ready_dataset(s3=None, bucket: str | None = None):
         s3.get_object(Bucket=bucket, Key=READY_POINTER)["Body"].read()
     )
     key = manifest.get("parquet_key")
-    if manifest.get("schema_version") != 1 or not isinstance(key, str) or not key.startswith(READY_PREFIX):
+    # ussy-data's current canonical READY publication contract is schema v2.
+    if manifest.get("schema_version") != 2 or not isinstance(key, str) or not key.startswith(READY_PREFIX):
         raise ValueError("Invalid ready manifest")
 
     body = s3.get_object(Bucket=bucket, Key=key)["Body"].read()

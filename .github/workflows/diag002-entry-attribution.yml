@@ -1,4 +1,4 @@
-# Governance-approved temporary dispatch marker: DIAG-002 rerun; no semantic change.
+# Governance-approved temporary dispatch marker: DIAG-002 rerun; READY v2 compatibility fix included.
 name: DIAG-002 Entry Attribution
 
 on:
