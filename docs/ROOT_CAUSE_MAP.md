@@ -83,16 +83,18 @@ Status: **HIGH-PRIORITY OPEN ROOT CAUSE — DIAG-003 COMPLETED; EXIT HYPOTHESES 
 ## RC-005 — Position-history integrity can contaminate forward-outcome attribution
 
 Linked problem: `PROB-017`.
-Evidence from the original production-linked DIAG-001:
-- 27 Supabase position rows contained one duplicate `(symbol, entry_date)` key: `ANF / 2026-08-26`;
-- the rows had conflicting states/outcomes.
+Evidence: read-only Supabase audit in `docs/EVIDENCE_PROB_017_POSITION_HISTORY_AUDIT.md`.
+- The current table has 66 rows but only 65 distinct `(symbol, entry_date)` keys; the sole duplicate is `ANF / 2026-08-26`, IDs 18 and 19.
+- ID 18 is `stop_loss` on the signal date with `days_held=0`, despite realistic entry being defined as T+1 open; ID 19 is a conflicting `trend_exit` on 2026-09-23 after 19 trading bars.
+- The partial unique index only covers active rows by symbol; historical logical identities are not database-unique.
+- Production `positions.py` has guards against same-day exit and same-signal duplicate registration, but the global identity assertion is not called by `main.py`; the existing pair remains unresolved.
 
 Current interpretation:
-- the integrity issue is independent of the historical pre-roll correction;
-- signal-path linkage must not silently select one duplicate and treat it as canonical;
-- position persistence / active-position uniqueness history needs audit before forward exit attribution is treated as definitive.
+- do not select one row as canonical without an auditable review;
+- current safeguards address future duplicate-creation paths but do not reconcile historical records;
+- database reconciliation and an appropriate uniqueness strategy need a separately auditable change after the canonical treatment is approved.
 
-Status: **CONFIRMED ENGINEERING/DATA-INTEGRITY ROOT CAUSE**.
+Status: **CONFIRMED ENGINEERING/DATA-INTEGRITY ROOT CAUSE — HISTORICAL RECONCILIATION OPEN**.
 
 ## RC-006 — Volume/tightness show limited and mixed T+5 separation
 
