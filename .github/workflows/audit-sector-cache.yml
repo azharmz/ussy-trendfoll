@@ -1,0 +1,119 @@
+name: Audit sector cache against R2 READY
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  audit-sector-cache:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    env:
+      R2_ENDPOINT: ${{ secrets.R2_ENDPOINT }}
+      R2_ACCESS_KEY_ID: ${{ secrets.R2_ACCESS_KEY_ID }}
+      R2_SECRET_ACCESS_KEY: ${{ secrets.R2_SECRET_ACCESS_KEY }}
+      R2_BUCKET_NAME: ${{ secrets.R2_BUCKET_NAME }}
+      SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
+      SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
+      PYTHONUNBUFFERED: "1"
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - name: Install audit dependencies
+        run: python -m pip install --disable-pip-version-check boto3 pandas pyarrow requests
+      - name: Compare cache with exact R2 READY universe (read-only)
+        run: |
+          python - <<'PY'
+          import hashlib, json, os
+          import boto3
+          import pandas as pd
+          import requests
+
+          required = ["R2_ENDPOINT", "R2_ACCESS_KEY_ID", "R2_SECRET_ACCESS_KEY",
+                      "SUPABASE_URL", "SUPABASE_SERVICE_ROLE_KEY"]
+          missing_env = [k for k in required if not os.environ.get(k)]
+          if missing_env:
+              raise RuntimeError("Missing required repository secrets: " + ", ".join(missing_env))
+
+          s3 = boto3.client(
+              "s3",
+              endpoint_url=os.environ["R2_ENDPOINT"],
+              aws_access_key_id=os.environ["R2_ACCESS_KEY_ID"],
+              aws_secret_access_key=os.environ["R2_SECRET_ACCESS_KEY"],
+              region_name="auto",
+          )
+          bucket = os.environ.get("R2_BUCKET_NAME") or "ussy-data"
+          manifest = json.loads(s3.get_object(Bucket=bucket, Key="production/ready/current.json")["Body"].read())
+          key = manifest.get("parquet_key")
+          if not isinstance(key, str) or not key.startswith("production/ready/runs/"):
+              raise RuntimeError(f"Invalid READY parquet key: {key!r}")
+          body = s3.get_object(Bucket=bucket, Key=key)["Body"].read()
+          digest = hashlib.sha256(body).hexdigest()
+          if digest != manifest.get("sha256"):
+              raise RuntimeError("READY parquet SHA256 mismatch")
+          ready = pd.read_parquet(__import__("io").BytesIO(body))
+          if "ticker" not in ready.columns:
+              raise RuntimeError("READY parquet has no ticker column")
+          ready_symbols = sorted(set(ready["ticker"].dropna().astype(str).str.strip().str.upper()) - {""})
+          if not ready_symbols:
+              raise RuntimeError("READY universe is empty")
+
+          base = os.environ["SUPABASE_URL"].rstrip("/") + "/rest/v1/sector_cache"
+          headers = {
+              "apikey": os.environ["SUPABASE_SERVICE_ROLE_KEY"],
+              "Authorization": "Bearer " + os.environ["SUPABASE_SERVICE_ROLE_KEY"],
+              "Accept": "application/json",
+          }
+          response = requests.get(base, params={"select": "symbol,updated_at", "limit": "2000"}, headers=headers, timeout=30)
+          response.raise_for_status()
+          cached_rows = response.json()
+          cached_symbols = sorted(set(str(r.get("symbol", "")).strip().upper() for r in cached_rows if r.get("symbol")))
+          ready_set, cache_set = set(ready_symbols), set(cached_symbols)
+          missing_cache = sorted(ready_set - cache_set)
+          cache_only = sorted(cache_set - ready_set)
+          relevant = [r for r in cached_rows if str(r.get("symbol", "")).strip().upper() in ready_set]
+          timestamps = pd.to_datetime([r.get("updated_at") for r in relevant], utc=True, errors="coerce")
+          stale = bool(len(timestamps) == 0 or timestamps.isna().any() or (pd.Timestamp.now(tz="UTC") - timestamps.min()).days > 30)
+          result = {
+              "ready_snapshot_date": manifest.get("snapshot_date"),
+              "ready_as_of_date": manifest.get("as_of_date"),
+              "ready_key": key,
+              "ready_sha256_verified": True,
+              "ready_rows": int(len(ready)),
+              "ready_symbols": len(ready_set),
+              "cache_rows": len(cached_rows),
+              "cache_symbols": len(cache_set),
+              "covered_ready_symbols": len(ready_set & cache_set),
+              "missing_cache_count": len(missing_cache),
+              "missing_cache_symbols": missing_cache,
+              "cache_only_count": len(cache_only),
+              "cache_only_symbols": cache_only,
+              "requested_symbols_cache_stale_over_30d": stale,
+              "cache_updated_at_min": str(timestamps.min()) if len(timestamps) and not timestamps.isna().all() else None,
+              "cache_updated_at_max": str(timestamps.max()) if len(timestamps) and not timestamps.isna().all() else None,
+              "read_only": True,
+          }
+          print(json.dumps(result, indent=2))
+          with open(os.environ["GITHUB_STEP_SUMMARY"], "a", encoding="utf-8") as f:
+              f.write("# Sector cache vs R2 READY audit\n\n")
+              f.write(f"- READY snapshot: **{result['ready_snapshot_date']}** / as-of **{result['ready_as_of_date']}**\n")
+              f.write(f"- READY symbols: **{len(ready_set)}**; cache symbols: **{len(cache_set)}**\n")
+              f.write(f"- READY symbols missing from cache: **{len(missing_cache)}**\n")
+              f.write(f"- Cache-only historical symbols: **{len(cache_only)}**\n")
+              f.write(f"- Requested-symbol cache older than 30 days or invalid timestamps: **{stale}**\n\n")
+              f.write("## Missing from cache\n\n" + (", ".join(missing_cache) if missing_cache else "None") + "\n\n")
+              f.write("## Cache-only symbols\n\n" + (", ".join(cache_only) if cache_only else "None") + "\n")
+          with open("sector-cache-audit.json", "w", encoding="utf-8") as f:
+              json.dump(result, f, indent=2)
+          PY
+      - name: Upload audit report
+        uses: actions/upload-artifact@v4
+        with:
+          name: sector-cache-r2-ready-audit
+          path: sector-cache-audit.json
+          if-no-files-found: error
+          retention-days: 30
