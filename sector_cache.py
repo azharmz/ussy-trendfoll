@@ -1,14 +1,13 @@
 """
 USSY TrendFoll — Sector Cache
 ==============================
-Sector suatu perusahaan nyaris tidak pernah berubah harian. Fetch ulang
-sector mapping tiap hari (197 panggilan yfinance .info) itu request yang
-terbuang percuma dan cuma menambah runtime tanpa manfaat.
+Cache sector mapping di Supabase. Cache freshness dan cakupan simbol harus
+divalidasi terhadap universe yang diminta caller; jumlah baris cache saja tidak
+menjamin universe saat ini sudah tercakup.
 
-Strategi: sector map disimpan di tabel `sector_cache` Supabase. Tiap run
-harian, cek dulu apakah cache masih ada dan belum terlalu basi (default:
-30 hari). Kalau masih segar, pakai cache. Kalau basi/kosong, fetch ulang
-lewat feature_engine.build_sector_mapping() dan overwrite cache.
+Catatan: UNIVERSE dari feature_engine adalah universe statis legacy. Jalur
+produksi R2 saat ini tidak memakai sector cache (include_sector=False).
+Untuk universe dinamis, caller harus mengirim daftar simbol eksplisit.
 """
 
 import math
@@ -21,35 +20,65 @@ CACHE_MAX_AGE_DAYS = 30
 
 
 def get_sector_map(supabase_client, universe: list = UNIVERSE, force_refresh: bool = False) -> pd.DataFrame:
-    """Ambil sector mapping — dari cache Supabase kalau masih segar, atau fetch baru."""
+    """Ambil sector mapping hanya jika cache segar dan mencakup semua simbol yang diminta."""
+    requested = sorted({str(s).strip().upper() for s in universe if s is not None and str(s).strip()})
+    if not requested:
+        raise ValueError("Universe sector mapping kosong")
+
+    if universe is UNIVERSE:
+        print(
+            "[sector_cache] PERINGATAN: memakai UNIVERSE statis legacy dari "
+            "feature_engine. Kirim universe eksplisit untuk cakupan R2 terbaru."
+        )
+
     if not force_refresh:
-        cached = _load_cache(supabase_client)
+        cached = _load_cache(supabase_client, requested)
         if cached is not None:
-            print(f"[sector_cache] Pakai cache ({len(cached)} ticker, masih segar).")
+            print(f"[sector_cache] Pakai cache ({len(cached)}/{len(requested)} ticker, segar dan lengkap).")
             return cached
 
-    print("[sector_cache] Cache kosong/basi — fetch ulang dari yfinance...")
-    sector_map = build_sector_mapping(universe)
+    print(f"[sector_cache] Cache basi/tidak lengkap — refresh {len(requested)} ticker dari yfinance...")
+    sector_map = build_sector_mapping(requested)
     _save_cache(supabase_client, sector_map)
     return sector_map
 
 
-def _load_cache(supabase_client) -> pd.DataFrame:
+def _load_cache(supabase_client, universe: list) -> pd.DataFrame | None:
     resp = supabase_client.table("sector_cache").select("*").execute()
-    rows = resp.data
+    rows = resp.data or []
     if not rows:
+        print("[sector_cache] Cache kosong.")
         return None
 
     df = pd.DataFrame(rows)
-    oldest_update = pd.to_datetime(df["updated_at"]).min()
-    if oldest_update.tzinfo is None:
-        oldest_update = oldest_update.tz_localize("UTC")
-    age_days = (datetime.now(timezone.utc) - oldest_update).days
-    if age_days > CACHE_MAX_AGE_DAYS:
-        print(f"[sector_cache] Cache berumur {age_days} hari (> {CACHE_MAX_AGE_DAYS}), dianggap basi.")
+    if "symbol" not in df.columns or "updated_at" not in df.columns:
+        print("[sector_cache] Skema cache tidak valid.")
         return None
 
-    return df[["symbol", "sector", "industry", "sector_benchmark"]]
+    df["_symbol_key"] = df["symbol"].astype(str).str.strip().str.upper()
+    requested = set(universe)
+    relevant = df[df["_symbol_key"].isin(requested)].copy()
+    cached_symbols = set(relevant["_symbol_key"])
+    missing = sorted(requested - cached_symbols)
+    if missing:
+        print(f"[sector_cache] Cache tidak mencakup {len(missing)}/{len(requested)} simbol: {missing[:20]}")
+        return None
+
+    # Age is calculated only for the requested symbols. Stale rows for unrelated
+    # historical symbols must not force a refresh on every call.
+    timestamps = pd.to_datetime(relevant["updated_at"], utc=True, errors="coerce")
+    if timestamps.isna().any():
+        print("[sector_cache] Timestamp cache tidak valid; refresh diperlukan.")
+        return None
+    age_days = (datetime.now(timezone.utc) - timestamps.min().to_pydatetime()).days
+    if age_days > CACHE_MAX_AGE_DAYS:
+        print(f"[sector_cache] Cache simbol yang diminta berumur {age_days} hari (> {CACHE_MAX_AGE_DAYS}), dianggap basi.")
+        return None
+
+    relevant = relevant.drop_duplicates("_symbol_key", keep="last").set_index("_symbol_key")
+    # Return exactly the requested universe, in stable order, never unrelated stale rows.
+    out = relevant.loc[universe, ["symbol", "sector", "industry", "sector_benchmark"]].reset_index(drop=True)
+    return out
 
 
 def _save_cache(supabase_client, sector_map: pd.DataFrame):
@@ -81,5 +110,7 @@ def _save_cache(supabase_client, sector_map: pd.DataFrame):
         for _, r in sector_map.iterrows()
     ]
 
+    # Upsert only: keep historical symbols in cache; callers receive only the
+    # requested universe from _load_cache, so stale extras cannot mask gaps.
     supabase_client.table("sector_cache").upsert(rows, on_conflict="symbol").execute()
     print(f"[sector_cache] Cache diperbarui ({len(rows)} ticker).")
