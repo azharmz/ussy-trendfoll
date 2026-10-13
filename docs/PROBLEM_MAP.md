@@ -33,7 +33,7 @@ Rules:
 | PROB-014 | OPEN DIAGNOSIS | Medium-High | Regime dependence remains insufficiently identified because governed entry-ready corpus is constrained by the current hard filter. | Separate pre-registered regime study if still decision-relevant. |
 | PROB-015 | OPEN DIAGNOSIS | Medium | Investability components are largely non-identifiable inside entry-ready events because PASS is required by construction. | Use a separately governed broader candidate corpus if component attribution is pursued. |
 | PROB-016 | GOVERNED VALIDATION | High | <=0.60 ATR proximity remains in frozen forward validation; not profitability evidence. | Continue frozen Cycle 1 independently. |
-| PROB-017 | **RESOLVED / EVIDENCE LOCKED** | — | Historical Supabase position history had one conflicting duplicate `(symbol, entry_date)` group; canonical lifecycle identity is immutable `positions.id`, while `(symbol, entry_date)` is the idempotency key for the current single-strategy signal occurrence. | Preserve historical conflict; enforce fail-closed/idempotent future writes. |
+| PROB-017 | **PARTIALLY RESOLVED ENGINEERING DEBT** | High | Historical Supabase position history had one conflicting duplicate `(symbol, entry_date)` group; ANF IDs 19/18 are mapped in the reconciliation ledger while source rows remain unchanged. | This branch adds a ledger-aware preflight and canonical-history reader; validate tests and consumer adoption before claiming full closure. |
 | PROB-018 | RESOLVED VALIDITY GATE | — | Rolling ~300-bar ready history is not a valid full historical feature/backtest window. | Evidence locked; use research-history contract. |
 | PROB-019 | RESOLVED ARCHITECTURE | — | Governed full-history + 500-bar pre-roll research architecture is implemented/audited. | Maintain contract. |
 
@@ -46,7 +46,7 @@ Rules:
 4. **DIAG-003 complete** — exit/risk conversion evidence locked in `docs/EVIDENCE_DIAG_003_EXIT_RISK.md`; RC-004 supported as material, mechanism unresolved.
 5. **NEXT strategy-research gate** — evidence-backed exit-development hypothesis formulation. Do not grid-search ATR multipliers, EMA periods, holding days, or profit targets.
 6. Continue **PROB-016** frozen forward validation in parallel.
-7. Engineering debt **PROB-003/004/005/017** may be hardened independently without changing trading semantics.
+7. Engineering debt **PROB-003/004/005/017** may be hardened independently without changing trading semantics. PROB-017 preflight/canonical-reader work is isolated on `diagnostic/prob017-canonical-preflight`; do not promote until validation passes.
 
 ## DIAG-003 diagnostic closure
 
