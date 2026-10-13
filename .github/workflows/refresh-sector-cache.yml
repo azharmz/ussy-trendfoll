@@ -1,0 +1,92 @@
+name: Refresh sector cache from R2 READY
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  refresh:
+    runs-on: ubuntu-latest
+    timeout-minutes: 360
+    env:
+      R2_ENDPOINT: ${{ secrets.R2_ENDPOINT }}
+      R2_ACCESS_KEY_ID: ${{ secrets.R2_ACCESS_KEY_ID }}
+      R2_SECRET_ACCESS_KEY: ${{ secrets.R2_SECRET_ACCESS_KEY }}
+      R2_BUCKET_NAME: ${{ secrets.R2_BUCKET_NAME }}
+      SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
+      SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
+      PYTHONUNBUFFERED: "1"
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - run: python -m pip install --disable-pip-version-check boto3 pandas pyarrow requests yfinance
+      - name: Fetch, validate, and upsert sector metadata
+        run: |
+          cat > refresh_sector_cache.py <<'PY'
+          import hashlib, io, json, os, time
+          from datetime import datetime, timezone
+          import boto3, pandas as pd, requests, yfinance as yf
+
+          for k in ("R2_ENDPOINT","R2_ACCESS_KEY_ID","R2_SECRET_ACCESS_KEY","SUPABASE_URL","SUPABASE_SERVICE_ROLE_KEY"):
+              if not os.environ.get(k): raise RuntimeError("Missing secret: "+k)
+          s3=boto3.client("s3",endpoint_url=os.environ["R2_ENDPOINT"],aws_access_key_id=os.environ["R2_ACCESS_KEY_ID"],aws_secret_access_key=os.environ["R2_SECRET_ACCESS_KEY"],region_name="auto")
+          m=json.loads(s3.get_object(Bucket=os.getenv("R2_BUCKET_NAME") or "ussy-data",Key="production/ready/current.json")["Body"].read())
+          key=m.get("parquet_key")
+          if not isinstance(key,str) or not key.startswith("production/ready/runs/"): raise RuntimeError("Invalid READY parquet key")
+          raw=s3.get_object(Bucket=os.getenv("R2_BUCKET_NAME") or "ussy-data",Key=key)["Body"].read()
+          if hashlib.sha256(raw).hexdigest()!=m.get("sha256"): raise RuntimeError("READY SHA256 mismatch")
+          df=pd.read_parquet(io.BytesIO(raw))
+          if "ticker" not in df: raise RuntimeError("READY has no ticker column")
+          symbols=sorted(set(df.ticker.dropna().astype(str).str.strip().str.upper())-{""})
+          if not symbols: raise RuntimeError("Empty READY universe")
+          print(f"Verified READY: {len(symbols)} symbols; {key}",flush=True)
+
+          bm={"Technology":"XLK","Healthcare":"XLV","Consumer Cyclical":"XLY","Consumer Defensive":"XLP","Energy":"XLE","Industrials":"XLI","Basic Materials":"XLB","Utilities":"XLU","Communication Services":"XLC","Real Estate":"XLRE","Financial Services":None,"Financial":None}
+          rows=[]; failures=[]
+          # Sequential fetch: one request at a time to reduce Yahoo rate limiting.
+          for i,symbol in enumerate(symbols,1):
+              try:
+                  info=yf.Ticker(symbol).get_info()
+                  sector=info.get("sector")
+                  if not sector: raise ValueError("sector missing")
+                  rows.append({"symbol":symbol,"sector":sector,"industry":info.get("industry"),"sector_benchmark":bm.get(sector)})
+              except Exception as e:
+                  failures.append({"symbol":symbol,"error":type(e).__name__+": "+str(e)[:160]})
+              if i%25==0 or i==len(symbols): print(f"Progress {i}/{len(symbols)} success={len(rows)} failed={len(failures)}",flush=True)
+              time.sleep(0.3)
+
+          report={"ready_as_of_date":m.get("as_of_date"),"ready_snapshot_date":m.get("snapshot_date"),"ready_key":key,"ready_sha256_verified":True,"ready_symbols":len(symbols),"fetch_success":len(rows),"fetch_failed":len(failures),"failure_samples":failures[:100],"db_write_scope":"sector_cache only; upsert successful rows; no deletes"}
+          with open("sector-cache-refresh-report.json","w") as f: json.dump(report,f,indent=2)
+          # Fail closed on poor coverage before any DB write.
+          if len(rows)/len(symbols)<0.70: raise RuntimeError("Refusing write: metadata coverage below 70%")
+
+          token=os.environ["SUPABASE_SERVICE_ROLE_KEY"]
+          url=os.environ["SUPABASE_URL"].rstrip("/")+"/rest/v1/sector_cache"
+          headers={"apikey":token,"Authorization":"Bearer "+token,"Content-Type":"application/json","Prefer":"resolution=merge-duplicates,return=minimal"}
+          now=datetime.now(timezone.utc).isoformat()
+          payload=[dict(r,updated_at=now) for r in rows]
+          written=0
+          for start in range(0,len(payload),100):
+              resp=requests.post(url,params={"on_conflict":"symbol"},headers=headers,json=payload[start:start+100],timeout=45)
+              if not resp.ok: raise RuntimeError(f"Supabase upsert failed HTTP {resp.status_code}: {resp.text[:300]}")
+              written+=len(payload[start:start+100])
+          report.update({"db_write_attempted":True,"db_rows_upserted":written,"completed_at_utc":datetime.now(timezone.utc).isoformat()})
+          with open("sector-cache-refresh-report.json","w") as f: json.dump(report,f,indent=2)
+          with open(os.environ["GITHUB_STEP_SUMMARY"],"a") as f:
+              f.write("# Sector cache refresh\n\n")
+              f.write(f"- READY symbols: {len(symbols)}\n- Metadata success: {len(rows)}\n- Failed/unknown: {len(failures)}\n- Upserted: {written}\n")
+              f.write("- Only sector_cache was written; no deletes, positions changes, or production workflow runs.\n")
+          print(json.dumps(report,indent=2))
+          PY
+          python refresh_sector_cache.py
+      - if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: sector-cache-refresh-report
+          path: sector-cache-refresh-report.json
+          if-no-files-found: warn
+          retention-days: 30
