@@ -88,7 +88,10 @@ asli, bukan syarat keras masuk backtest.
 ## Exit tracking (persis parameter final Sprint 3)
 
 - **stop_loss**: `low_raw <= stop_price` (intraday low, bukan close) —
-  exit_price = stop_price (asumsi fill persis di level stop)
+  jika `open_raw <= stop_price`, fill memakai `open_raw` (gap-through); jika
+  open di atas stop dan low menyentuh stop, fill memakai `stop_price`.
+  Jika stop terpicu tetapi `open_raw` hilang, pipeline gagal tertutup (fail closed).
+  Data historis yang sudah ditutup tidak otomatis dihitung ulang.
 - **stop anchor**: `realistic_entry_price (open H+1) - 2 × ATR14 T0`.
   ATR dibekukan dari hari sinyal; stop diperbarui setelah open H+1 tersedia
   dan sebelum pengecekan exit pada hari tersebut.
