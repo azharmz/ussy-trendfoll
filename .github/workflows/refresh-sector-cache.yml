@@ -2,11 +2,6 @@ name: Refresh sector cache from R2 READY
 
 on:
   workflow_dispatch:
-  push:
-    branches:
-      - ops/sector-cache-refresh-once
-    paths:
-      - .github/workflows/refresh-sector-cache.yml
 
 permissions:
   contents: read
@@ -76,7 +71,7 @@ jobs:
           for start in range(0,len(payload),100):
               resp=requests.post(url,params={"on_conflict":"symbol"},headers=headers,json=payload[start:start+100],timeout=45)
               if not resp.ok: raise RuntimeError(f"Supabase upsert failed HTTP {resp.status_code}: {resp.text[:300]}")
-              written+=len(payload[start:start+100])
+              written+=len(payload[start:start+100)
           report.update({"db_write_attempted":True,"db_rows_upserted":written,"completed_at_utc":datetime.now(timezone.utc).isoformat()})
           with open("sector-cache-refresh-report.json","w") as f: json.dump(report,f,indent=2)
           with open(os.environ["GITHUB_STEP_SUMMARY"],"a") as f:
