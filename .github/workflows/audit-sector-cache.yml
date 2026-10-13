@@ -2,6 +2,11 @@ name: Audit sector cache against R2 READY
 
 on:
   workflow_dispatch:
+  push:
+    branches:
+      - audit/sector-cache-r2-ready
+    paths:
+      - .github/workflows/audit-sector-cache.yml
 
 permissions:
   contents: read
