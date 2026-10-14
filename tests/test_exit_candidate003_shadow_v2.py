@@ -79,7 +79,7 @@ class TestExitCandidate003ShadowV2(unittest.TestCase):
     def test_ema20_exit_at_close_when_no_stop(self):
         state = _state(90)
         state["initial_stop"] = 80.0
-        _, ev = shadow._evaluate_session(state, _row(open_=104, high=108, low=85, close=99, ema20=100),
+        _, ev = shadow._evaluate_session(state, _row(open_=104, high=108, low=95, close=99, ema20=100),
                                          pd.Timestamp("2026-01-07"), self.dates[:3])
         self.assertEqual(ev["hypothetical_exit_reason"], "trend_exit")
         self.assertEqual(ev["hypothetical_exit_price"], 99.0)
