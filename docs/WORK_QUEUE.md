@@ -49,11 +49,13 @@ At the start of a session, read this file and execute the first actionable item 
   - **PROB-003/004:** reconciled. Checklist marks persistence/idempotency complete; Telegram's crash-after-acceptance duplicate remains a documented external-delivery limitation.
 - Keep this reconciliation documentation-only unless an actual code defect is discovered; any newly discovered defect gets a separate queue entry with evidence.
 
-### 3. Define and govern a production correction for gap-through stop execution — **NEXT / CONTRACT ONLY; NO PRODUCTION CHANGE AUTHORIZED**
+### 3. Define and govern a production correction for gap-through stop execution — **DRAFT WRITTEN; COMPATIBILITY AUDIT NEXT; NO PRODUCTION CHANGE AUTHORIZED**
 - Evidence: [`EVIDENCE_STOP_EXEC_001.md`](EVIDENCE_STOP_EXEC_001.md) and [`STOP_EXEC_001_AUDIT_PROTOCOL.md`](STOP_EXEC_001_AUDIT_PROTOCOL.md).
+- Draft contract: [`STOP_EXEC_001_CORRECTION_CONTRACT_DRAFT.md`](STOP_EXEC_001_CORRECTION_CONTRACT_DRAFT.md).
 - Finding: the current exact-stop assumption is infeasible when session Open is already below the stop. The frozen audit found 93 gap-through events among 839 CURRENT stop events in its 1,524-event paired sample.
 - Diagnostic is complete; **no production correction is authorized by that finding alone**.
-- Next step after item 1: write an explicit correction contract covering gap-through fill semantics, impact on position/return accounting, migrations if any, regression cases, rollout/rollback, and approval boundary. Then validate separately before changing production.
+- [x] Drafted explicit proposed semantics, compatibility questions, regression cases, rollout/rollback and approval gates in `STOP_EXEC_001_CORRECTION_CONTRACT_DRAFT.md`.
+- Next step: perform a read-only audit of schema/status constraints and all consumers of exit price/reason, realized return, dashboard and alerts. Resolve status/reason representation before implementing any code. Then validate separately before changing production.
 - Do not use this item to retune the 2×ATR stop or modify CAND-003.
 
 ### 4. Continue CAND-003 genuine operational shadow observation — **ACTIVE / GATED**
@@ -100,4 +102,4 @@ When work stops, update the top of the queue or the relevant item with:
 - **Next action:** one concrete action.
 - **Blocker:** exact missing evidence or decision; write “none” if none.
 
-**Current handoff (2026-10-14):** Queue item 1 repository audit/regression is merged and CI-passed; independent live deployment/OKTA verification remains pending. Queue item 2 documentation reconciliation is complete. Start at **Queue item 3** by drafting the STOP-EXEC-001 correction contract only; do not alter production execution until a separate validation and authorization gate is met.
+**Current handoff (2026-10-14):** Queue item 1 repository audit/regression is merged and CI-passed; independent live deployment/OKTA verification remains pending. Queue item 2 documentation reconciliation is complete. Queue item 3 contract draft is recorded; next action is a read-only schema/consumer compatibility audit. Do not alter production execution until the contract is approved and validation gates pass.
