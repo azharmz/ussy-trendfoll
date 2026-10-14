@@ -7,7 +7,7 @@ from run_diag003_exit_risk import path_row
 class TestDiag003GapAwareFill(unittest.TestCase):
     def _history(self, exit_open, exit_low):
         return pd.DataFrame([
-            {"date": "2026-10-01", "open_raw": 100.0, "high_raw": 101.0,
+            {"date": pd.Timestamp("2026-10-01"), "open_raw": 100.0, "high_raw": 101.0,
              "low_raw": 99.0, "close_raw": 100.0, "atr14": 1.0, "ema20": 95.0},
             {"date": pd.Timestamp("2026-10-02"), "open_raw": 100.0, "high_raw": 101.0,
              "low_raw": 99.0, "close_raw": 100.0, "atr14": 1.0, "ema20": 95.0},
