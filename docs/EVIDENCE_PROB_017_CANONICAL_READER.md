@@ -18,10 +18,9 @@ Scope: software integrity only. No strategy, entry, exit, or production database
 
 ## Validation evidence
 
-- GitHub Actions run **PROB-017 Identity Tests #2** completed successfully on 2026-10-14.
-- Result: **5 passed in 0.21s**.
-- The FSE-007/FSE-013 production regression and gap-aware stop execution regression workflows associated with the same PR commit also completed successfully.
-- These results validate the focused unit-test contract and those regression suites; they do **not** prove all external readers of `public.positions` use canonical history.
+- GitHub Actions run **PROB-017 Identity Tests #11** completed successfully on 2026-10-14: **7 passed in 0.34s**. This includes five identity-validator tests and two dashboard/RPC source-contract tests.
+- The FSE-007/FSE-013 production regression and gap-aware stop execution regression workflows associated with the earlier PR commit also completed successfully.
+- These results validate Python unit tests and source contracts; they do **not** execute the SQL function against PostgreSQL or prove live dashboard behavior.
 
 ## Expected behavior for the known ANF identity
 
