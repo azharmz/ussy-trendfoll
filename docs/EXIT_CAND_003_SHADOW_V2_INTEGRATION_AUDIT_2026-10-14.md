@@ -2,13 +2,14 @@
 
 Date: 2026-10-14
 Branch: `research/exit-cand-003-shadow-v2-no-time-cap`
-Status: **IMPLEMENTATION TESTED; READY FOR REVIEW; NOT LIVE; NOT DEPLOYED**
+Status: **TESTS PASS; DRY-RUN PASS; NOT LIVE; NOT DEPLOYED**
 
 ## Verified implementation
 
-- Focused workflow [run 38554050377](https://github.com/azharmz/ussy-trendfoll/actions/runs/38554050377) passed. It compiled `exit_candidate003_shadow_v2.py` and `run_exit_candidate003_shadow_v2.py`; all **11 focused tests passed**.
+- Focused workflow [run 38554618008](https://github.com/azharmz/ussy-trendfoll/actions/runs/38554618008) passed after the runner adapter fix. It compiled `exit_candidate003_shadow_v2.py` and `run_exit_candidate003_shadow_v2.py`; all **11 focused tests passed**.
 - Tests now cover: no time cap; stop/trend execution ordering; idempotent and divergent ledger replay; late-bootstrap rejection; closed-position exclusion; and a full session advancement proving no mutation calls to production `positions`.
-- Standalone runner: `run_exit_candidate003_shadow_v2.py`. It is not imported by `main.py`; it requires an explicit `--as-of-date`, validates the exact latest R2 feature date, defaults to dry-run, and requires both `--write` and `USSY_CAND003_SHADOW_V2_WRITE_ACK=I_UNDERSTAND_SHADOW_ONLY` for persistence.
+- Standalone runner: `run_exit_candidate003_shadow_v2.py`. It is not imported by `main.py`; it requires an explicit `--as-of-date`, validates the exact latest R2 READY date, derives EMA20 directly from validated READY `close_raw` using production's `ewm(span=20, adjust=False)` formula, defaults to dry-run, and requires both `--write` and `USSY_CAND003_SHADOW_V2_WRITE_ACK=I_UNDERSTAND_SHADOW_ONLY` for persistence.
+- Actual read-only dry-run [run 38555455926](https://github.com/azharmz/ussy-trendfoll/actions/runs/38555455926) passed for R2 READY date **2026-10-13**: `active_v2=0`, `active_positions_without_v2=19`; output confirmed no database writes attempted. This is a scope preview, not a live observation.
 - Manual-only runner workflow: `.github/workflows/exit-candidate003-shadow-v2-runner.yml`. It has no push or schedule trigger, defaults to dry-run, requires exact write acknowledgement for write mode, and has isolated concurrency group `exit-cand-003-shadow-v2-research`.
 - Test workflow `.github/workflows/exit-candidate003-shadow-v2-tests.yml` has been restored to `workflow_dispatch` only after the isolated run. The one-time temporary push trigger was branch- and path-scoped, then removed immediately after the run started.
 - The only new workflow run from that trigger was the focused v2 test run 38554050377. No live runner workflow was invoked.
@@ -20,7 +21,8 @@ The branch's `.github/workflows` directory contains **40 workflow files**. All 4
 - Workflows with push triggers are restricted by branch and/or explicit paths. Branch-scoped workflows targeting other research/diagnostic branches cannot run from this v2 branch.
 - The few unscoped `push` triggers are path-filtered to unrelated Trend Filter, signal-path diagnostic, or NEAR_TRIGGER files. None of the changed v2 module, runner, v2 tests, v2 workflow, or v2 documentation paths match those filters.
 - `.github/workflows/daily.yml` has a schedule and manual dispatch, but scheduled events run on the default branch; the v2 research branch does not change the default-branch workflow.
-- No additional workflow run appeared from the temporary trigger beyond the intended focused test workflow.
+- Test trigger was restored to manual-only after the successful focused test. Runner trigger was also restored to manual-only after the successful dry-run. No non-v2 workflow was triggered by these changes.
+- Two earlier temporary runner attempts failed before any write (first due to importing the wrong adapter, second due to a malformed temporary date-output newline). A third dry-run passed. One earlier adapter-based run and a queued duplicate may remain in GitHub Actions until the runner timeout/concurrency queue resolves; they are read-only and do not invoke shadow persistence.
 - Result: **PASS for trigger blast-radius assessment of this branch's v2 changes**. This is a trigger topology review, not a review of all workflow job side effects or repository secrets.
 
 ## Data and production isolation
@@ -40,8 +42,8 @@ The branch's `.github/workflows` directory contains **40 workflow files**. All 4
 
 ## Decision
 
-**PASS:** focused implementation tests and full workflow-trigger topology review.
+**PASS:** 11 focused tests, full workflow-trigger topology review, and one actual read-only dry-run.
 
 **NOT YET APPROVED:** live v2 observation, any Supabase write, automated daily execution, strategy promotion, or production changes.
 
-Next safe action is a **dry-run only** using the current R2 READY date, then review its cohort counts and runner output. Do not select write mode until that output is accepted.
+Dry-run result: R2 READY date `2026-10-13`, 19 active production positions without v2 state, zero existing v2 rows. Review the cohort before approving any first write. Do not select write mode until the row-registration scope and service-role boundary are explicitly accepted.
