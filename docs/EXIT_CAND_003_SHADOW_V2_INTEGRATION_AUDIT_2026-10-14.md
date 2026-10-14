@@ -2,39 +2,46 @@
 
 Date: 2026-10-14
 Branch: `research/exit-cand-003-shadow-v2-no-time-cap`
-Status: **IMPLEMENTATION TESTED; NOT OPERATIONALLY ACCEPTED; NOT DEPLOYED**
+Status: **IMPLEMENTATION TESTED; READY FOR REVIEW; NOT LIVE; NOT DEPLOYED**
 
-## Verified
+## Verified implementation
 
-- Focused workflow `.github/workflows/exit-candidate003-shadow-v2-tests.yml` is `workflow_dispatch` only, checks out this research branch, and runs only `test_exit_candidate003_shadow_v2.py`.
-- Successful focused workflow: [run 38552172388](https://github.com/azharmz/ussy-trendfoll/actions/runs/38552172388), 8/8 tests passed.
-- Selected workflow review:
-  - `.github/workflows/daily.yml`: manual `workflow_dispatch` only; production pipeline has a concurrency group `ussy-trendfoll-production`.
-  - `.github/workflows/exit-candidate003-development.yml`: `push` limited to `research/exit-development-hypotheses` and selected paths, plus manual dispatch.
-  - `.github/workflows/exit-candidate003-validation.yml`: manual dispatch only.
-  - `.github/workflows/cand003-shadow-session-ledger.yml`: push limited to its dedicated research branch and listed paths, plus manual dispatch.
-- `main.py` imports and invokes `exit_candidate003_shadow.run_shadow(...)` (v1). It does **not** import or invoke v2. This is the correct no-production-change state, but means v2 has no operational session runner yet.
-- V2 reuses the existing shadow and session-ledger tables with the distinct `contract_version`; the composite uniqueness constraints were previously verified read-only. No schema migration is currently indicated.
-- V2 module reads production positions for comparison and writes only versioned shadow rows/session evidence. Its code does not issue writes to `positions`.
+- Focused workflow [run 38554050377](https://github.com/azharmz/ussy-trendfoll/actions/runs/38554050377) passed. It compiled `exit_candidate003_shadow_v2.py` and `run_exit_candidate003_shadow_v2.py`; all **11 focused tests passed**.
+- Tests now cover: no time cap; stop/trend execution ordering; idempotent and divergent ledger replay; late-bootstrap rejection; closed-position exclusion; and a full session advancement proving no mutation calls to production `positions`.
+- Standalone runner: `run_exit_candidate003_shadow_v2.py`. It is not imported by `main.py`; it requires an explicit `--as-of-date`, validates the exact latest R2 feature date, defaults to dry-run, and requires both `--write` and `USSY_CAND003_SHADOW_V2_WRITE_ACK=I_UNDERSTAND_SHADOW_ONLY` for persistence.
+- Manual-only runner workflow: `.github/workflows/exit-candidate003-shadow-v2-runner.yml`. It has no push or schedule trigger, defaults to dry-run, requires exact write acknowledgement for write mode, and has isolated concurrency group `exit-cand-003-shadow-v2-research`.
+- Test workflow `.github/workflows/exit-candidate003-shadow-v2-tests.yml` has been restored to `workflow_dispatch` only after the isolated run. The one-time temporary push trigger was branch- and path-scoped, then removed immediately after the run started.
+- The only new workflow run from that trigger was the focused v2 test run 38554050377. No live runner workflow was invoked.
 
-## Readiness blockers / limitations
+## Complete workflow-trigger topology audit
 
-1. **No v2 runner wiring:** Do not add v2 to production `main.py`. A separately gated research runner is required, with an explicit input/as-of date and no production writes.
-2. **Operational workflow topology audit is partial:** The relevant workflows above were inspected, but this is not a complete enumeration of every workflow in the repository. Therefore no workflow run, scheduled execution, or database write is authorized by this audit.
-3. **No live v2 cohort:** No v2 rows were seeded and no v2 session evidence was written. Forward-only operation and actual table permissions remain unverified in practice.
-4. **Coverage gap:** Current v2 focused tests cover the frozen exit rules and ledger replay invariants. They do not yet test the full registration/update path against a faithful Supabase client or assert that the production `positions` table receives no mutation calls.
-5. **Comparator issue remains:** The frozen validation comparison used mismatched gap-fill semantics; do not use its apparent improvement as proof of edge. A new paired research run must apply the same executable fill rules to both sides.
-6. The row-level divergence query for four existing v1 cases was blocked by the tool safety layer; their individual causes remain unknown.
+The branch's `.github/workflows` directory contains **40 workflow files**. All 40 trigger declarations were inspected.
+
+- Workflows with push triggers are restricted by branch and/or explicit paths. Branch-scoped workflows targeting other research/diagnostic branches cannot run from this v2 branch.
+- The few unscoped `push` triggers are path-filtered to unrelated Trend Filter, signal-path diagnostic, or NEAR_TRIGGER files. None of the changed v2 module, runner, v2 tests, v2 workflow, or v2 documentation paths match those filters.
+- `.github/workflows/daily.yml` has a schedule and manual dispatch, but scheduled events run on the default branch; the v2 research branch does not change the default-branch workflow.
+- No additional workflow run appeared from the temporary trigger beyond the intended focused test workflow.
+- Result: **PASS for trigger blast-radius assessment of this branch's v2 changes**. This is a trigger topology review, not a review of all workflow job side effects or repository secrets.
+
+## Data and production isolation
+
+- Production `main.py` continues to import and invoke v1 only; no v2 imports or calls were added.
+- The standalone runner calls only the v2 shadow module after explicit write opt-in. It does not call production exit/stop/alert/dashboard mutators.
+- V2 uses the distinct `contract_version` in the existing shadow and session-ledger tables. Composite uniqueness constraints were previously verified read-only; no schema migration was made.
+- **No v2 rows were seeded; no Supabase writes were performed; no production position, stop, exit, dashboard, or alert state was changed.**
+- Write-mode runner and live database permissions have not been exercised. This is intentional until operational review is complete.
+
+## Remaining blockers before live observation
+
+1. Review the runner and its dry-run output on the actual R2 READY snapshot, confirming the as-of date and eligible cohort before any write.
+2. Verify the service-role permission boundary and row counts during an explicitly approved first write; do not use a production workflow or production `main.py`.
+3. Do not treat prior candidate-vs-current performance as evidence of edge: the frozen comparison had mismatched gap-fill semantics. A new paired research run must use the same executable fill rules for both sides.
+4. Four v1 divergence cases remain undiagnosed at individual-bar level because the row-level query was blocked by the tool safety layer.
 
 ## Decision
 
-**PASS:** focused unit tests and selected static integration checks.
+**PASS:** focused implementation tests and full workflow-trigger topology review.
 
-**NOT READY:** operational v2 observation, automated daily execution, strategy promotion, or production changes.
+**NOT YET APPROVED:** live v2 observation, any Supabase write, automated daily execution, strategy promotion, or production changes.
 
-## Safe next steps
-
-- Add tests for late-bootstrap rejection, production-table write isolation, and end-to-end session advancement using a faithful fake client.
-- Implement a standalone/manual-only research runner on this branch; it must not be imported by production `main.py`.
-- Complete the all-workflow trigger audit and verify required secrets/permissions without exposing them.
-- Review the runner and execution plan before any live v2 write. Until then, keep v2 tables untouched.
+Next safe action is a **dry-run only** using the current R2 READY date, then review its cohort counts and runner output. Do not select write mode until that output is accepted.
