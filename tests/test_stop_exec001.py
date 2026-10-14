@@ -15,8 +15,13 @@ def _history(open_day1, low_day1, stop_at=98.0):
         "atr14": (100.0 - stop_at) / 2.0, "ema20": 90.0,
     }]
     for i in range(1, 47):
-        op = open_day1 if i == 1 else 100.0
-        lo = low_day1 if i == 1 else 99.0
+        # T+1 is the entry bar at 100; the test gap/touch occurs on T+2.
+        if i == 1:
+            op, lo = 100.0, 99.0
+        elif i == 2:
+            op, lo = open_day1, low_day1
+        else:
+            op, lo = 100.0, 99.0
         rows.append({
             "symbol": "X", "date": pd.Timestamp("2026-01-01") + pd.Timedelta(days=i),
             "open_raw": op, "high_raw": max(op, 101.0), "low_raw": lo,
