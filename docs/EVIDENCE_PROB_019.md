@@ -1,6 +1,6 @@
 # Evidence — PROB-019 Research History / Pre-roll Architecture Gate
 
-Status: **PASS / RESOLVED ARCHITECTURE GATE**
+Status: **HISTORICAL GATE RESOLVED; 2026-10-14 CANONICAL-PREFIX RE-AUDIT BLOCKED ON EMA PARITY**
 
 Date locked: 2026-09-15 (Asia/Makassar)
 
@@ -137,6 +137,23 @@ Validation:
 - Repository-wide pytest run: [run 38558808568](https://github.com/azharmz/ussy-trendfoll/actions/runs/38558808568)
 - Tested code base: main commit `afe38c60e5e54d9a93175dfd3e2c783e7eb7315f`
 - Result: **104 passed, 4 warnings**.
-- The test run verifies repository regressions and the updated path fixture. It did **not** rerun the 100-security live R2 architecture audit against the new prefix. The original 2026-09-15 audit metrics above remain historical evidence from the old prefix and must not be represented as a fresh audit of the new namespace.
+- The test run verifies repository regressions and the updated path fixture. The live R2 architecture audit was subsequently rerun on the canonical prefix (run 38560571911) and is **BLOCKED** on exact canonical EMA parity; see the next section. The original 2026-09-15 audit metrics above remain historical evidence from the old prefix and must not be represented as a fresh audit of the new namespace.
 
 The namespace reconciliation changes object-key selection only. It does not change pre-roll length, feature formulas, evaluation bounds, EMA basis, Stage semantics, signal/exit rules, or any trading thresholds.
+
+### Canonical-prefix re-audit — 2026-10-14 — BLOCKED
+
+Workflow run [38560571911](https://github.com/azharmz/ussy-trendfoll/actions/runs/38560571911) ran the repository suite (**104 passed, 4 warnings**) and then read the current R2 history and shared EMA state for the deterministic 100-security sample. It did not write production data.
+
+Observed:
+- Canonical source prefix: `history/ohlcv/`; 100/100 requested securities loaded.
+- Full-history rows: 522,387; research-eligible rows: 25,201 across 88 securities.
+- READY/history overlap: 29,974 rows; exact `close` and `adj_close` mismatches at 1e-10: **0**; max absolute source difference: **0.0**.
+- Shared EMA rows/date matches: 100/100; latest adjusted price mismatches: **0**.
+- Exact EMA parity still fails: 301 period comparisons exceed 1e-10 (EMA20 76, EMA50 76, EMA150 76, EMA200 73); maximum absolute differences are approximately 8.61e-6.
+- Trend-stack mismatches: **0**; latest Stage mismatches: **0**.
+- A second comparison using the same scalar recurrence as `ussy-data/src/ema_state.py` produced the same EMA differences, so this is not explained solely by pandas EWM implementation.
+
+Interpretation boundary: current READY-overlap prices and latest prices are exact, but this does not establish equality of the entire pre-roll lineage used to build the persisted EMA state. The audit does **not** prove the root cause; stale/divergent historical state lineage remains a hypothesis requiring upstream evidence. Do not loosen the 1e-10 gate or alter feature/strategy semantics to force PASS.
+
+Next action: inspect the upstream shared-EMA manifest and rebuild lineage, then compare its recorded source history/version with the current `history/ohlcv/` objects. Any production EMA rebuild must follow `ussy-governance` and the `ussy-data` production workflow contract; this audit made no production writes.
