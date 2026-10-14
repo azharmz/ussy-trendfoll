@@ -22,15 +22,15 @@ tradability PASS), dan regime_status tidak pernah dicek. Diverifikasi ulang:
 di 1302 trade backtest historis, regime_status SELALU PASS (0 trade lain) —
 mengkonfirmasi backtest memang mensyaratkan hard_filter_status PASS penuh.
 
-Tiap hari, posisi yang masih "active" dicek terhadap 3 kondisi exit — PERSIS
-logika di portfolio_backtest.py (parameter final Sprint 3), diverifikasi
-baris-per-baris terhadap kode aslinya:
+Tiap hari, posisi yang masih "active" dicek terhadap 2 kondisi exit:
   1. stop_loss   : low_raw <= stop_price (intraday LOW, BUKAN close) —
                    jika open_raw <= stop_price, fill di Open (gap-through);
                    selain itu fill di stop_price (intraday touch)
-  2. max_holding : 45 hari bursa sejak entry_date, exit_price = close_raw
-  3. trend_exit  : close_raw < ema20 (BUKAN ema_stack_aligned/stage — itu
-                   kriteria Investability yang beda tujuan) — exit_price = close_raw
+  2. trend_exit  : close_raw < ema20 (BUKAN ema_stack_aligned/stage — itu
+                   kriteria Investability yang beda tujuan)
+
+Tidak ada batas maksimal holding period; posisi tetap aktif sampai stop-loss
+atau trend_exit terpicu. — exit_price = close_raw
 
 Koreksi dari versi sebelumnya: sempat pakai close_raw untuk cek stop_loss
 (harusnya low_raw) dan ema_stack_aligned+stage untuk trend_exit (harusnya
@@ -46,8 +46,7 @@ kalau simbol yang sudah exit breakout lagi nanti, itu jadi posisi baru terpisah.
 import pandas as pd
 from datetime import date
 
-ATR_STOP_MULTIPLIER = 2.0    # final Sprint 3, jangan diubah tanpa alasan
-MAX_HOLDING_DAYS = 45        # final Sprint 3
+ATR_STOP_MULTIPLIER = 2.0    # stop anchor: filled entry - 2 × ATR14 T0
 
 
 def validate_active_position_coverage(client, latest: pd.DataFrame):
@@ -311,9 +310,8 @@ def check_exits(client, latest_features: pd.DataFrame, as_of_date, all_trading_d
     as_of_date. Perlu kolom: symbol, open_raw, low_raw, close_raw, ema20.
 
     all_trading_dates: array/Series tanggal bursa UNIK dari seluruh histori
-    feature store (bukan cuma tanggal terbaru) — dipakai untuk hitung hari
-    BURSA yang akurat antara entry_date dan as_of_date (45 hari kalender !=
-    45 hari bursa, bedanya signifikan untuk threshold max_holding).
+    feature store (bukan cuma tanggal terbaru) — dipakai hanya untuk metrik
+    days_held pada catatan posisi yang exit, bukan sebagai pemicu exit.
 
     Return: list dict posisi yang baru exit hari ini (untuk notifikasi).
     """
@@ -350,8 +348,6 @@ def check_exits(client, latest_features: pd.DataFrame, as_of_date, all_trading_d
             # Keep the canonical status/reason stable for existing dashboard
             # and Supabase consumers; only correct the executable fill price.
             exit_reason = "stop_loss"
-        elif days_held >= MAX_HOLDING_DAYS:
-            exit_reason, exit_price = "max_holding", close_raw
         elif pd.notna(row.get("ema20")) and close_raw < float(row["ema20"]):
             exit_reason, exit_price = "trend_exit", close_raw
 
