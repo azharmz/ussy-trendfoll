@@ -1,6 +1,6 @@
 # PROB-017 — Ledger-aware canonical history and integrity preflight
 
-Status: **CANONICAL CONSUMER IDENTIFIED / RPC + DASHBOARD PATCH ADDED / DEPLOYMENT VALIDATION PENDING**
+Status: **RPC APPLIED + DATABASE SMOKE TEST PASS / DASHBOARD PATCH IN DRAFT PR / EXTERNAL CONSUMER AUDIT PENDING**
 
 Branch: `diagnostic/prob017-canonical-preflight`  
 Scope: software integrity only. No strategy, entry, exit, or production database rows are changed by this branch.
@@ -20,7 +20,10 @@ Scope: software integrity only. No strategy, entry, exit, or production database
 
 - GitHub Actions run **PROB-017 Identity Tests #11** completed successfully on 2026-10-14: **7 passed in 0.34s**. This includes five identity-validator tests and two dashboard/RPC source-contract tests.
 - The FSE-007/FSE-013 production regression and gap-aware stop execution regression workflows associated with the earlier PR commit also completed successfully.
-- These results validate Python unit tests and source contracts; they do **not** execute the SQL function against PostgreSQL or prove live dashboard behavior.
+- Production migration `20261014030257_prob017_canonical_position_history_rpc` was applied to Supabase project `USSY Trendfoll` on 2026-10-14.
+- Live SQL smoke checks passed: source table remains at 66 rows; canonical RPC returns 65 rows; ANF `2026-08-26` returns only canonical ID 19; canonical output contains no duplicate `(symbol, entry_date)` groups; `anon` and `authenticated` can execute the RPC.
+- The Supabase security advisor flags the public `SECURITY DEFINER` RPC as a warning because it is callable by `anon` and `authenticated`. This is currently intentional for the public dashboard, and the RPC is read-only with a fixed `search_path`; the existing `positions` table already has public SELECT access. This warning must be reviewed before treating the security review as complete.
+- These checks validate database execution and the Python/source contracts; they do **not** prove the live dashboard is already using the RPC. The dashboard change remains in draft PR #16.
 
 ## Expected behavior for the known ANF identity
 
@@ -35,6 +38,6 @@ The preflight stops the daily pipeline if it finds a duplicate group without exa
 
 ## Remaining validation boundary
 
-The TrendFoll web dashboard was one confirmed direct reader and has now been switched in code to the canonical RPC. Before it can work in production, apply `sql/migrate_prob017_canonical_reader_rpc.sql` after the reconciliation-ledger migration so PostgREST can expose the function. The RPC has not yet been executed against the live database, and other exports/notebooks/external applications still need an inventory. Therefore end-to-end closure remains pending.
+The TrendFoll web dashboard was one confirmed direct reader and its code in draft PR #16 now uses the canonical RPC. The RPC migration is applied and the live SQL smoke tests pass, but the dashboard change has not been merged/deployed. Other exports/notebooks/external applications still need an inventory. Therefore end-to-end closure remains pending.
 
 No unique constraint on `(symbol, entry_date)` is proposed: later re-entry semantics remain distinct from immutable lifecycle identity `positions.id`.
