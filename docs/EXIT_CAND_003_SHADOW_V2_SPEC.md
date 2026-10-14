@@ -1,6 +1,6 @@
 # EXIT-CAND-003 Shadow v2 — No Time-Based Exit Contract
 
-Status: **IMPLEMENTATION TESTED / READY FOR DRY-RUN REVIEW / NOT LIVE / NOT DEPLOYED**
+Status: **IMPLEMENTATION TESTED / DRY-RUN PASS / NOT LIVE / NOT DEPLOYED**
 
 ## Purpose
 
@@ -45,7 +45,8 @@ This is a comparator-contract correction for a new research run only. Do not ret
 - Runner requires an explicit `--as-of-date`, requires that date to match the latest R2 feature date, and defaults to dry-run.
 - Persistence requires both `--write` and environment acknowledgement `USSY_CAND003_SHADOW_V2_WRITE_ACK=I_UNDERSTAND_SHADOW_ONLY`.
 - Manual-only runner workflow: `.github/workflows/exit-candidate003-shadow-v2-runner.yml`; no push or schedule trigger.
-- Focused tests: `tests/test_exit_candidate003_shadow_v2.py`. The successful run [38554050377](https://github.com/azharmz/ussy-trendfoll/actions/runs/38554050377) compiled the module and runner and passed all 11 tests, including no time cap, stop-fill priority, late-bootstrap rejection, closed-position exclusion, replay invariants, and production-position write isolation.
+- Focused tests: `tests/test_exit_candidate003_shadow_v2.py`. The successful run [38554618008](https://github.com/azharmz/ussy-trendfoll/actions/runs/38554618008) compiled the module and runner and passed all 11 tests, including no time cap, stop-fill priority, late-bootstrap rejection, closed-position exclusion, replay invariants, and production-position write isolation.
+- Read-only dry-run [38555455926](https://github.com/azharmz/ussy-trendfoll/actions/runs/38555455926) passed against R2 READY date `2026-10-13`: `active_v2=0`, `active_positions_without_v2=19`. No database writes were attempted.
 - All 40 workflow trigger declarations in this branch were inspected. Push triggers are branch/path restricted; unscoped push workflows have unrelated path filters. The one-time scoped trigger for tests was removed immediately after the run started; test workflow is manual-only again.
 
 ## Rollout gate
@@ -59,7 +60,7 @@ This is a comparator-contract correction for a new research run only. Do not ret
 ## Current operational status (2026-10-14)
 
 - **PASS:** focused implementation tests and workflow-trigger topology audit.
-- **NEXT:** dry-run review only; no live observation yet.
+- **NEXT:** review the 19-position eligible cohort before any first write; no live observation yet.
 - **NOT DONE:** first v2 database write, live permissions exercise, matched-fill paired research comparison.
 - Four v1 divergence cases remain undiagnosed at individual-bar level because the row-level query was blocked by the tool safety layer.
 - No v2 rows were written; no Supabase changes; no production file, position, exit, dashboard, or alert state was changed.
