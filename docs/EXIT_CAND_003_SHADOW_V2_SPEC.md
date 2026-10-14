@@ -22,8 +22,8 @@ Define a separately versioned observational contract that follows the user's sta
 
 - New contract identifier: `exit-cand-003-shadow-v2`.
 - Existing v1 records, session ledger, and validation artifact remain immutable historical evidence.
-- New cohort must be keyed by (position_id, contract_version) and ledger evidence by (position_id, session_date, contract_version).
-- Before enabling live writes, verify the database has these composite uniqueness constraints. If it does not, prepare a reviewed migration first; do not write v2 rows until uniqueness is proven.
+- Live database constraints were checked read-only and PASS: `exit_candidate003_shadow` has UNIQUE `(position_id, contract_version)`; `exit_candidate003_shadow_sessions` has UNIQUE `(position_id, session_date, contract_version)`. These support version-isolated v2 rows without a schema migration.
+- The row-level session/production divergence query was blocked by the tool safety layer, so the four cases remain undiagnosed at individual-bar level.
 - V2 starts only on genuine first observable T+1 session. No late bootstrap.
 - V1 invalid_bootstrap rows are excluded from all valid cohort reporting.
 - Production `positions`, production stop prices, exits, dashboard projection, and alerts must not be changed by this shadow.
@@ -53,7 +53,7 @@ This is a comparator-contract correction for a new research run only. Do not ret
 ## Rollout gate
 
 1. Implement isolated v2 module and focused tests on this research branch.
-2. Inspect live database constraints before enabling v2 persistence.
+2. Database version-key uniqueness is verified; do not write v2 rows until the module and tests exist and are reviewed.
 3. Verify workflow trigger blast radius; keep workflows manual-only unless a narrowly isolated one-time run is needed.
 4. Start v2 only as an observational cohort; compare production execution without using production outcomes as inputs to shadow decisions.
 5. Accumulate forward-only evidence and report cohort counts, divergence classes, and data-quality exceptions.
