@@ -208,8 +208,8 @@ Blocked until Section E has sufficient locked operational evidence. Current auth
 
 **NEXT ACTION:**
 
-1. Current production max-holding-period removal decision and repository behavior audit recorded in `docs/DECISION_CURRENT_EXIT_NO_MAX_HOLDING_PERIOD.md`; code audit found no age-only exit branch. Regression coverage is being added; live deployment check remains pending.
-2. After exit regression CI passes, reconcile stale documentation/debt markers against the current evidence.
+1. CURRENT repository audit and regression coverage are merged (PR #17, `d5c04e884958befb5c7ab550c4720282a7e354f5`); workflow run `38552916021` passed. Live deployment / OKTA row check remains pending.
+2. Reconcile stale documentation/debt markers against current evidence (master queue item 2).
 3. Independently verify live deployment and the long-held OKTA row when production read access is available.
 4. Separately, let the normal daily pipeline continue; do not manufacture or backfill CAND-003 operational evidence. Continue E2–E4 only on genuine sequential sessions.
 
