@@ -148,7 +148,7 @@ def main():
     ready, manifest = load_ready_dataset()
     ids = sample_ids(ready)
     end = manifest.get("snapshot_date") or str(pd.to_datetime(ready["date"]).max().date())
-    hist, report = load_research_history(ids, evaluation_end=end, min_preroll_bars=500, ready=ready, ready_manifest=manifest)
+    hist, report = load_research_history(ids, evaluation_end=end, min_preroll_bars=500, ready=ready, ready_manifest=manifest, history_prefix="backtest/ohlcv/")
     feat = build_research_feature_store(hist)["features"].sort_values(["symbol", "date"]).copy()
     dec = compute_decision_layer(compute_hard_filter(feat)).sort_values(["symbol", "date"]).copy()
     events = build_signal_path_events(dec)

@@ -40,10 +40,10 @@ class _FakeMissingHistoryS3:
 class TestResearchHistoryMissingObjectContext(unittest.TestCase):
     def test_missing_object_error_names_exact_r2_key(self):
         ready = pd.DataFrame([{"security_id": "SEC-A", "ticker": "AAA"}])
-        with self.assertRaisesRegex(FileNotFoundError, r"history/ohlcv/SEC-A\.parquet"):
+        with self.assertRaisesRegex(FileNotFoundError, r"backtest/ohlcv/SEC-A\.parquet"):
             load_research_history(["SEC-A"], evaluation_end="2026-10-01", min_preroll_bars=500,
                                   ready=ready, ready_manifest={"snapshot_date": "2026-10-01"},
-                                  s3=_FakeMissingHistoryS3(), bucket="ussy-data")
+                                  s3=_FakeMissingHistoryS3(), bucket="ussy-data", history_prefix="backtest/ohlcv/")
 
 
 if __name__ == "__main__":

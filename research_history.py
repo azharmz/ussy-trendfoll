@@ -99,6 +99,7 @@ def load_research_history(
     ready_manifest: dict | None = None,
     s3=None,
     bucket: str | None = None,
+    history_prefix: str = HISTORY_PREFIX,
 ) -> tuple[pd.DataFrame, ResearchHistoryReport]:
     """Load governed full stock history and mark evaluation-eligible rows.
 
@@ -139,7 +140,7 @@ def load_research_history(
 
     frames: list[pd.DataFrame] = []
     for sid in requested:
-        key = f"{HISTORY_PREFIX}{sid}.parquet"
+        key = f"{history_prefix}{sid}.parquet"
         try:
             body = s3.get_object(Bucket=bucket, Key=key)["Body"].read()
         except Exception as exc:
