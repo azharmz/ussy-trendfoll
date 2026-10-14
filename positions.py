@@ -214,24 +214,111 @@ def _get_signal_positions(client, symbol, entry_date):
             .order("id").execute().data or [])
 
 
-def assert_position_identity_integrity(client):
-    """Fail closed if production history contains ambiguous logical identities."""
-    rows = client.table("positions").select("id,symbol,entry_date,status").execute().data or []
-    seen = {}
-    duplicates = {}
+def _validate_position_identity_rows(rows, reconciliations):
+    """Validate duplicate signal identities against explicit, auditable decisions.
+
+    A duplicate group is acceptable only when exactly one resolved ledger row
+    names one present canonical position and every other row in that group as
+    excluded. This never edits or deletes the source position rows.
+    """
+    groups = {}
     for row in rows:
         key = (row["symbol"], str(row["entry_date"]))
-        if key in seen:
-            duplicates.setdefault(key, [seen[key]]).append(row)
-        else:
-            seen[key] = row
-    if duplicates:
-        detail = "; ".join(
-            f"{s}/{d}: ids={[r['id'] for r in rs]}"
-            for (s, d), rs in sorted(duplicates.items())
-        )
-        raise RuntimeError("Ambiguous production position identity; canonical lookup must use id. " + detail)
+        groups.setdefault(key, []).append(row)
+
+    ledger_by_key = {}
+    for item in reconciliations:
+        key = (item["symbol"], str(item["entry_date"]))
+        ledger_by_key.setdefault(key, []).append(item)
+
+    errors = []
+    for key, group in groups.items():
+        if len(group) < 2:
+            continue
+        ids = {int(row["id"]) for row in group}
+        decisions = ledger_by_key.get(key, [])
+        resolved = [item for item in decisions if item.get("resolution_status") == "resolved"]
+        if len(resolved) != 1:
+            errors.append(f"{key[0]}/{key[1]} ids={sorted(ids)} has {len(resolved)} resolved ledger decisions")
+            continue
+        decision = resolved[0]
+        canonical_id = int(decision["canonical_position_id"])
+        excluded_ids = {int(value) for value in (decision.get("excluded_position_ids") or [])}
+        if canonical_id not in ids or excluded_ids != (ids - {canonical_id}):
+            errors.append(
+                f"{key[0]}/{key[1]} ids={sorted(ids)} ledger canonical={canonical_id} "
+                f"excluded={sorted(excluded_ids)} does not exactly reconcile the group"
+            )
+
+    for key, decisions in ledger_by_key.items():
+        for decision in decisions:
+            if decision.get("resolution_status") != "resolved":
+                continue
+            group = groups.get(key, [])
+            ids = {int(row["id"]) for row in group}
+            canonical_id = int(decision["canonical_position_id"])
+            excluded_ids = {int(value) for value in (decision.get("excluded_position_ids") or [])}
+            if not group or canonical_id not in ids or excluded_ids != (ids - {canonical_id}):
+                errors.append(
+                    f"{key[0]}/{key[1]} resolved ledger is stale or incomplete: "
+                    f"present={sorted(ids)} canonical={canonical_id} excluded={sorted(excluded_ids)}"
+                )
+
+    if errors:
+        raise RuntimeError("Position identity integrity preflight failed: " + "; ".join(sorted(set(errors))))
     return True
+
+
+def _canonical_position_rows(rows, reconciliations):
+    """Return canonical history rows after validating all duplicate groups."""
+    _validate_position_identity_rows(rows, reconciliations)
+    excluded = set()
+    for item in reconciliations:
+        if item.get("resolution_status") == "resolved":
+            excluded.update(int(value) for value in (item.get("excluded_position_ids") or []))
+    return [row for row in rows if int(row["id"]) not in excluded]
+
+
+def _fetch_all_table_rows(client, table_name, columns="*"):
+    """Read a complete Supabase table snapshot using deterministic pagination."""
+    rows = []
+    start = 0
+    page_size = 1000
+    while True:
+        batch = (
+            client.table(table_name).select(columns)
+            .range(start, start + page_size - 1).execute().data or []
+        )
+        rows.extend(batch)
+        if len(batch) < page_size:
+            return rows
+        start += page_size
+
+
+def assert_position_identity_integrity(client):
+    """Fail closed unless every duplicate logical identity has a valid resolution."""
+    rows = _fetch_all_table_rows(client, "positions", "id,symbol,entry_date,status")
+    reconciliations = _fetch_all_table_rows(
+        client,
+        "position_identity_reconciliations",
+        "symbol,entry_date,canonical_position_id,excluded_position_ids,resolution_status",
+    )
+    _validate_position_identity_rows(rows, reconciliations)
+    print(f"[positions] Identity preflight PASS: {len(rows)} rows, reconciliations validated.")
+    return True
+
+
+def get_canonical_position_history(client):
+    """Return canonical position history; unresolved duplicate identities fail closed."""
+    rows = _fetch_all_table_rows(client, "positions", "*")
+    reconciliations = _fetch_all_table_rows(
+        client,
+        "position_identity_reconciliations",
+        "symbol,entry_date,canonical_position_id,excluded_position_ids,resolution_status",
+    )
+    canonical = _canonical_position_rows(rows, reconciliations)
+    print(f"[positions] Canonical history: {len(canonical)} of {len(rows)} rows.")
+    return canonical
 
 
 def register_new_positions(client, latest: pd.DataFrame, as_of_date):

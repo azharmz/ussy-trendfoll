@@ -1,0 +1,43 @@
+name: PROB-017 Identity Tests
+
+on:
+  pull_request:
+    branches:
+      - main
+    paths:
+      - "positions.py"
+      - "main.py"
+      - "tests/test_prob017_position_identity.py"
+      - "tests/test_prob017_dashboard_consumer.py"
+      - "web/index.html"
+      - "sql/migrate_prob017_identity_reconciliation.sql"
+      - "sql/migrate_prob017_canonical_reader_rpc.sql"
+      - "requirements.txt"
+      - "docs/EVIDENCE_PROB_017_CANONICAL_READER.md"
+      - ".github/workflows/prob017-tests.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: prob017-tests-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: false
+
+jobs:
+  position-identity-tests:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+          cache: pip
+          cache-dependency-path: requirements.txt
+      - name: Install test dependencies
+        run: |
+          python -m pip install --upgrade pip
+          python -m pip install -r requirements.txt pytest
+      - name: Run PROB-017 tests
+        run: python -m pytest -q tests/test_prob017_position_identity.py tests/test_prob017_dashboard_consumer.py

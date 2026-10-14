@@ -35,6 +35,9 @@ def _write_near_trigger_shadow_snapshot(latest: pd.DataFrame, as_of_date):
 
 def main():
     client = database.get_client()
+    # Non-destructive fail-closed preflight. Existing duplicate history is
+    # accepted only when its canonical/excluded mapping is explicitly resolved.
+    positions.assert_position_identity_integrity(client)
     ready, manifest = load_ready_dataset()
     universe = sorted(ready["ticker"].dropna().unique().tolist())
     if not universe:
