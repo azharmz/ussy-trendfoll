@@ -85,7 +85,7 @@ AND has_volume_confirmation == True  # breakout_volume_percentile >= 80
 `has_tight_structure` TIDAK disyaratkan — diverifikasi ke `portfolio_backtest.py`
 asli, bukan syarat keras masuk backtest.
 
-## Exit tracking (persis parameter final Sprint 3)
+## Exit tracking
 
 - **stop_loss**: `low_raw <= stop_price` (intraday low, bukan close) —
   jika `open_raw <= stop_price`, fill memakai `open_raw` (gap-through); jika
@@ -95,8 +95,10 @@ asli, bukan syarat keras masuk backtest.
 - **stop anchor**: `realistic_entry_price (open H+1) - 2 × ATR14 T0`.
   ATR dibekukan dari hari sinyal; stop diperbarui setelah open H+1 tersedia
   dan sebelum pengecekan exit pada hari tersebut.
-- **max_holding**: 45 hari BURSA sejak entry (hari entry = 0)
 - **trend_exit**: `close_raw < ema20`
+
+Tidak ada batas maksimal holding period. Posisi tetap aktif sampai salah satu
+pemicu exit di atas terjadi.
 
 Satu symbol cuma boleh punya 1 posisi `active` (unique index parsial di SQL).
 
