@@ -16,6 +16,13 @@ import pandas as pd
 
 READY_POINTER = "production/ready/current.json"
 READY_PREFIX = "production/ready/runs/"
+SUPPORTED_READY_SCHEMA_VERSIONS = {1, 2}
+READY_V2_REQUIRED_FIELDS = {
+    "as_of_date",
+    "as_of_security_count",
+    "terminal_date_min",
+    "terminal_date_max",
+}
 
 
 def make_r2_client():
@@ -32,6 +39,31 @@ def make_r2_client():
     )
 
 
+def _validate_ready_manifest(manifest: dict) -> str:
+    """Validate the upstream READY pointer without weakening fail-closed semantics.
+
+    Schema v2 was introduced by ussy-data to publish terminal-date/as-of
+    coherence metadata. TrendFoll accepts both the historical v1 contract and
+    the governed v2 contract, while v2 must carry its required coherence fields
+    and must declare terminal_date_max == as_of_date.
+    """
+    schema_version = manifest.get("schema_version")
+    key = manifest.get("parquet_key")
+    if schema_version not in SUPPORTED_READY_SCHEMA_VERSIONS:
+        raise ValueError(f"Invalid ready manifest schema_version: {schema_version!r}")
+    if not isinstance(key, str) or not key.startswith(READY_PREFIX):
+        raise ValueError("Invalid ready manifest parquet_key")
+
+    if schema_version == 2:
+        missing = READY_V2_REQUIRED_FIELDS - set(manifest)
+        if missing:
+            raise ValueError(f"Invalid ready v2 manifest; missing fields: {sorted(missing)}")
+        if manifest["terminal_date_max"] != manifest["as_of_date"]:
+            raise ValueError("READY v2 as-of/max terminal-date mismatch")
+
+    return key
+
+
 def load_ready_dataset(s3=None, bucket: str | None = None):
     s3 = s3 or make_r2_client()
     bucket = bucket or os.environ.get("R2_BUCKET_NAME", "ussy-data")
@@ -39,9 +71,7 @@ def load_ready_dataset(s3=None, bucket: str | None = None):
     manifest = json.loads(
         s3.get_object(Bucket=bucket, Key=READY_POINTER)["Body"].read()
     )
-    key = manifest.get("parquet_key")
-    if manifest.get("schema_version") != 1 or not isinstance(key, str) or not key.startswith(READY_PREFIX):
-        raise ValueError("Invalid ready manifest")
+    key = _validate_ready_manifest(manifest)
 
     body = s3.get_object(Bucket=bucket, Key=key)["Body"].read()
     if hashlib.sha256(body).hexdigest() != manifest.get("sha256"):
@@ -59,15 +89,69 @@ def load_ready_dataset(s3=None, bucket: str | None = None):
         raise ValueError("Ready manifest/data security-id mismatch")
 
     frame = frame.copy()
-    frame["date"] = pd.to_datetime(frame["date"], errors="raise")
-    if frame.duplicated(["security_id", "date"]).any():
-        raise ValueError("Duplicate security/date rows in ready dataset")
+    frame["security_id"] = frame["security_id"].astype(str)
+    frame["ticker"] = frame["ticker"].astype(str)
+    frame["date"] = pd.to_datetime(frame["date"], errors="raise").dt.tz_localize(None).dt.normalize()
+    validate_ready_identity_contract(frame)
 
     return frame.sort_values(["security_id", "date"]).reset_index(drop=True), manifest
 
 
+def validate_ready_identity_contract(frame: pd.DataFrame) -> dict:
+    """Fail closed before ticker/date becomes TrendFoll's market-observation key.
+
+    Upstream security_id remains the stronger security identity. TrendFoll's
+    feature engine groups by ticker/symbol, so each downstream (symbol, date)
+    must resolve to exactly one upstream security/date observation.
+    """
+    required = {"security_id", "ticker", "date", "open", "high", "low", "close", "adj_close", "volume"}
+    missing = required - set(frame.columns)
+    if missing:
+        raise ValueError(f"Ready identity validation missing columns: {sorted(missing)}")
+    work = frame.copy()
+    work["security_id"] = work["security_id"].astype(str)
+    work["ticker"] = work["ticker"].astype(str)
+    work["date"] = pd.to_datetime(work["date"], errors="raise").dt.tz_localize(None).dt.normalize()
+
+    if work.duplicated(["security_id", "date"]).any():
+        bad = work.loc[work.duplicated(["security_id", "date"], keep=False), ["security_id", "ticker", "date"]]
+        raise ValueError(f"Duplicate canonical security/date rows in READY: {bad.head(20).to_dict('records')}")
+
+    mapping = work[["security_id", "ticker"]].drop_duplicates()
+    if mapping["security_id"].duplicated().any():
+        bad = mapping.loc[mapping["security_id"].duplicated(keep=False)]
+        raise ValueError(f"READY security_id maps to multiple tickers: {bad.head(20).to_dict('records')}")
+    if mapping["ticker"].duplicated().any():
+        bad = mapping.loc[mapping["ticker"].duplicated(keep=False)]
+        raise ValueError(f"READY ticker maps from multiple security_ids: {bad.head(20).to_dict('records')}")
+
+    collisions = work.loc[work.duplicated(["ticker", "date"], keep=False)].sort_values(["ticker", "date", "security_id"])
+    if not collisions.empty:
+        value_cols = ["open", "high", "low", "close", "adj_close", "volume"]
+        groups = []
+        for (ticker, date), group in collisions.groupby(["ticker", "date"], sort=True):
+            distinct_values = group[value_cols].drop_duplicates()
+            groups.append({
+                "symbol": ticker,
+                "date": str(pd.Timestamp(date).date()),
+                "security_ids": sorted(group["security_id"].unique().tolist()),
+                "rows": len(group),
+                "kind": "exact_duplicate" if len(distinct_values) == 1 else "conflicting",
+            })
+        raise ValueError(f"Ambiguous downstream (symbol,date) mapping in READY: {groups[:20]}")
+
+    return {
+        "source_securities": int(work["security_id"].nunique()),
+        "mapped_symbols": int(work["ticker"].nunique()),
+        "rows": int(len(work)),
+        "unique_symbol_dates": int(work[["ticker", "date"]].drop_duplicates().shape[0]),
+        "collision_groups": 0,
+    }
+
+
 def to_feature_contract(frame: pd.DataFrame) -> pd.DataFrame:
     """Map ussy-data ready schema into the legacy TrendFoll feature contract."""
+    validate_ready_identity_contract(frame)
     out = frame.rename(columns={
         "ticker": "symbol",
         "open": "open_raw",
