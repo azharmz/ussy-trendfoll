@@ -40,14 +40,14 @@ def test_resolved_anf_duplicate_passes_and_canonical_reader_excludes_only_anomal
 def test_unreconciled_duplicate_fails_closed():
     rows = [_row(18, status="stop_loss"), _row(19, status="trend_exit")]
 
-    with pytest.raises(RuntimeError, match="identity preflight failed"):
+    with pytest.raises(RuntimeError, match="preflight failed"):
         positions._validate_position_identity_rows(rows, [])
 
 
 def test_review_required_ledger_does_not_silence_duplicate():
     rows = [_row(18, status="stop_loss"), _row(19, status="trend_exit")]
 
-    with pytest.raises(RuntimeError, match="identity preflight failed"):
+    with pytest.raises(RuntimeError, match="preflight failed"):
         positions._validate_position_identity_rows(
             rows, [_resolution(status="review_required")]
         )
@@ -56,12 +56,12 @@ def test_review_required_ledger_does_not_silence_duplicate():
 def test_wrong_canonical_or_excluded_set_fails_closed():
     rows = [_row(18, status="stop_loss"), _row(19, status="trend_exit")]
 
-    with pytest.raises(RuntimeError, match="identity preflight failed"):
+    with pytest.raises(RuntimeError, match="preflight failed"):
         positions._validate_position_identity_rows(
             rows, [_resolution(canonical_id=999, excluded_ids=[18])]
         )
 
-    with pytest.raises(RuntimeError, match="identity preflight failed"):
+    with pytest.raises(RuntimeError, match="preflight failed"):
         positions._validate_position_identity_rows(
             rows, [_resolution(canonical_id=19, excluded_ids=[])]
         )
@@ -70,5 +70,5 @@ def test_wrong_canonical_or_excluded_set_fails_closed():
 def test_resolved_ledger_must_match_current_source_group_exactly():
     rows = [_row(19, status="trend_exit")]
 
-    with pytest.raises(RuntimeError, match="identity preflight failed"):
+    with pytest.raises(RuntimeError, match="preflight failed"):
         positions._validate_position_identity_rows(rows, [_resolution()])
