@@ -36,8 +36,16 @@ Scope: software integrity only. No strategy, entry, exit, or production database
 
 The preflight stops the daily pipeline if it finds a duplicate group without exactly one valid resolved ledger mapping, or if a resolved mapping no longer matches the source table. This is intentional: an ambiguous history must not silently flow into outcome analysis.
 
-## Remaining validation boundary
+## External consumer inventory (2026-10-14)
 
-The TrendFoll web dashboard was one confirmed direct reader and its code in draft PR #16 now uses the canonical RPC. The RPC migration is applied and the live SQL smoke tests pass, but the dashboard change has not been merged/deployed. Other exports/notebooks/external applications still need an inventory. Therefore end-to-end closure remains pending.
+A targeted read-only audit checked the accessible sibling repositories most likely to contain portfolio/position consumers: `ussy-data`, `ussy-signal`, `ussy-swing-actions`, `ussy-signal-actions`, `ussy-cross`, `ussy-pattbreak`, `ussy-oneil-patterns`, `ussy-canslim-core`, `ussy-fundamentals`, `ussy-swing-backtest`, and `ussy-governance`.
+
+- `ussy-signal` syncs its own journal/state to Supabase project `owipcazgkxeplimbsnxs`.
+- `ussy-swing-actions` uses project `pklhkbcglltayrdqeeph` and its own `daily_features` / `strategy_results` tables; its open positions are simulated from that project's trade data.
+- `ussy-cross` uses project `wwhdcjbnnrtjwptkajci` and its own `positions` schema keyed by ticker/combo, not the TrendFoll `public.positions` schema.
+- `ussy-pattbreak` builds open-position checkpoints from its own immutable T1 execution artifacts rather than reading TrendFoll's Supabase table.
+- No references to the TrendFoll Supabase project ID were found in the targeted sibling-repository searches. GitHub code search is not a complete proof of absence, and unlisted repos, private external clients, notebooks, exports, and manual downloads cannot be ruled out.
+
+The TrendFoll web dashboard remains the only confirmed direct consumer of this exact project/table in the inspected code. Its branch patch in draft PR #16 uses the canonical RPC, but has not been merged/deployed. Treat the cross-repository audit as **targeted, not exhaustive**. End-to-end closure remains pending dashboard deployment and a final production-consumer check.
 
 No unique constraint on `(symbol, entry_date)` is proposed: later re-entry semantics remain distinct from immutable lifecycle identity `positions.id`.
