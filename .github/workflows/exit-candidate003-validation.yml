@@ -5,10 +5,7 @@ on:
   push:
     branches: [research/exit-development-hypotheses]
     paths:
-      - run_exit_candidate003_validation.py
-      - tests/test_exit_candidate003_validation.py
-      - docs/EXIT_CAND_003_VALIDATION_PROTOCOL.md
-      - .github/workflows/exit-candidate003-validation.yml
+      - dispatch/exit-candidate003-validation.txt
 jobs:
   validation:
     runs-on: ubuntu-latest
