@@ -21,7 +21,7 @@ def test_near_pass_candidate_remains_in_lifecycle_after_leaving_watchlist():
         },
     ])
 
-    out = build_candidate_lifecycle(history, latest, current_universe={"BBB"})
+    out = build_candidate_lifecycle(history, latest, current_universe={"AAA"})
     row = out.iloc[0]
 
     assert row["symbol"] == "AAA"
@@ -46,7 +46,7 @@ def test_current_actionable_candidate_is_marked_actionable():
         },
     ])
 
-    out = build_candidate_lifecycle(history, latest)
+    out = build_candidate_lifecycle(history, latest, current_universe={"BBB"})
     row = out.iloc[0]
 
     assert row["current_state"] == "ACTIONABLE"
