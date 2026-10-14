@@ -128,6 +128,23 @@ class TestExitCandidate003ShadowV2(unittest.TestCase):
         self.assertEqual(client.rows.get("exit_candidate003_shadow", []), [])
         self.assertEqual(client.mutations, [])
 
+
+    def test_register_missing_shadows_ignores_closed_positions(self):
+        client = _FakeClient()
+        client.rows["positions"] = [{
+            "id": 12, "symbol": "Y", "entry_date": "2026-01-05",
+            "realistic_entry_price": 104.0, "atr14_at_entry": 2.0,
+            "status": "closed", "exit_date": "2026-01-06", "exit_price": 110.0,
+        }]
+        history = pd.DataFrame([
+            {"symbol": "Y", "date": "2026-01-06"},
+            {"symbol": "Y", "date": "2026-01-07"},
+        ])
+        created = shadow.register_missing_shadows(client, history, "2026-01-06")
+        self.assertEqual(created, [])
+        self.assertEqual(client.rows.get("exit_candidate003_shadow", []), [])
+        self.assertEqual(client.mutations, [])
+
     def test_session_advancement_never_mutates_production_positions(self):
         client = _FakeClient()
         position = {"id": 11, "symbol": "X", "entry_date": "2026-01-05",
