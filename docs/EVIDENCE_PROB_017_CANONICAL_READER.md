@@ -1,6 +1,6 @@
 # PROB-017 — Ledger-aware canonical history and integrity preflight
 
-Status: **UNIT TESTS PASS / END-TO-END CONSUMER AUDIT PENDING**
+Status: **CANONICAL CONSUMER IDENTIFIED / RPC + DASHBOARD PATCH ADDED / DEPLOYMENT VALIDATION PENDING**
 
 Branch: `diagnostic/prob017-canonical-preflight`  
 Scope: software integrity only. No strategy, entry, exit, or production database rows are changed by this branch.
@@ -36,6 +36,6 @@ The preflight stops the daily pipeline if it finds a duplicate group without exa
 
 ## Remaining validation boundary
 
-This branch does not automatically modify external dashboards, exports, notebooks, or other applications that query `public.positions` directly. Those consumers must adopt `get_canonical_position_history` or an equivalently validated canonical interface before PROB-017 can be called fully resolved end-to-end. Consumer discovery has not yet produced a complete verified inventory.
+The TrendFoll web dashboard was one confirmed direct reader and has now been switched in code to the canonical RPC. Before it can work in production, apply `sql/migrate_prob017_canonical_reader_rpc.sql` after the reconciliation-ledger migration so PostgREST can expose the function. The RPC has not yet been executed against the live database, and other exports/notebooks/external applications still need an inventory. Therefore end-to-end closure remains pending.
 
 No unique constraint on `(symbol, entry_date)` is proposed: later re-entry semantics remain distinct from immutable lifecycle identity `positions.id`.
