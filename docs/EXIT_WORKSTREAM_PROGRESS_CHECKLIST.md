@@ -209,9 +209,10 @@ Blocked until Section E has sufficient locked operational evidence. Current auth
 **NEXT ACTION:**
 
 1. CURRENT repository audit and regression coverage are merged (PR #17, `d5c04e884958befb5c7ab550c4720282a7e354f5`); workflow run `38552916021` passed. Live deployment / OKTA row check remains pending.
-2. Reconcile stale documentation/debt markers against current evidence (master queue item 2).
-3. Independently verify live deployment and the long-held OKTA row when production read access is available.
-4. Separately, let the normal daily pipeline continue; do not manufacture or backfill CAND-003 operational evidence. Continue E2–E4 only on genuine sequential sessions.
+2. Checklist/evidence reconciliation completed in master queue item 2; PROB-017 now distinguishes the user's dashboard observation from independent live verification.
+3. Next engineering action: draft STOP-EXEC-001 gap-through correction contract only; no production correction until separately validated and authorized.
+4. Independently verify live deployment and the long-held OKTA row when production read access is available.
+5. Separately, let the normal daily pipeline continue; do not manufacture or backfill CAND-003 operational evidence. Continue E2–E4 only on genuine sequential sessions.
 
 ## Approximate progress indicator
 
