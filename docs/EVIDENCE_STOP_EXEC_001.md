@@ -1,6 +1,6 @@
 # EVIDENCE — STOP-EXEC-001 CURRENT Gap-Through Audit
 
-Status: **EVIDENCE LOCKED / EXECUTION-FEASIBILITY DEFECT OBSERVED / NO PRODUCTION CHANGE**
+Status: **HISTORICAL DIAGNOSTIC EVIDENCE LOCKED / REPOSITORY GAP-AWARE FIX PRESENT / LIVE DEPLOYMENT NOT INDEPENDENTLY VERIFIED**
 
 ## Authoritative run
 
@@ -99,3 +99,11 @@ The unchanged paired median is expected because most events do not gap through t
 The frozen CURRENT representation overstates attainable stop fills when a session opens below the stop. This is an engineering/execution-contract defect, not evidence for changing the 2×ATR parameter or for tuning EXIT-CAND-003.
 
 STOP-EXEC-001 is complete as a diagnostic. Any correction to authoritative production exit execution requires its own explicit implementation/migration governance. EXIT-CAND-003 remains frozen and shadow-only.
+
+## Current repository implementation reconciliation (2026-10-14)
+
+A follow-up read-only audit found that the repository now contains a gap-aware stop-fill correction in commit [`d213fd491975f8d9aaeb6116fef7eef837fd7cb5`](https://github.com/azharmz/ussy-trendfoll/commit/d213fd491975f8d9aaeb6116fef7eef837fd7cb5), dated 2026-10-08. The historical audit above remains valid as evidence about the compared `CURRENT_EXACT_STOP` representation; its old “NO PRODUCTION CHANGE” terminal wording does not describe the current repository state.
+
+Current `positions.py` uses observed Open when `open_raw <= stop_price`, uses stop price for an ordinary intraday touch, fails closed if Open is missing for a triggered stop, and keeps the persisted status/reason as `stop_loss`. `notify.py` adds a gap-through label based on `stop_fill_type`. Focused tests cover the behavior, and workflow run `38552916021` passed on 2026-10-14.
+
+Read-only schema/consumer audit found no status CHECK constraint requiring migration; dashboard grouping remains under `stop_loss` while actual `exit_price` drives realized return. No further repository code/schema change is indicated by this audit. **Independent live deployment verification and observation of a real post-fix gap-through exit remain pending.**
