@@ -59,7 +59,7 @@ jobs:
           ready, manifest = load_ready_dataset()
           as_of = manifest.get("as_of_date") or ready["date"].max().date().isoformat()
           with open(os.environ["GITHUB_OUTPUT"], "a", encoding="utf-8") as fh:
-              fh.write(f"as_of_date={as_of}\\n")
+              fh.write(f"as_of_date={as_of}\n")
           print(f"Resolved read-only dry-run date: {as_of}")
           PY
       - name: Require explicit write acknowledgement
