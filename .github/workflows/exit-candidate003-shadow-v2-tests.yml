@@ -15,5 +15,7 @@ jobs:
           python-version: '3.12'
       - name: Install test dependencies
         run: python -m pip install --disable-pip-version-check pandas numpy
+      - name: Compile isolated runner and module
+        run: python -m py_compile exit_candidate003_shadow_v2.py run_exit_candidate003_shadow_v2.py
       - name: Run isolated shadow v2 tests
         run: python -m unittest discover -s tests -p 'test_exit_candidate003_shadow_v2.py' -v
