@@ -3,6 +3,7 @@ from __future__ import annotations
 
 import hashlib
 import json
+import os
 from pathlib import Path
 
 import numpy as np
@@ -10,7 +11,7 @@ import pandas as pd
 
 from decision_layer import compute_decision_layer
 from hard_filter import compute_hard_filter
-from r2_ready import load_ready_dataset
+from r2_ready import load_ready_dataset, make_r2_client
 from research_history import build_research_feature_store, load_research_history
 from signal_path_diagnostic import build_signal_path_events
 
@@ -143,11 +144,35 @@ def path_row(g, event):
     return out
 
 
+
+def missing_history_keys(s3, bucket: str, security_ids) -> list[str]:
+    """Preflight canonical history objects and report every missing key."""
+    missing = []
+    for sid in security_ids:
+        key = f"history/ohlcv/{sid}.parquet"
+        try:
+            s3.head_object(Bucket=bucket, Key=key)
+        except Exception as exc:
+            response = getattr(exc, "response", {}) or {}
+            code = str((response.get("Error") or {}).get("Code", ""))
+            status = (response.get("ResponseMetadata") or {}).get("HTTPStatusCode")
+            if code in {"NoSuchKey", "NotFound", "404"} or status == 404:
+                missing.append(key)
+            else:
+                raise
+    return missing
+
+
 def main():
     ready, manifest = load_ready_dataset()
     ids = sample_ids(ready)
     end = manifest.get("snapshot_date") or str(pd.to_datetime(ready["date"]).max().date())
-    hist, report = load_research_history(ids, evaluation_end=end, min_preroll_bars=500, ready=ready, ready_manifest=manifest)
+    s3 = make_r2_client()
+    bucket = os.environ.get("R2_BUCKET_NAME", "ussy-data")
+    missing = missing_history_keys(s3, bucket, ids)
+    if missing:
+        raise RuntimeError(f"DIAG-003 canonical R2 history preflight: {len(missing)} missing objects: {missing}")
+    hist, report = load_research_history(ids, evaluation_end=end, min_preroll_bars=500, ready=ready, ready_manifest=manifest, s3=s3, bucket=bucket)
     feat = build_research_feature_store(hist)["features"].sort_values(["symbol", "date"]).copy()
     dec = compute_decision_layer(compute_hard_filter(feat)).sort_values(["symbol", "date"]).copy()
     events = build_signal_path_events(dec)
