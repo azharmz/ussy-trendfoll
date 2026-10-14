@@ -23,8 +23,8 @@ At the start of a session, read this file and execute the first actionable item 
 
 ## Ordered queue
 
-### 1. Remove the CURRENT 45-session forced exit — **REPOSITORY AUDIT DONE; REGRESSION CI PENDING**
-**Decision:** approved. Source audit found no age-only exit branch in current `positions.py`; added regression coverage is pending CI. Live deployment is not independently verified.
+### 1. Remove the CURRENT 45-session forced exit — **REPOSITORY VERIFIED; LIVE DEPLOYMENT CHECK PENDING**
+**Decision:** approved. Source audit found no age-only exit branch in current `positions.py`; regression workflow passed and changes merged in PR #17 (`d5c04e884958befb5c7ab550c4720282a7e354f5`). Live deployment is not independently verified.
 
 - Decision: [`DECISION_CURRENT_EXIT_NO_MAX_HOLDING_PERIOD.md`](DECISION_CURRENT_EXIT_NO_MAX_HOLDING_PERIOD.md)
 - Baseline context: [`EXIT_WORKSTREAM_PROGRESS_CHECKLIST.md`](EXIT_WORKSTREAM_PROGRESS_CHECKLIST.md), Section A.
@@ -33,12 +33,12 @@ At the start of a session, read this file and execute the first actionable item 
 - Required acceptance:
   1. [x] Trace `positions.py::check_exits`; no age-only exit condition exists in the current repository code.
   2. [x] Check dashboard consumer: `days_held` is displayed as a metric; no age-based dashboard exit decision was found.
-  3. [x] Add regression tests for >45 trading sessions without an exit trigger and for continued trend-break behavior; existing stop-loss regression remains in place. Await CI result.
+  3. [x] Regression tests added and passed in workflow run `38552916021` (Gap-aware stop execution regression #21); existing stop-loss regression remains in place.
   4. [ ] Verify an older live example such as OKTA using current production data; distinguish code-level tests from production observation.
-  5. [ ] Run the relevant test suite/workflow and record commit, run IDs, test results, and any production check.
-- Current finding: repository source already lacks the age-only exit; the code change is regression coverage + accurate evidence. Do not claim the live deployment is verified until CI and the live check are complete.
+  5. [x] Workflow run `38552916021` succeeded; PR #17 merged as `d5c04e884958befb5c7ab550c4720282a7e354f5`.
+- Current finding: repository source already lacked the age-only exit; regression coverage is merged and CI passed. **Remaining limitation:** live deployment and OKTA row are not independently verified. Proceed to Queue item 2 while treating live verification as a separate pending check.
 
-### 2. Reconcile the workstream checklist with current evidence — **READY**
+### 2. Reconcile the workstream checklist with current evidence — **NEXT**
 - Main checklist: [`EXIT_WORKSTREAM_PROGRESS_CHECKLIST.md`](EXIT_WORKSTREAM_PROGRESS_CHECKLIST.md)
 - PROB-017 evidence: [`EVIDENCE_PROB_017_CANONICAL_READER.md`](EVIDENCE_PROB_017_CANONICAL_READER.md)
 - PROB-005 evidence: [`EVIDENCE_PROB_005.md`](EVIDENCE_PROB_005.md)
