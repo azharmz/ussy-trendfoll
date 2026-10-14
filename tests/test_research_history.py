@@ -50,7 +50,7 @@ class ResearchHistoryTests(unittest.TestCase):
         })
         self.ready = self.history.tail(300).copy()
         self.ready_manifest = {"snapshot_date": str(dates[-1].date())}
-        self.s3 = FakeS3({"backtest/ohlcv/sec-1.parquet": parquet_bytes(self.history)})
+        self.s3 = FakeS3({"history/ohlcv/sec-1.parquet": parquet_bytes(self.history)})
 
     def test_preroll_is_context_only_and_future_is_trimmed(self):
         start = self.history["date"].iloc[504]
