@@ -1,82 +1,53 @@
-# STOP-EXEC-001 — CURRENT Gap-Through Correction Contract (Proposal)
+# STOP-EXEC-001 — CURRENT Gap-Through Correction Contract and Implementation Audit
 
-**Created:** 2026-10-14  
-**Status:** **DRAFT FOR GOVERNANCE REVIEW / NOT APPROVED / NO PRODUCTION CHANGE**  
-**Evidence:** [`EVIDENCE_STOP_EXEC_001.md`](EVIDENCE_STOP_EXEC_001.md)  
-**Protocol:** [`STOP_EXEC_001_AUDIT_PROTOCOL.md`](STOP_EXEC_001_AUDIT_PROTOCOL.md)
+**Updated:** 2026-10-14  
+**Status:** **REPOSITORY IMPLEMENTATION VERIFIED / HISTORICAL DIAGNOSTIC EVIDENCE LOCKED / LIVE DEPLOYMENT NOT INDEPENDENTLY VERIFIED**  
+**Diagnostic evidence:** [`EVIDENCE_STOP_EXEC_001.md`](EVIDENCE_STOP_EXEC_001.md)  
+**Original protocol:** [`STOP_EXEC_001_AUDIT_PROTOCOL.md`](STOP_EXEC_001_AUDIT_PROTOCOL.md)
 
-## 1. Problem statement
+## 1. Historical diagnostic
 
-The locked audit found 93 gap-through events in 839 CURRENT stop events within 1,524 paired events. For a gap-through session, the observed session Open is already below the operative stop. Recording a fill at the stop price is not executable under the audited daily-OHLC model.
+The locked STOP-EXEC-001 diagnostic compared a historical `CURRENT_EXACT_STOP` representation with a gap-aware diagnostic. In the governed 1,524-event paired sample, 93 events opened at or below the operative stop. An exact stop-price fill is infeasible for those events.
 
-This is an execution-price representation defect. It is **not** evidence to change the 2×ATR stop distance, EMA20 trend-break definition, entry rule, or frozen CAND-003 candidate.
+This remains valid evidence about the historical execution representation and the size of the affected event class. It does **not** mean the current repository still implements that defective fill assumption.
 
-## 2. Proposed production semantics
+## 2. Read-only current repository audit — result
 
-Keep the existing stop trigger and precedence, but distinguish the actual fill price:
+The current `main` branch already contains the gap-aware execution correction from commit [d213fd491975f8d9aaeb6116fef7eef837fd7cb5](https://github.com/azharmz/ussy-trendfoll/commit/d213fd491975f8d9aaeb6116fef7eef837fd7cb5), titled “Fix gap-through stop-loss execution”.
 
-1. Read the operative stop that was established before the current session; do not use a stop first computed from the current session to trigger a same-session exit.
-2. If `open_raw <= operative_stop`, exit at observed `open_raw` and classify the reason as `stop_loss_gap`.
-3. Else, if `low_raw <= operative_stop`, exit at the operative stop and classify the reason as `stop_loss` (ordinary intraday stop touch). Preserve the existing canonical reason unless downstream compatibility review approves a separate reason.
-4. Else, do not trigger a stop exit; preserve existing trend-break and mark/MFE/MAE behavior.
-5. Never record a stop fill above the observed Open when Open has already gapped below the stop. Do not infer intraday path beyond daily OHLC.
+Audited behavior in `positions.py`:
+- If `low_raw > stop_price`, no stop exit.
+- If the stop is triggered but `open_raw` is missing, fail closed with an error instead of inventing an exact-stop fill.
+- If `open_raw <= stop_price`, fill at observed Open and return `stop_fill_type="gap_open"`.
+- Otherwise, if Low reaches the stop, fill at the stop and return `stop_fill_type="stop_touch"`.
+- Both fill types preserve canonical persisted status/reason `stop_loss`, avoiding a new database status or migration.
 
-This proposal changes fill representation only. It does not change stop placement or the rule for when the stop becomes operative.
+Compatibility audit:
+- `sql/schema_positions.sql` uses a free-text `status` field and does not declare a CHECK constraint enumerating exit statuses.
+- The exit update stores the selected `exit_price`; realized `pnl_pct` in the alert payload is calculated from that actual fill.
+- `notify.py` already labels `gap_open` as “STOP LOSS — GAP THROUGH (fill di Open)”.
+- Dashboard history/performance uses persisted `status` for grouping and actual `exit_price` for realized return. Preserving `status="stop_loss"` keeps gap-through exits in the existing stop-loss group; no schema migration is indicated by this audit.
+- Historical `max_holding` status styling/labels remain as compatibility for old rows; they do not establish an active age-based exit rule.
 
-## 3. Compatibility and data contract review required before implementation
+## 3. Test evidence
 
-Before approval, trace every consumer of `exit_price`, `status` / `exit_reason`, `exit_date`, `days_held`, realized return/PnL, Telegram alerts, dashboard labels, summaries, and any backtest/forward-test reconciliation.
+`tests/test_gap_aware_stop_execution.py` covers gap-open fills, ordinary stop touches, untouched stops, missing Open fail-closed behavior, persistence of the gap-open price with stable `stop_loss` status, and PnL calculation. The same workflow passed on 2026-10-14 in run `38552916021` (Gap-aware stop execution regression #21), including the new >45-session and trend-break regression cases.
 
-Decisions required:
-- Whether `status = stop_loss_gap` is accepted by all status filters and reporting paths, or whether a separate `exit_reason` field is needed while preserving a stable terminal status.
-- Whether existing rows/schema constraints or RPCs enumerate allowed exit statuses/reasons.
-- How actual fill price is used in realized return and downstream performance metrics.
-- Whether any historical records are migrated. Default proposal: **no backfill and no rewriting historical production rows**; change behavior only for new exits after a governed cutover.
-- Whether the dashboard/alerts display a distinct gap-through label without breaking existing stop-loss grouping.
-- Whether the new rule affects idempotent alert event identity or duplicate transition handling.
+## 4. Decision and remaining boundary
 
-No schema migration is assumed necessary; confirm through the consumer/schema audit before implementation.
+**No additional production code or schema migration is indicated by this read-only audit.** The gap-aware behavior is already present and regression-tested in repository `main`.
 
-## 4. Required validation before production authorization
+Still not established here:
+- which commit the live daily pipeline is executing;
+- whether the live dashboard and alert deployment have picked up the repository behavior;
+- an independently observed real post-fix gap-through exit.
 
-Add deterministic regression cases covering at least:
+Therefore the historical diagnostic is closed as a discovery, the repository implementation audit is complete, but independent live deployment verification remains pending. Do not rewrite historical position rows or rerun/retune the frozen research corpus as part of this documentation update.
 
-1. `open_raw < stop` and `low_raw <= open_raw`: fill at Open, never at stop; gap-specific reason is propagated consistently.
-2. `open_raw == stop`: fill at Open (equal to stop) under the proposed `<=` boundary.
-3. `open_raw > stop` and `low_raw <= stop`: fill at stop with existing ordinary-stop semantics.
-4. `low_raw > stop`: no stop exit.
-5. Gap-through and trend-break conditions on the same bar: stop takes precedence, with fill at Open.
-6. A stop calculated/ratcheted from session-t data is not allowed to trigger on session t if the frozen production contract says it becomes operative on t+1.
-7. Non-stop trend-break exit still behaves as before.
-8. Existing replay/idempotency and notification tests continue to pass.
-9. Realized return uses the actual selected fill price, including adverse gaps.
-10. Regression guard that the 2×ATR stop placement and unrelated entry behavior have not changed.
+## 5. Guardrails
 
-Run relevant focused tests and full repository CI/test-discovery checks. Report exact test commands, counts, CI run IDs, and commit SHA. Compare the frozen audit's expected affected class (gap-through only) against a deterministic test fixture; do not retune parameters to improve aggregate performance.
-
-## 5. Rollout and rollback
-
-- No production deploy until the contract is approved and validation evidence is recorded.
-- Deploy through the repository's normal governed merge/workflow; inspect the first real post-deploy gap-through exit if one occurs.
-- Monitor exit reason distribution, fill price versus Open/stop/Low, return accounting, dashboard rendering, alert delivery and replay conflicts.
-- Rollback means reverting the code change to the previous execution behavior for subsequent events only. Do not rewrite already persisted exits automatically.
-- If a new reason/status would violate existing schema/reporting assumptions, stop and resolve compatibility before deployment.
-
-## 6. Explicit non-goals
-
-- No change to 2×ATR14 stop distance.
-- No change to EMA20 trend-break logic.
-- No max-holding-period policy change beyond the separately recorded CURRENT decision.
-- No modification to frozen CAND-003 parameters, sufficiency criteria, or shadow ledger.
-- No backtest-driven parameter optimization and no production database mutation as part of the diagnostic.
-
-## 7. Approval gates
-
-- [ ] Consumer/schema compatibility audit complete.
-- [ ] Proposed reason/status representation explicitly chosen.
-- [ ] Regression tests implemented and passing.
-- [ ] Full relevant CI and test-discovery validation passing.
-- [ ] Rollout/rollback checklist reviewed.
-- [ ] Explicit authorization to implement/deploy recorded.
-
-**Current next action:** complete the read-only consumer/schema compatibility audit and bring back concrete findings. Until the approval gates are met, this document is a proposal only.
+- Do not change the 2×ATR14 stop placement.
+- Do not change EMA20 trend-break logic.
+- Do not change the frozen CAND-003 contract or its 45-session shadow boundary.
+- Do not introduce a new `stop_loss_gap` database status without a separate evidence-backed reason; current `stop_loss` status plus `stop_fill_type` alert metadata is the implemented compatibility contract.
+- Do not claim a production deployment check unless a live run/position/alert is actually inspected.
