@@ -7,6 +7,14 @@ on:
       - "*.py"
       - "requirements.txt"
       - ".github/workflows/repository-tests.yml"
+  push:
+    branches:
+      - research/verify-r2-history-prefix
+    paths:
+      - ".github/workflows/repository-tests.yml"
+      - "research_history.py"
+      - "tests/test_research_history.py"
+      - "requirements.txt"
   workflow_dispatch:
 
 permissions:
@@ -22,7 +30,6 @@ jobs:
         with:
           python-version: "3.12"
           cache: pip
-      - name: Install test dependencies
-        run: python -m pip install --disable-pip-version-check -r requirements.txt pytest boto3 pyarrow
+      - run: python -m pip install --disable-pip-version-check -r requirements.txt pytest boto3 pyarrow
       - name: Run every repository test file
         run: python -m pytest -q tests
