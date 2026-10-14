@@ -1,6 +1,6 @@
 # PROB-017 — Ledger-aware canonical history and integrity preflight
 
-Status: **IMPLEMENTED ON DIAGNOSTIC BRANCH / VALIDATION PENDING**
+Status: **UNIT TESTS PASS / END-TO-END CONSUMER AUDIT PENDING**
 
 Branch: `diagnostic/prob017-canonical-preflight`  
 Scope: software integrity only. No strategy, entry, exit, or production database rows are changed by this branch.
@@ -14,6 +14,14 @@ Scope: software integrity only. No strategy, entry, exit, or production database
 - `positions.assert_position_identity_integrity` reads both tables with pagination and performs the non-destructive preflight.
 - `main.main` invokes the preflight immediately after creating the Supabase client, before loading data or performing daily writes.
 - `tests/test_prob017_position_identity.py` covers the reconciled ANF case, unresolved duplicates, review-required decisions, invalid canonical/excluded IDs, and stale ledger mappings.
+- `.github/workflows/prob017-tests.yml` runs the focused test suite automatically on relevant pull-request changes and remains manually dispatchable. It has read-only repository permissions and does not access production secrets or the database.
+
+## Validation evidence
+
+- GitHub Actions run **PROB-017 Identity Tests #2** completed successfully on 2026-10-14.
+- Result: **5 passed in 0.21s**.
+- The FSE-007/FSE-013 production regression and gap-aware stop execution regression workflows associated with the same PR commit also completed successfully.
+- These results validate the focused unit-test contract and those regression suites; they do **not** prove all external readers of `public.positions` use canonical history.
 
 ## Expected behavior for the known ANF identity
 
@@ -26,8 +34,8 @@ Scope: software integrity only. No strategy, entry, exit, or production database
 
 The preflight stops the daily pipeline if it finds a duplicate group without exactly one valid resolved ledger mapping, or if a resolved mapping no longer matches the source table. This is intentional: an ambiguous history must not silently flow into outcome analysis.
 
-## Validation boundary
+## Remaining validation boundary
 
-Unit tests and CI must pass before merge. This branch does not automatically modify external dashboards, exports, notebooks, or other applications that query `public.positions` directly. Those consumers must adopt `get_canonical_position_history` or an equivalently validated canonical interface before PROB-017 can be called fully resolved end-to-end.
+This branch does not automatically modify external dashboards, exports, notebooks, or other applications that query `public.positions` directly. Those consumers must adopt `get_canonical_position_history` or an equivalently validated canonical interface before PROB-017 can be called fully resolved end-to-end. Consumer discovery has not yet produced a complete verified inventory.
 
 No unique constraint on `(symbol, entry_date)` is proposed: later re-entry semantics remain distinct from immutable lifecycle identity `positions.id`.
