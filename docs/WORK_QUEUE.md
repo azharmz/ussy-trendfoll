@@ -38,18 +38,18 @@ At the start of a session, read this file and execute the first actionable item 
   5. [x] Workflow run `38552916021` succeeded; PR #17 merged as `d5c04e884958befb5c7ab550c4720282a7e354f5`.
 - Current finding: repository source already lacked the age-only exit; regression coverage is merged and CI passed. **Remaining limitation:** live deployment and OKTA row are not independently verified. Proceed to Queue item 2 while treating live verification as a separate pending check.
 
-### 2. Reconcile the workstream checklist with current evidence — **NEXT**
+### 2. Reconcile the workstream checklist with current evidence — **DONE**
 - Main checklist: [`EXIT_WORKSTREAM_PROGRESS_CHECKLIST.md`](EXIT_WORKSTREAM_PROGRESS_CHECKLIST.md)
 - PROB-017 evidence: [`EVIDENCE_PROB_017_CANONICAL_READER.md`](EVIDENCE_PROB_017_CANONICAL_READER.md)
 - PROB-005 evidence: [`EVIDENCE_PROB_005.md`](EVIDENCE_PROB_005.md)
 - PROB-003/004 evidence: [`EVIDENCE_PROB_003_004.md`](EVIDENCE_PROB_003_004.md)
 - Reconcile stale checklist markers against the evidence before treating them as open defects:
-  - **PROB-017:** code merged, production RPC applied, SQL smoke passed; user reported the dashboard now shows one ANF row. The evidence document still says independent live-deployment check pending. Record the user's observed result accurately, but do not claim independent browser/deployment verification unless performed.
-  - **PROB-005:** evidence says CLOSED / EVIDENCE LOCKED; reconcile the checklist's duplicate mapped-key debt marker with that scope and evidence.
-  - **PROB-003/004:** evidence says CLOSED / EVIDENCE LOCKED. Exactly-once semantic event persistence and normal replay suppression are implemented; Telegram's crash-after-acceptance window can still yield a duplicate. Treat that as a known external-delivery limitation, not as proof the whole item is unfinished.
+  - **PROB-017:** reconciled. Code merged, production RPC applied, SQL smoke passed, and the user observed only one ANF row on the dashboard. Independent browser/deployment verification remains pending; see updated evidence document.
+  - **PROB-005:** reconciled. Checklist marks the mapped-key guard complete and preserves the documented limitation that no bucket-wide historical scan was performed.
+  - **PROB-003/004:** reconciled. Checklist marks persistence/idempotency complete; Telegram's crash-after-acceptance duplicate remains a documented external-delivery limitation.
 - Keep this reconciliation documentation-only unless an actual code defect is discovered; any newly discovered defect gets a separate queue entry with evidence.
 
-### 3. Define and govern a production correction for gap-through stop execution — **READY / SEPARATE GOVERNANCE**
+### 3. Define and govern a production correction for gap-through stop execution — **NEXT / CONTRACT ONLY; NO PRODUCTION CHANGE AUTHORIZED**
 - Evidence: [`EVIDENCE_STOP_EXEC_001.md`](EVIDENCE_STOP_EXEC_001.md) and [`STOP_EXEC_001_AUDIT_PROTOCOL.md`](STOP_EXEC_001_AUDIT_PROTOCOL.md).
 - Finding: the current exact-stop assumption is infeasible when session Open is already below the stop. The frozen audit found 93 gap-through events among 839 CURRENT stop events in its 1,524-event paired sample.
 - Diagnostic is complete; **no production correction is authorized by that finding alone**.
@@ -100,4 +100,4 @@ When work stops, update the top of the queue or the relevant item with:
 - **Next action:** one concrete action.
 - **Blocker:** exact missing evidence or decision; write “none” if none.
 
-**Current handoff:** Start at **Queue item 1**. The 45-session removal is a recorded decision, not yet verified implementation.
+**Current handoff (2026-10-14):** Queue item 1 repository audit/regression is merged and CI-passed; independent live deployment/OKTA verification remains pending. Queue item 2 documentation reconciliation is complete. Start at **Queue item 3** by drafting the STOP-EXEC-001 correction contract only; do not alter production execution until a separate validation and authorization gate is met.
