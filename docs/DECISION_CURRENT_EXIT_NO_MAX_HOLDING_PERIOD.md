@@ -40,7 +40,8 @@ This work therefore adds regression coverage for the behavior rather than removi
 - [x] Audited dashboard references: `days_held` is rendered as a metric, not an exit rule.
 - [x] Added regression test for a 51-trading-session open position with no exit signal.
 - [x] Added regression test confirming trend-break exit remains active.
-- [ ] CI/workflow result for this branch/PR.
+- [x] CI/workflow passed: Gap-aware stop execution regression #21, run `38552916021`.
+- [x] PR #17 merged to `main` at `d5c04e884958befb5c7ab550c4720282a7e354f5`.
 - [ ] Independent live deployment / OKTA row verification.
 
 Do not mark the live deployment check complete until that check is actually performed.
