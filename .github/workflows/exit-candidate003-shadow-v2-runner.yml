@@ -19,10 +19,6 @@ on:
         description: "For write mode only, enter I_UNDERSTAND_SHADOW_ONLY"
         required: false
         type: string
-  push:
-    branches: [research/exit-cand-003-shadow-v2-no-time-cap]
-    paths:
-      - .github/workflows/exit-candidate003-shadow-v2-runner.yml
 
 permissions:
   contents: read
@@ -44,24 +40,6 @@ jobs:
           python-version: "3.12"
       - name: Install dependencies
         run: python -m pip install --disable-pip-version-check -r requirements.txt boto3 pyarrow
-      - name: Resolve current READY date for temporary push dry-run
-        id: resolve
-        if: ${{ github.event_name == 'push' }}
-        env:
-          R2_ENDPOINT: ${{ secrets.R2_ENDPOINT }}
-          R2_ACCESS_KEY_ID: ${{ secrets.R2_ACCESS_KEY_ID }}
-          R2_SECRET_ACCESS_KEY: ${{ secrets.R2_SECRET_ACCESS_KEY }}
-          R2_BUCKET_NAME: ${{ secrets.R2_BUCKET_NAME }}
-        run: |
-          python - <<'PY'
-          import os
-          from r2_ready import load_ready_dataset
-          ready, manifest = load_ready_dataset()
-          as_of = manifest.get("as_of_date") or ready["date"].max().date().isoformat()
-          with open(os.environ["GITHUB_OUTPUT"], "a", encoding="utf-8") as fh:
-              fh.write(f"as_of_date={as_of}\\n")
-          print(f"Resolved read-only dry-run date: {as_of}")
-          PY
       - name: Require explicit write acknowledgement
         if: ${{ inputs.mode == 'write' }}
         env:
@@ -80,12 +58,9 @@ jobs:
           R2_SECRET_ACCESS_KEY: ${{ secrets.R2_SECRET_ACCESS_KEY }}
           R2_BUCKET_NAME: ${{ secrets.R2_BUCKET_NAME }}
           USSY_CAND003_SHADOW_V2_WRITE_ACK: ${{ inputs.write_acknowledgement }}
-          AS_OF_DATE: ${{ github.event_name == 'push' && steps.resolve.outputs.as_of_date || inputs.as_of_date }}
         run: |
-          if [ "${{ github.event_name }}" = "push" ]; then
-            python run_exit_candidate003_shadow_v2.py --as-of-date "$AS_OF_DATE"
-          elif [ "${{ inputs.mode }}" = "write" ]; then
-            python run_exit_candidate003_shadow_v2.py --as-of-date "$AS_OF_DATE" --write
+          if [ "${{ inputs.mode }}" = "write" ]; then
+            python run_exit_candidate003_shadow_v2.py --as-of-date "${{ inputs.as_of_date }}" --write
           else
-            python run_exit_candidate003_shadow_v2.py --as-of-date "$AS_OF_DATE"
+            python run_exit_candidate003_shadow_v2.py --as-of-date "${{ inputs.as_of_date }}"
           fi
