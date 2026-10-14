@@ -91,8 +91,31 @@ def main():
   s["median_return_difference_vs_current"]=None if current_median is None or s["median_return"] is None else float(s["median_return"]-current_median)
   s["paired_event_delta_median_vs_current"]=med(delta)
   s["improved_fraction"]=float((delta>1e-12).mean()); s["worsened_fraction"]=float((delta<-1e-12).mean()); s["unchanged_fraction"]=float((delta.abs()<=1e-12).mean()); summaries[name]=s
+ robustness={}
+ for name in VARIANTS:
+  d=out[out.variant==name].copy(); rr=d.realized_return
+  tail_n=max(1,int(np.ceil(len(rr)*0.05))) if len(rr) else 0
+  worst=rr.nsmallest(tail_n) if tail_n else pd.Series(dtype=float)
+  robustness[name]={"q05_return":q(rr,.05),"q10_return":q(rr,.10),
+   "worst_5pct_mean_return":None if worst.empty else float(worst.mean()),
+   "calendar_years":{}}
+  d["calendar_year"]=pd.to_datetime(d.t0_date).dt.year
+  for year,yg in d.groupby("calendar_year"):
+   robustness[name]["calendar_years"][str(year)]={"n":int(len(yg)),
+    "median_return":med(yg.realized_return),"positive_rate":float((yg.realized_return>0).mean()),
+    "q05_return":q(yg.realized_return,.05)}
+ current=out[out.variant=="CURRENT"]
+ stop_events=current[current.stop_triggered.astype(bool)]
+ gap_events=current[current.stop_gap_through.astype(bool)]
+ gap_diagnostics={"current_stop_events":int(len(stop_events)),"gap_through_stop_events":int(len(gap_events)),
+  "gap_through_fraction_of_stops":None if stop_events.empty else float(len(gap_events)/len(stop_events)),
+  "median_gap_slippage_fraction_of_entry":med(gap_events.stop_gap_slippage_return),
+  "mean_gap_slippage_fraction_of_entry":None if gap_events.empty else float(gap_events.stop_gap_slippage_return.mean()),
+  "total_gap_slippage_fraction_of_entry_sum":float(gap_events.stop_gap_slippage_return.sum())}
  payload={"diagnostic":"EXIT-ISO-001","status":"COMPONENT_ATTRIBUTION_ONLY_NO_PRODUCTION_CHANGE","snapshot":manifest.get("snapshot_date"),
   "sample_size":len(ids),"eligible_onsets":int(len(events)),"exact_45bar_comparable_events":int(out[out.variant=="CURRENT"].shape[0]),
-  "variants":summaries,"governance":{"atr_multiplier":2.0,"ema_period":20,"max_hold":45,"optimization":"none","production_change":"none"}}
+  "variants":summaries,"robustness":robustness,"gap_diagnostics":gap_diagnostics,
+  "drawdown_note":"No portfolio drawdown is inferred from overlapping event returns; portfolio sizing/capital allocation is not simulated.",
+  "governance":{"atr_multiplier":2.0,"ema_period":20,"max_hold":45,"optimization":"none","production_change":"none"}}
  out.to_csv("exit_iso001_events.csv",index=False); Path("exit_iso001_summary.json").write_text(json.dumps(payload,indent=2),encoding="utf-8"); print(json.dumps(payload,indent=2))
 if __name__=="__main__":main()
