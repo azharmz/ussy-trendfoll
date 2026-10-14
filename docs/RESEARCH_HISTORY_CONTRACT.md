@@ -20,7 +20,7 @@ Universe authority:
 
 Stock history:
 
-`backtest/ohlcv/{security_id}.parquet`
+`history/ohlcv/{security_id}.parquet`
 
 The full-history object is owned by `azharmz/ussy-data` and uses the columns:
 
