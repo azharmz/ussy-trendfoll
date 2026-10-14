@@ -30,7 +30,7 @@ Tiap hari, posisi yang masih "active" dicek terhadap 2 kondisi exit:
                    kriteria Investability yang beda tujuan)
 
 Tidak ada batas maksimal holding period; posisi tetap aktif sampai stop-loss
-atau trend_exit terpicu. — exit_price = close_raw
+atau trend_exit terpicu.
 
 Koreksi dari versi sebelumnya: sempat pakai close_raw untuk cek stop_loss
 (harusnya low_raw) dan ema_stack_aligned+stage untuk trend_exit (harusnya
