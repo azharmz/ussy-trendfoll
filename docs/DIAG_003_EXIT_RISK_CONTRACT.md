@@ -11,7 +11,7 @@ This diagnostic does not search for a better stop, EMA, holding period, or profi
 ## Corpus
 
 - Same current R2 readiness universe authority and deterministic SHA256-ranked 100-security sample as governed DIAG-001/002.
-- R2 `backtest/ohlcv/{security_id}.parquet` full history.
+- R2 `history/ohlcv/{security_id}.parquet` full history.
 - Frozen 500-bar pre-roll.
 - Canonical historical EMA basis: `adj_close`.
 - Evaluation ends at the R2 readiness snapshot date.
