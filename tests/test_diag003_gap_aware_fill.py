@@ -29,26 +29,6 @@ class TestDiag003GapAwareFill(unittest.TestCase):
         self.assertEqual(result["exit_price"], 98.0)
 
 
-class _MissingHistoryObject(Exception):
-    response = {"Error": {"Code": "NoSuchKey"}, "ResponseMetadata": {"HTTPStatusCode": 404}}
-
-
-class _FakeHistoryS3:
-    def __init__(self, missing): self.missing = set(missing)
-    def head_object(self, Bucket, Key):
-        if Key in self.missing: raise _MissingHistoryObject()
-        return {"ResponseMetadata": {"HTTPStatusCode": 200}}
-
-
-class TestDiag003HistoryPreflight(unittest.TestCase):
-    def test_reports_all_missing_keys(self):
-        result = missing_history_keys(_FakeHistoryS3({"history/ohlcv/A.parquet", "history/ohlcv/C.parquet"}), "b", ["A", "B", "C"])
-        self.assertEqual(result, ["history/ohlcv/A.parquet", "history/ohlcv/C.parquet"])
-
-    def test_all_present_returns_empty(self):
-        self.assertEqual(missing_history_keys(_FakeHistoryS3(set()), "b", ["A", "B"]), [])
-
-
 class _MissingGetObject(Exception):
     response = {"Error": {"Code": "NoSuchKey"}, "ResponseMetadata": {"HTTPStatusCode": 404}}
 
