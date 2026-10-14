@@ -494,6 +494,34 @@
     return rows;
   }
 
+  async function sbAllRpc(functionName, pageSize = 1000) {
+    const rows = [];
+    let offset = 0;
+    let total = null;
+    while (total == null || rows.length < total) {
+      const res = await fetch(`${SUPABASE_URL}/rest/v1/rpc/${functionName}`, {
+        method: "POST",
+        headers: {
+          apikey: SUPABASE_ANON_KEY,
+          Authorization: `Bearer ${SUPABASE_ANON_KEY}`,
+          "Content-Type": "application/json",
+          Prefer: "count=exact",
+          Range: `${offset}-${offset + pageSize - 1}`
+        },
+        body: "{}"
+      });
+      if (!res.ok) throw new Error(`Supabase canonical history error ${res.status}`);
+      const page = await res.json();
+      rows.push(...page);
+      const contentRange = res.headers.get("content-range");
+      const match = contentRange && contentRange.match(/\\/(\\d+)$/);
+      if (match) total = Number(match[1]);
+      if (page.length === 0 || (total == null && page.length < pageSize)) break;
+      offset += page.length;
+    }
+    return rows;
+  }
+
   const statusClass = (s) => s === "PASS" ? "pass" : s === "NEAR_PASS" ? "near" : "fail";
   const lifecycleStateClass = (s) => String(s || "").toLowerCase();
 
@@ -821,10 +849,17 @@
       const watchlistHistory = await sbAll("watchlist?select=*&order=date.asc,symbol.asc");
       renderLifecycle(watchlistHistory, latestWatchlistRows, asOfDate);
 
-      const activePositions = await sbAll("positions?select=*&status=eq.active&order=entry_date.desc");
+      // The RPC validates the reconciliation ledger before exposing canonical history.
+      // Never query public.positions directly: it intentionally preserves raw evidence.
+      const canonicalPositions = await sbAllRpc("get_canonical_position_history");
+      const activePositions = canonicalPositions
+        .filter(p => p.status === "active")
+        .sort((a, b) => String(b.entry_date).localeCompare(String(a.entry_date)));
       renderPositions(activePositions, asOfDate);
 
-      const historyForCharts = await sbAll("positions?select=*&status=neq.active&order=exit_date.asc");
+      const historyForCharts = canonicalPositions
+        .filter(p => p.status !== "active")
+        .sort((a, b) => String(a.exit_date || "").localeCompare(String(b.exit_date || "")));
       renderHistory([...historyForCharts].reverse());
       renderPerfBreakdown(historyForCharts);
       renderEquityChart(historyForCharts);
