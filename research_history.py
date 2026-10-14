@@ -140,7 +140,17 @@ def load_research_history(
     frames: list[pd.DataFrame] = []
     for sid in requested:
         key = f"{HISTORY_PREFIX}{sid}.parquet"
-        body = s3.get_object(Bucket=bucket, Key=key)["Body"].read()
+        try:
+            body = s3.get_object(Bucket=bucket, Key=key)["Body"].read()
+        except Exception as exc:
+            response = getattr(exc, "response", {}) or {}
+            code = str((response.get("Error") or {}).get("Code", ""))
+            status = (response.get("ResponseMetadata") or {}).get("HTTPStatusCode")
+            if code in {"NoSuchKey", "NotFound", "404"} or status == 404:
+                raise FileNotFoundError(
+                    f"Canonical R2 research-history object missing: bucket={bucket} key={key} security_id={sid}"
+                ) from exc
+            raise RuntimeError(f"Failed reading canonical R2 research-history object: bucket={bucket} key={key}") from exc
         history = _validate_history_frame(pd.read_parquet(io.BytesIO(body)), sid, allowed[sid])
         if end is not None:
             history = history.loc[history["date"] <= end].copy()

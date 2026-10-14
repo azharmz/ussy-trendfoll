@@ -1,7 +1,8 @@
 import unittest
 import pandas as pd
 
-from run_diag003_exit_risk import missing_history_keys, path_row
+from run_diag003_exit_risk import path_row
+from research_history import load_research_history
 
 
 class TestDiag003GapAwareFill(unittest.TestCase):
@@ -46,6 +47,23 @@ class TestDiag003HistoryPreflight(unittest.TestCase):
 
     def test_all_present_returns_empty(self):
         self.assertEqual(missing_history_keys(_FakeHistoryS3(set()), "b", ["A", "B"]), [])
+
+
+class _MissingGetObject(Exception):
+    response = {"Error": {"Code": "NoSuchKey"}, "ResponseMetadata": {"HTTPStatusCode": 404}}
+
+
+class _FakeMissingHistoryS3:
+    def get_object(self, Bucket, Key): raise _MissingGetObject()
+
+
+class TestResearchHistoryMissingObjectContext(unittest.TestCase):
+    def test_missing_object_error_names_exact_r2_key(self):
+        ready = pd.DataFrame([{"security_id": "SEC-A", "ticker": "AAA"}])
+        with self.assertRaisesRegex(FileNotFoundError, r"history/ohlcv/SEC-A\.parquet"):
+            load_research_history(["SEC-A"], evaluation_end="2026-10-01", min_preroll_bars=500,
+                                  ready=ready, ready_manifest={"snapshot_date": "2026-10-01"},
+                                  s3=_FakeMissingHistoryS3(), bucket="ussy-data")
 
 
 if __name__ == "__main__":
