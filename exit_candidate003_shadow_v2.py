@@ -175,6 +175,10 @@ def register_missing_shadows(client, feature_history: pd.DataFrame, as_of_date):
     for p in positions:
         if int(p["id"]) in existing_ids:
             continue
+        # V2 cohort is prospective: closed production positions must never be
+        # registered as if they were live at the first observable session.
+        if p.get("status") != "active" or p.get("exit_date") is not None:
+            continue
         entry, atr14 = p.get("realistic_entry_price"), p.get("atr14_at_entry")
         if entry is None or atr14 is None or float(atr14) <= 0:
             continue
