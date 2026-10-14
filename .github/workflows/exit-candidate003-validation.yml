@@ -2,10 +2,6 @@
 name: EXIT-CAND-003 Untouched Validation
 on:
   workflow_dispatch:
-  push:
-    branches: [research/exit-development-hypotheses]
-    paths:
-      - dispatch/exit-candidate003-validation.txt
 jobs:
   validation:
     runs-on: ubuntu-latest
