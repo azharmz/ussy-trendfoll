@@ -2,10 +2,6 @@ name: EXIT-CAND-003 Shadow v2 Research Runner
 
 on:
   workflow_dispatch:
-  push:
-    branches: [research/exit-cand-003-shadow-v2-no-time-cap]
-    paths:
-      - .github/workflows/exit-candidate003-shadow-v2-runner.yml
     inputs:
       as_of_date:
         description: "Exact latest R2 READY market date (YYYY-MM-DD)"
@@ -23,6 +19,10 @@ on:
         description: "For write mode only, enter I_UNDERSTAND_SHADOW_ONLY"
         required: false
         type: string
+  push:
+    branches: [research/exit-cand-003-shadow-v2-no-time-cap]
+    paths:
+      - .github/workflows/exit-candidate003-shadow-v2-runner.yml
 
 permissions:
   contents: read
