@@ -9,7 +9,7 @@ import sys
 import pandas as pd
 import database
 from r2_ready import load_ready_dataset
-from r2_integration import build_feature_store_from_r2
+from r2_feature_engine import build_feature_store_from_r2
 import exit_candidate003_shadow_v2 as shadow
 
 ACK_VALUE = "I_UNDERSTAND_SHADOW_ONLY"
