@@ -98,7 +98,8 @@ END;
 $function$;
 
 REVOKE ALL ON FUNCTION public.get_canonical_position_history() FROM PUBLIC;
-GRANT EXECUTE ON FUNCTION public.get_canonical_position_history() TO anon, authenticated;
+REVOKE ALL ON FUNCTION public.get_canonical_position_history() FROM authenticated;
+GRANT EXECUTE ON FUNCTION public.get_canonical_position_history() TO anon;
 
 COMMENT ON FUNCTION public.get_canonical_position_history() IS
     'Read-only PROB-017 canonical history for dashboard consumers; validates all duplicate identities and resolved ledger mappings, failing closed on inconsistency.';
