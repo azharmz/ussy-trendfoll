@@ -19,7 +19,7 @@ Implemented in `research_history.py` and documented in `docs/RESEARCH_HISTORY_CO
 Frozen architecture rules:
 
 - current R2 readiness remains universe authority;
-- stock history comes from `backtest/ohlcv/{security_id}.parquet` in `ussy-data`;
+- current canonical stock-history namespace is `history/ohlcv/{security_id}.parquet` in `ussy-data` (aligned on 2026-10-14);
 - stock history is trimmed to `evaluation_end` before feature computation;
 - default minimum pre-roll is 500 prior daily bars per security;
 - 500 bars is an engineering warm-up, not a trading parameter and must not be performance-tuned;
@@ -52,7 +52,7 @@ The first audit run (`34905140346`) failed before evidence evaluation because Pa
 - universe authority: current R2 readiness;
 - deterministic sample: SHA256-ranked `security_id|ticker`;
 - sample: 100 securities;
-- stock feature context: R2 `backtest/ohlcv/{security_id}.parquet` full history;
+- stock feature context at the original 2026-09-15 audit: R2 `backtest/ohlcv/{security_id}.parquet` full history (historical provenance; superseded namespace);
 - minimum pre-roll: 500 daily bars;
 - evaluation window in this audit: 2025-07-03 through 2026-09-14;
 - source compatibility guard: 0.25% for overlapping `close` and `adj_close` values;
@@ -122,3 +122,21 @@ The audited ready manifest reported `snapshot_date = 2026-08-28`, while the samp
 **PROB-019 = RESOLVED ARCHITECTURE GATE.**
 
 New historical TrendFoll diagnostics and development backtests may proceed only through this governed research-history contract (or an explicitly equivalent governed successor). Existing frozen evidence is not rewritten retroactively; any rerun under the new contract is a new evidence cycle/version.
+
+## Canonical R2 prefix reconciliation — 2026-10-14
+
+The current `ussy-data` full-history contract uses the canonical object key
+`history/ohlcv/{security_id}.parquet`, not the legacy `backtest/ohlcv/`
+prefix. TrendFoll's current `research_history.py::HISTORY_PREFIX`,
+`ResearchHistoryReport.stock_history_source`, fixture key, and the
+`RESEARCH_HISTORY_CONTRACT.md` / `DIAG_003_EXIT_RISK_CONTRACT.md` references
+were aligned to `history/ohlcv/` in commit
+`afe38c60e5e54d9a93175dfd3e2c783e7eb7315f`.
+
+Validation:
+- Repository-wide pytest run: [run 38558808568](https://github.com/azharmz/ussy-trendfoll/actions/runs/38558808568)
+- Tested code base: main commit `afe38c60e5e54d9a93175dfd3e2c783e7eb7315f`
+- Result: **104 passed, 4 warnings**.
+- The test run verifies repository regressions and the updated path fixture. It did **not** rerun the 100-security live R2 architecture audit against the new prefix. The original 2026-09-15 audit metrics above remain historical evidence from the old prefix and must not be represented as a fresh audit of the new namespace.
+
+The namespace reconciliation changes object-key selection only. It does not change pre-roll length, feature formulas, evaluation bounds, EMA basis, Stage semantics, signal/exit rules, or any trading thresholds.
