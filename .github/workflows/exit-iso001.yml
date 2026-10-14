@@ -1,6 +1,11 @@
 name: EXIT-ISO-001 Component Isolation
 on:
   workflow_dispatch:
+  push:
+    branches: [research/exit-development-hypotheses]
+    paths:
+      - run_exit_iso001.py
+      - .github/workflows/exit-iso001.yml
 
 jobs:
   isolation:
