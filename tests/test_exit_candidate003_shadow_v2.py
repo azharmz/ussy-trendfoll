@@ -25,22 +25,33 @@ class _FakeQuery:
     def select(self, *_): self.mode = "select"; return self
     def eq(self, key, value): self.filters[key] = value; return self
     def insert(self, payload): self.mode = "insert"; self.payload = payload; return self
+    def update(self, payload): self.mode = "update"; self.payload = payload; return self
     def execute(self):
         rows = self.client.rows.setdefault(self.table, [])
         if self.mode == "select":
             data = [r.copy() for r in rows if all(str(r.get(k)) == str(v) for k, v in self.filters.items())]
             return SimpleNamespace(data=data)
         if self.mode == "insert":
+            self.client.mutations.append((self.table, "insert"))
             payloads = self.payload if isinstance(self.payload, list) else [self.payload]
             out = []
             for payload in payloads:
                 row = dict(payload); row.setdefault("id", len(rows) + 1); rows.append(row); out.append(row.copy())
             return SimpleNamespace(data=out)
+        if self.mode == "update":
+            self.client.mutations.append((self.table, "update"))
+            out = []
+            for row in rows:
+                if all(str(row.get(k)) == str(v) for k, v in self.filters.items()):
+                    row.update(self.payload); out.append(row.copy())
+            return SimpleNamespace(data=out)
         raise AssertionError("unsupported fake query")
 
 
 class _FakeClient:
-    def __init__(self): self.rows = {}
+    def __init__(self):
+        self.rows = {}
+        self.mutations = []
     def table(self, name): return _FakeQuery(self, name)
 
 
@@ -99,6 +110,54 @@ class TestExitCandidate003ShadowV2(unittest.TestCase):
         self.assertEqual(shadow._persist_session_evidence(client, ev), "inserted")
         self.assertEqual(shadow._persist_session_evidence(client, ev), "replay_identical")
         self.assertEqual(len(client.rows[shadow.SESSION_LEDGER_TABLE]), 1)
+
+
+    def test_register_missing_shadows_rejects_late_bootstrap(self):
+        client = _FakeClient()
+        client.rows["positions"] = [{
+            "id": 11, "symbol": "X", "entry_date": "2026-01-05",
+            "realistic_entry_price": 104.0, "atr14_at_entry": 2.0,
+            "status": "active", "exit_date": None, "exit_price": None,
+        }]
+        history = pd.DataFrame([
+            {"symbol": "X", "date": "2026-01-06"},
+            {"symbol": "X", "date": "2026-01-07"},
+        ])
+        created = shadow.register_missing_shadows(client, history, "2026-01-07")
+        self.assertEqual(created, [])
+        self.assertEqual(client.rows.get("exit_candidate003_shadow", []), [])
+        self.assertEqual(client.mutations, [])
+
+    def test_session_advancement_never_mutates_production_positions(self):
+        client = _FakeClient()
+        position = {"id": 11, "symbol": "X", "entry_date": "2026-01-05",
+                    "realistic_entry_price": 104.0, "atr14_at_entry": 2.0,
+                    "status": "active", "exit_date": None, "exit_price": None}
+        client.rows["positions"] = [dict(position)]
+        client.rows["exit_candidate003_shadow"] = [{
+            "id": 7, "position_id": 11, "symbol": "X",
+            "contract_version": shadow.SHADOW_CONTRACT_VERSION,
+            "signal_date": "2026-01-05", "shadow_entry_date": "2026-01-06",
+            "shadow_entry_price": 104.0, "atr14_t0": 2.0,
+            "initial_stop": 80.0, "operative_stop": 80.0, "status": "active",
+            "last_session_date": "2026-01-06", "days_observed": 1,
+        }]
+        rows = []
+        for i, date in enumerate(pd.bdate_range("2025-12-01", periods=35)):
+            close = 100.0 + i * 0.1
+            rows.append({"symbol": "X", "date": date, "open_raw": close,
+                         "high_raw": close + 2, "low_raw": close - 1,
+                         "close_raw": close, "ema20": close - 1})
+        history = pd.DataFrame(rows)
+        today = history["date"].max()
+        client.rows["exit_candidate003_shadow"][0]["last_session_date"] = (
+            today - pd.offsets.BDay(1)).date().isoformat()
+        shadow.update_shadows(client, history, today, history["date"].unique())
+        self.assertEqual(client.rows["positions"], [position])
+        self.assertTrue(client.mutations)
+        self.assertTrue(all(table != "positions" for table, _ in client.mutations))
+        self.assertTrue(all(table in {"exit_candidate003_shadow", shadow.SESSION_LEDGER_TABLE}
+                            for table, _ in client.mutations))
 
     def test_divergent_duplicate_evidence_fails_closed(self):
         client = _FakeClient()
