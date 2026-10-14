@@ -5,6 +5,7 @@ on:
   push:
     branches:
       - diagnostic/diag003-exit-risk-conversion
+      - fix/gap-aware-stop-execution
     paths:
       - run_diag003_exit_risk.py
       - research_history.py
