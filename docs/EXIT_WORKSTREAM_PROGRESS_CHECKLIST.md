@@ -164,7 +164,8 @@ This is the **PRIMARY EXIT WORKSTREAM**. Do not start a new exit candidate while
 - [x] Diagnostic completed and exact-stop execution feasibility defect confirmed.
 - [x] Evidence locked: `docs/EVIDENCE_STOP_EXEC_001.md`.
 - [!] Production CURRENT gap-through correction has not been governed or implemented.
-- [ ] Separate correction contract, validation, migration and rollback remain future work if prioritized.
+- [x] Draft proposal recorded in `docs/STOP_EXEC_001_CORRECTION_CONTRACT_DRAFT.md`; it is not approved for production implementation.
+- [ ] Read-only schema/consumer compatibility audit, reason/status decision, regression validation, rollout/rollback review, and explicit authorization remain pending.
 
 **Important:** STOP-EXEC-001 must not be silently folded into CAND-003 promotion.
 
