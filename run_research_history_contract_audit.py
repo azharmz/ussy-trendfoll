@@ -112,12 +112,29 @@ def main() -> None:
     ema_cmp["date_match"] = pd.to_datetime(ema_cmp["date"]).dt.normalize().eq(ema_cmp["as_of_date"])
     ema_numeric_failures = 0
     max_abs_error = {}
+    ema_failure_counts = {}
     for period in [20, 50, 150, 200]:
         diff = (ema_cmp[f"ema{period}_research"] - ema_cmp[f"ema{period}_shared"]).abs()
         max_abs_error[f"ema{period}"] = float(diff.max()) if len(diff) else None
-        ema_numeric_failures += int((diff > 1e-10).sum())
+        ema_failure_counts[f"ema{period}"] = int((diff > 1e-10).sum())
+        ema_numeric_failures += ema_failure_counts[f"ema{period}"]
     price_diff = (ema_cmp["close_adj"] - ema_cmp["last_price"]).abs()
-    ema_numeric_failures += int((price_diff > 1e-10).sum())
+    price_failures = int((price_diff > 1e-10).sum())
+    ema_numeric_failures += price_failures
+
+    source_abs_diff = {}
+    source_exact_mismatches = {}
+    for col in ["close", "adj_close"]:
+        diff = (overlap[f"{col}_history"] - overlap[f"{col}_ready"]).abs()
+        source_abs_diff[col] = float(diff.max()) if len(diff) else None
+        source_exact_mismatches[col] = int((diff > 1e-10).sum())
+    failing_ema_symbols = ema_cmp.loc[
+        (price_diff > 1e-10)
+        | ema_cmp[[f"ema{period}_research" for period in [20, 50, 150, 200]]]
+            .sub(ema_cmp[[f"ema{period}_shared" for period in [20, 50, 150, 200]]).to_numpy())
+            .abs().gt(1e-10).any(axis=1),
+        ["security_id", "symbol", "date", "as_of_date"]
+    ]["symbol"].astype(str).tolist()
 
     e20 = ema_cmp["ema20_shared"]
     e50 = ema_cmp["ema50_shared"]
@@ -165,6 +182,8 @@ def main() -> None:
         "source_overlap_rows": int(len(overlap)),
         "source_compatible_rows": int(overlap["source_compatible"].sum()),
         "source_mismatches": source_mismatches,
+        "source_exact_mismatches_1e-10": source_exact_mismatches,
+        "source_max_abs_diff": source_abs_diff,
         "source_tolerance": SOURCE_TOLERANCE,
         "research_feature_rows": int(len(research)),
         "research_eligible_rows": int(len(eligible)),
@@ -175,6 +194,10 @@ def main() -> None:
             "missing_shared_rows": missing_shared,
             "date_mismatches": int((~ema_cmp["date_match"]).sum()),
             "numeric_failures": int(ema_numeric_failures),
+            "ema_failure_counts_1e-10": ema_failure_counts,
+            "price_failures_1e-10": price_failures,
+            "max_price_abs_error": float(price_diff.max()) if len(price_diff) else None,
+            "failing_symbols": failing_ema_symbols[:25],
             "stack_mismatches": stack_mismatches,
             "max_abs_error": max_abs_error,
         },
