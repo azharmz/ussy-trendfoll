@@ -8,7 +8,7 @@ class PositionIdentityTests(unittest.TestCase):
 
     def test_contract_constants_unchanged(self):
         self.assertEqual(positions.ATR_STOP_MULTIPLIER, 2.0)
-        self.assertEqual(positions.MAX_HOLDING_DAYS, 45)
+        self.assertFalse(hasattr(positions, "MAX_HOLDING_DAYS"))
 
 if __name__ == "__main__":
     unittest.main()
