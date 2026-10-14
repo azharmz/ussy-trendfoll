@@ -108,3 +108,16 @@ Interpretation is component attribution only. The best counterfactual is **not a
 ## Governance
 
 No production semantic changes are authorized by this document. `positions.py` remains unchanged until a separately frozen candidate passes untouched validation.
+
+## Data-source preflight — EXIT-ISO-001
+
+Before execution, the research-history loader must use the canonical upstream R2 key
+`history/ohlcv/{security_id}.parquet`. The legacy `backtest/ohlcv/` namespace is
+obsolete and must fail to be treated as the current source contract.
+
+This source-path alignment does not change the experiment: readiness remains the
+universe authority; pre-roll rows initialize features only; outcomes are restricted
+to `research_eligible == True`; entry remains T0 signal / T+1 open; existing
+ATR(14) × 2.0, EMA20, and 45-bar horizon remain frozen. The four pre-registered
+variants above are the only comparisons. No production table or strategy logic is
+changed by this diagnostic.
