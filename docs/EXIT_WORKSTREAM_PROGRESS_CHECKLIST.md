@@ -175,8 +175,8 @@ This is the **PRIMARY EXIT WORKSTREAM**. Do not start a new exit candidate while
 
 - [x] CAND-003 test-discovery mismatch fixed for session-ledger CI.
 - [x] CAND-003 late-bootstrap operational defect fixed and regression-tested.
-- [!] Verify repository-wide tests for undiscovered bare pytest-style functions under unittest-only workflows.
-- [!] Development summary `stop_touch_timing` legacy-reason reporting quirk remains reporting-only debt.
+- [x] Repository-wide test discovery fixed with `.github/workflows/repository-tests.yml`; full suite passed 104 tests. Evidence: `docs/EVIDENCE_REPOSITORY_TEST_DISCOVERY.md`.
+- [x] CAND-003 `stop_touch_timing` reporting-only quirk fixed and regression-tested; detailed `risk_stop_gap` / `risk_stop_touch` reasons remain distinct.
 - [x] Duplicate production position identity resolved through the PROB-017 canonical ledger-aware reader; see `docs/EVIDENCE_PROB_017_CANONICAL_READER.md`.
 - [x] Alert-event persistence/idempotency and retry bookkeeping implemented; residual Telegram crash-window duplicate limitation is documented in `docs/EVIDENCE_PROB_003_004.md`.
 - [x] PROB-005 READY identity/mapping guard closed; see `docs/EVIDENCE_PROB_005.md`.
@@ -211,9 +211,10 @@ Blocked until Section E has sufficient locked operational evidence. Current auth
 
 1. CURRENT repository audit and regression coverage are merged (PR #17, `d5c04e884958befb5c7ab550c4720282a7e354f5`); workflow run `38552916021` passed. Live deployment / OKTA row check remains pending.
 2. Checklist/evidence reconciliation completed in master queue item 2; PROB-017 now distinguishes the user's dashboard observation from independent live verification.
-3. Next engineering action: draft STOP-EXEC-001 gap-through correction contract only; no production correction until separately validated and authorized.
-4. Independently verify live deployment and the long-held OKTA row when production read access is available.
-5. Separately, let the normal daily pipeline continue; do not manufacture or backfill CAND-003 operational evidence. Continue E2–E4 only on genuine sequential sessions.
+3. STOP-EXEC-001 current-source compatibility audit complete; gap-aware fill is already in repository main, but live deployment verification remains pending.
+4. Repository-wide test discovery and CAND-003 reporting-only quirk are fixed; full suite passed 104 tests. See `docs/EVIDENCE_REPOSITORY_TEST_DISCOVERY.md`.
+5. Independently verify live deployment and the long-held OKTA row when production read access is available.
+6. Separately, let the normal daily pipeline continue; do not manufacture or backfill CAND-003 operational evidence. Continue E2–E4 only on genuine sequential sessions.
 
 ## Approximate progress indicator
 
