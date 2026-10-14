@@ -101,6 +101,40 @@ class TestGapAwareStopExecution(unittest.TestCase):
         self.assertEqual(stored["exit_price"], 98.0)
         self.assertEqual(exits[0]["stop_fill_type"], "stop_touch")
 
+    def test_position_older_than_45_sessions_stays_active_without_exit_signal(self):
+        client = FakeClient([_position(stop=98.0)])
+        dates = pd.bdate_range("2026-10-06", periods=52)
+        as_of_date = dates[-1]
+        latest = pd.DataFrame([{
+            "symbol": "X", "open_raw": 104.0, "low_raw": 102.0,
+            "close_raw": 105.0, "ema20": 100.0,
+        }])
+
+        exits = positions.check_exits(client, latest, as_of_date, dates)
+        stored = client.tables["positions"][0]
+
+        self.assertEqual(positions._trading_days_between(dates[0], as_of_date, dates), 51)
+        self.assertEqual(exits, [])
+        self.assertEqual(stored["status"], "active")
+        self.assertNotIn("exit_date", stored)
+        self.assertEqual(stored["mark_price"], 105.0)
+
+    def test_trend_break_still_exits_without_stop_touch(self):
+        client = FakeClient([_position(stop=98.0)])
+        latest = pd.DataFrame([{
+            "symbol": "X", "open_raw": 100.0, "low_raw": 99.0,
+            "close_raw": 97.0, "ema20": 98.0,
+        }])
+
+        exits = positions.check_exits(
+            client, latest, "2026-10-07",
+            ["2026-10-06", "2026-10-07"],
+        )
+
+        self.assertEqual(len(exits), 1)
+        self.assertEqual(exits[0]["exit_reason"], "trend_exit")
+        self.assertEqual(client.tables["positions"][0]["status"], "trend_exit")
+
 
 if __name__ == "__main__":
     unittest.main()

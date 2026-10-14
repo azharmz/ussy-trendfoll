@@ -23,20 +23,20 @@ At the start of a session, read this file and execute the first actionable item 
 
 ## Ordered queue
 
-### 1. Remove the CURRENT 45-session forced exit — **NEXT**
-**Decision:** approved; **implementation: NOT VERIFIED**.
+### 1. Remove the CURRENT 45-session forced exit — **REPOSITORY AUDIT DONE; REGRESSION CI PENDING**
+**Decision:** approved. Source audit found no age-only exit branch in current `positions.py`; added regression coverage is pending CI. Live deployment is not independently verified.
 
 - Decision: [`DECISION_CURRENT_EXIT_NO_MAX_HOLDING_PERIOD.md`](DECISION_CURRENT_EXIT_NO_MAX_HOLDING_PERIOD.md)
 - Baseline context: [`EXIT_WORKSTREAM_PROGRESS_CHECKLIST.md`](EXIT_WORKSTREAM_PROGRESS_CHECKLIST.md), Section A.
 - Scope: remove holding age as a standalone exit trigger from CURRENT production position management. Preserve existing stop-loss and existing technical trend-break behavior; do not tune either.
 - Do **not** alter the frozen CAND-003 shadow contract's separate 45-session boundary.
 - Required acceptance:
-  1. Trace the complete current production exit path and remove the age-only exit condition.
-  2. Check dashboard/status/summary consumers so age alone is not represented as an exit reason.
-  3. Add regression tests: a position older than 45 sessions remains open when stop-loss and trend-break are both absent; stop-loss still exits; trend-break still exits.
-  4. Validate an older live example such as OKTA using the actual current state/data; distinguish code-level tests from production observation.
-  5. Run the relevant test suite/workflow and record commit, run IDs, test results, and any production check.
-- Completion rule: update the decision document and checklist only after the evidence above exists. Until then, do not claim this change is deployed or verified.
+  1. [x] Trace `positions.py::check_exits`; no age-only exit condition exists in the current repository code.
+  2. [x] Check dashboard consumer: `days_held` is displayed as a metric; no age-based dashboard exit decision was found.
+  3. [x] Add regression tests for >45 trading sessions without an exit trigger and for continued trend-break behavior; existing stop-loss regression remains in place. Await CI result.
+  4. [ ] Verify an older live example such as OKTA using current production data; distinguish code-level tests from production observation.
+  5. [ ] Run the relevant test suite/workflow and record commit, run IDs, test results, and any production check.
+- Current finding: repository source already lacks the age-only exit; the code change is regression coverage + accurate evidence. Do not claim the live deployment is verified until CI and the live check are complete.
 
 ### 2. Reconcile the workstream checklist with current evidence — **READY**
 - Main checklist: [`EXIT_WORKSTREAM_PROGRESS_CHECKLIST.md`](EXIT_WORKSTREAM_PROGRESS_CHECKLIST.md)

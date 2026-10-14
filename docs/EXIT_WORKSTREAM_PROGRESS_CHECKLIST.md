@@ -4,7 +4,7 @@
 
 **Branch:** `main`
 
-**Last updated:** 2026-09-19
+**Last updated:** 2026-10-14
 
 ## Status legend
 
@@ -33,7 +33,7 @@ Rules:
 - [x] **PROB-013:** production-like exit performance problem identified.
 - [x] **DIAG-001:** full-history entry/forward-path diagnostics completed.
 - [x] **DIAG-002:** no robust monotonic entry-quality rule found; entry contract left unchanged.
-- [x] **DIAG-003:** production-like exit reconstructed: T+1 Open entry, initial 2×ATR14 stop, EMA20 exit, max 45 sessions.
+- [x] **DIAG-003:** production-like exit reconstructed: T+1 Open entry, initial 2×ATR14 stop, EMA20 exit. Current production has no maximum holding-period exit; see `docs/DECISION_CURRENT_EXIT_NO_MAX_HOLDING_PERIOD.md`.
 - [x] **RC-004:** exit/risk conversion identified as the supported problem area rather than entry quality.
 - [x] **EXIT-ISO-001:** isolated current exit components.
 - [x] Fixed 2×ATR stop identified as the primary harmful component in the isolation study; EMA20 was not the primary culprit.
@@ -176,9 +176,9 @@ This is the **PRIMARY EXIT WORKSTREAM**. Do not start a new exit candidate while
 - [x] CAND-003 late-bootstrap operational defect fixed and regression-tested.
 - [!] Verify repository-wide tests for undiscovered bare pytest-style functions under unittest-only workflows.
 - [!] Development summary `stop_touch_timing` legacy-reason reporting quirk remains reporting-only debt.
-- [!] Duplicate production position key remains separate engineering debt.
-- [!] Alert-event idempotency/same-day transition resend remains separate.
-- [!] Duplicate mapped `(symbol,date)` guard remains separate.
+- [x] Duplicate production position identity resolved through the PROB-017 canonical ledger-aware reader; see `docs/EVIDENCE_PROB_017_CANONICAL_READER.md`.
+- [x] Alert-event persistence/idempotency and retry bookkeeping implemented; residual Telegram crash-window duplicate limitation is documented in `docs/EVIDENCE_PROB_003_004.md`.
+- [x] PROB-005 READY identity/mapping guard closed; see `docs/EVIDENCE_PROB_005.md`.
 
 ---
 
@@ -208,10 +208,10 @@ Blocked until Section E has sufficient locked operational evidence. Current auth
 
 **NEXT ACTION:**
 
-1. Let the normal daily pipeline continue; do not manufacture or backfill operational evidence.
-2. Continue E2 coverage/data-quality monitoring on each genuine sequential session and each new entry cohort.
-3. Accumulate frozen E3 observational metrics without tuning CAND-003.
-4. Evaluate E4 only when the pre-locked operational sufficiency criteria are actually reached.
+1. Current production max-holding-period removal decision and repository behavior audit recorded in `docs/DECISION_CURRENT_EXIT_NO_MAX_HOLDING_PERIOD.md`; code audit found no age-only exit branch. Regression coverage is being added; live deployment check remains pending.
+2. After exit regression CI passes, reconcile stale documentation/debt markers against the current evidence.
+3. Independently verify live deployment and the long-held OKTA row when production read access is available.
+4. Separately, let the normal daily pipeline continue; do not manufacture or backfill CAND-003 operational evidence. Continue E2–E4 only on genuine sequential sessions.
 
 ## Approximate progress indicator
 
