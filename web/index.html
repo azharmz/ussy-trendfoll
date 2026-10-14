@@ -514,7 +514,7 @@
       const page = await res.json();
       rows.push(...page);
       const contentRange = res.headers.get("content-range");
-      const match = contentRange && contentRange.match(/\\/(\\d+)$/);
+      const match = contentRange && contentRange.match(/\/(\d+)$/);
       if (match) total = Number(match[1]);
       if (page.length === 0 || (total == null && page.length < pageSize)) break;
       offset += page.length;
