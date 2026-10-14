@@ -2,7 +2,7 @@
 
 **Decision date:** 2026-10-14  
 **Authority:** explicit user decision in the TrendFoll work session  
-**Status:** DECISION RECORDED / IMPLEMENTATION NOT VERIFIED
+**Status:** VERIFIED IN REPOSITORY CODE + REGRESSION TESTS / LIVE DEPLOYMENT NOT INDEPENDENTLY VERIFIED
 
 ## Decision
 
@@ -15,21 +15,32 @@ An open position must not be exited solely because it has reached a holding-age 
 
 This decision does not authorize changing the stop-loss parameters or redefining the existing trend-break signal. It removes the time-based forced exit only.
 
+## Repository audit and implementation result (2026-10-14)
+
+A source audit of `positions.py::check_exits` found that the current production exit function already has no age-based exit branch. The only use of `days_held` in that function is to calculate and persist the holding-duration metric when a position exits. If neither stop-loss nor `close_raw < ema20` is triggered, the position remains active and its mark/MFE/MAE fields are updated.
+
+The dashboard's `days_held` field is displayed as a duration; it is not used as an exit decision. The `max_holding` CSS badge selector is a presentation artifact and is not referenced by the production exit decision path.
+
+This work therefore adds regression coverage for the behavior rather than removing a live max-age conditional that is not present in the current source:
+- A position held for 51 trading sessions remains active when stop-loss and trend-break are both absent.
+- The existing trend-break exit still fires when `close_raw < ema20` and the stop is not touched.
+- Existing stop-loss execution tests continue to cover stop exits.
+
+**Verification boundary:** this establishes repository behavior and test coverage. It does not independently prove which commit is currently deployed to the live dashboard, nor does it independently inspect the live OKTA row. The user's reported OKTA age of 47 calendar days is consistent with an age display and is not by itself evidence of a forced exit.
+
 ## Scope boundary
 
 - Applies to CURRENT production TrendFoll position management and its dashboard/status representation.
 - Does **not** silently rewrite the frozen `EXIT-CAND-003` shadow/research contract. That contract retains its own frozen 45-session boundary unless separately governed.
 - Does not resolve the separate `STOP-EXEC-001` gap-through execution-feasibility defect.
 
-## Required implementation verification
+## Validation record
 
-1. Find and remove the maximum-holding-age exit from the production decision path.
-2. Confirm no downstream/dashboard consumer treats holding age alone as an exit reason.
-3. Add regression coverage proving a position older than 45 sessions remains open when neither the existing stop-loss nor trend-break exit fires.
-4. Confirm existing stop-loss and trend-break exits still fire normally.
-5. Verify the production position and dashboard for a long-held example such as OKTA.
-6. Update the exit-workstream checklist and production evidence only after verification.
+- [x] Audited `positions.py::check_exits`: no max-age exit condition found.
+- [x] Audited dashboard references: `days_held` is rendered as a metric, not an exit rule.
+- [x] Added regression test for a 51-trading-session open position with no exit signal.
+- [x] Added regression test confirming trend-break exit remains active.
+- [ ] CI/workflow result for this branch/PR.
+- [ ] Independent live deployment / OKTA row verification.
 
-## Important status distinction
-
-This document records the decision; it does **not** claim the code change or production verification is complete. Until implementation and regression evidence are recorded, status remains **DECISION RECORDED / IMPLEMENTATION NOT VERIFIED**.
+Do not mark the live deployment check complete until that check is actually performed.
