@@ -23,8 +23,8 @@ At the start of a session, read this file and execute the first actionable item 
 
 ## Ordered queue
 
-### 1. Remove the CURRENT 45-session forced exit — **REPOSITORY VERIFIED; LIVE DEPLOYMENT CHECK PENDING**
-**Decision:** approved. Source audit found no age-only exit branch in current `positions.py`; regression workflow passed and changes merged in PR #17 (`d5c04e884958befb5c7ab550c4720282a7e354f5`). Live deployment is not independently verified.
+### 1. Remove the CURRENT 45-session forced exit — **REPOSITORY VERIFIED; LIVE ROW CHECKED; POST-MERGE RUN PENDING**
+**Decision:** approved. Source audit found no age-only exit branch in current `positions.py`; regression workflow passed and changes merged in PR #17 (`d5c04e884958befb5c7ab550c4720282a7e354f5`). Read-only Supabase query confirms OKTA id 22 remains active, but the latest successful daily run predates the removal commit.
 
 - Decision: [`DECISION_CURRENT_EXIT_NO_MAX_HOLDING_PERIOD.md`](DECISION_CURRENT_EXIT_NO_MAX_HOLDING_PERIOD.md)
 - Baseline context: [`EXIT_WORKSTREAM_PROGRESS_CHECKLIST.md`](EXIT_WORKSTREAM_PROGRESS_CHECKLIST.md), Section A.
@@ -34,9 +34,10 @@ At the start of a session, read this file and execute the first actionable item 
   1. [x] Trace `positions.py::check_exits`; no age-only exit condition exists in the current repository code.
   2. [x] Check dashboard consumer: `days_held` is displayed as a metric; no age-based dashboard exit decision was found.
   3. [x] Regression tests added and passed in workflow run `38552916021` (Gap-aware stop execution regression #21); existing stop-loss regression remains in place.
-  4. [ ] Verify an older live example such as OKTA using current production data; distinguish code-level tests from production observation.
-  5. [x] Workflow run `38552916021` succeeded; PR #17 merged as `d5c04e884958befb5c7ab550c4720282a7e354f5`.
-- Current finding: repository source already lacked the age-only exit; regression coverage is merged and CI passed. **Remaining limitation:** live deployment and OKTA row are not independently verified. Proceed to Queue item 2 while treating live verification as a separate pending check.
+  4. [x] Read-only Supabase check: OKTA id 22 (entry 2026-08-27) is still `active`, with no exit_date; evidence in [`EVIDENCE_CURRENT_EXIT_MAX_HOLDING_LIVE_CHECK.md`](EVIDENCE_CURRENT_EXIT_MAX_HOLDING_LIVE_CHECK.md).
+  5. [ ] Verify a normal production daily run on a head containing the removal commit, then re-query OKTA. Latest run #83 / `38507633128` used pre-removal SHA `6a29253831474e61e36e2a018965aa276a6fca26`; do not call it post-change verification.
+  6. [x] Workflow run `38552916021` succeeded; PR #17 merged as `d5c04e884958befb5c7ab550c4720282a7e354f5`.
+- Current finding: repository source already lacked the age-only exit; regression coverage is merged and CI passed. Live database confirms OKTA remains active, but latest production run predates the removal commit. After the next normal run on updated main, verify run head SHA and re-query OKTA. No manual production workflow was triggered.
 
 ### 2. Reconcile the workstream checklist with current evidence — **DONE**
 - Main checklist: [`EXIT_WORKSTREAM_PROGRESS_CHECKLIST.md`](EXIT_WORKSTREAM_PROGRESS_CHECKLIST.md)
@@ -104,4 +105,4 @@ When work stops, update the top of the queue or the relevant item with:
 - **Next action:** one concrete action.
 - **Blocker:** exact missing evidence or decision; write “none” if none.
 
-**Current handoff (2026-10-14):** Queue items 2 and 5 are complete and evidence-linked. Queue item 1's repository audit/regression is merged and CI-passed; independent live deployment/OKTA verification remains pending. Queue item 3 confirms gap-aware fill is already present in repository main and focused regression CI passed; independent live verification remains pending. Next actionable item is independent live verification when production read access is available; in parallel, continue genuine sequential CAND-003 E2–E4 observation. Do not change production execution semantics without new evidence.
+**Current handoff (2026-10-14):** Queue items 2 and 5 are complete and evidence-linked. Queue item 1's repository audit/regression is merged and CI-passed; read-only live DB confirms OKTA is active, but the latest production run predates the removal commit. Verify the next normal run on updated main before closing item 1. Queue item 3's gap-aware fix is present in main and focused regression CI passed; the historical diagnostic/current-code distinction is documented. Continue genuine sequential CAND-003 E2–E4 observation. Do not trigger production workflows manually or change exit semantics without new evidence.
