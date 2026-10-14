@@ -49,14 +49,15 @@ At the start of a session, read this file and execute the first actionable item 
   - **PROB-003/004:** reconciled. Checklist marks persistence/idempotency complete; Telegram's crash-after-acceptance duplicate remains a documented external-delivery limitation.
 - Keep this reconciliation documentation-only unless an actual code defect is discovered; any newly discovered defect gets a separate queue entry with evidence.
 
-### 3. Define and govern a production correction for gap-through stop execution — **DRAFT WRITTEN; COMPATIBILITY AUDIT NEXT; NO PRODUCTION CHANGE AUTHORIZED**
+### 3. Reconcile STOP-EXEC-001 with current gap-aware implementation — **REPOSITORY AUDIT DONE; LIVE VERIFICATION PENDING**
 - Evidence: [`EVIDENCE_STOP_EXEC_001.md`](EVIDENCE_STOP_EXEC_001.md) and [`STOP_EXEC_001_AUDIT_PROTOCOL.md`](STOP_EXEC_001_AUDIT_PROTOCOL.md).
-- Draft contract: [`STOP_EXEC_001_CORRECTION_CONTRACT_DRAFT.md`](STOP_EXEC_001_CORRECTION_CONTRACT_DRAFT.md).
+- Current implementation/compatibility audit: [`STOP_EXEC_001_CORRECTION_CONTRACT_DRAFT.md`](STOP_EXEC_001_CORRECTION_CONTRACT_DRAFT.md).
 - Finding: the current exact-stop assumption is infeasible when session Open is already below the stop. The frozen audit found 93 gap-through events among 839 CURRENT stop events in its 1,524-event paired sample.
-- Diagnostic is complete; **no production correction is authorized by that finding alone**.
-- [x] Drafted explicit proposed semantics, compatibility questions, regression cases, rollout/rollback and approval gates in `STOP_EXEC_001_CORRECTION_CONTRACT_DRAFT.md`.
-- Next step: perform a read-only audit of schema/status constraints and all consumers of exit price/reason, realized return, dashboard and alerts. Resolve status/reason representation before implementing any code. Then validate separately before changing production.
-- Do not use this item to retune the 2×ATR stop or modify CAND-003.
+- Historical diagnostic is complete. A follow-up audit found the gap-aware correction already exists in `positions.py` from commit `d213fd491975f8d9aaeb6116fef7eef837fd7cb5`.
+- [x] Current source fill semantics, schema status field, alert label, dashboard grouping and realized-return consumer audited read-only.
+- [x] Focused regression tests passed in workflow run `38552916021` on 2026-10-14.
+- [ ] Independently verify live daily pipeline/dashboard deployment and observe a real post-fix gap-through exit if/when one occurs.
+- No further code or schema migration is indicated by the current repository audit. Do not use this item to retune the 2×ATR stop or modify CAND-003.
 
 ### 4. Continue CAND-003 genuine operational shadow observation — **ACTIVE / GATED**
 - Frozen sufficiency gate: [`CAND003_OPERATIONAL_EVIDENCE_SUFFICIENCY.md`](CAND003_OPERATIONAL_EVIDENCE_SUFFICIENCY.md)
@@ -102,4 +103,4 @@ When work stops, update the top of the queue or the relevant item with:
 - **Next action:** one concrete action.
 - **Blocker:** exact missing evidence or decision; write “none” if none.
 
-**Current handoff (2026-10-14):** Queue item 1 repository audit/regression is merged and CI-passed; independent live deployment/OKTA verification remains pending. Queue item 2 documentation reconciliation is complete. Queue item 3 contract draft is recorded; next action is a read-only schema/consumer compatibility audit. Do not alter production execution until the contract is approved and validation gates pass.
+**Current handoff (2026-10-14):** Queue item 1 repository audit/regression is merged and CI-passed; independent live deployment/OKTA verification remains pending. Queue item 2 evidence reconciliation is complete. Queue item 3 confirms gap-aware fill is already present in repository main and focused regression CI passed; independent live verification remains pending. Next actionable queue work is item 5 engineering hygiene (test discovery and reporting-only quirk), while CAND-003 observation continues independently. Do not change production execution semantics without new evidence.
