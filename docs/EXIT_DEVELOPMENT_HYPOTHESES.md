@@ -115,7 +115,11 @@ Before execution, the research-history loader must use the canonical upstream R2
 `history/ohlcv/{security_id}.parquet`. The legacy `backtest/ohlcv/` namespace is
 obsolete and must fail to be treated as the current source contract.
 
-This source-path alignment does not change the experiment: readiness remains the
+The loader also accepts the current governed READY manifest schema v2 and
+validates its as-of/terminal-date coherence fields before reading the immutable
+Parquet snapshot.
+
+This source/manifest alignment does not change the experiment: readiness remains the
 universe authority; pre-roll rows initialize features only; outcomes are restricted
 to `research_eligible == True`; entry remains T0 signal / T+1 open; existing
 ATR(14) × 2.0, EMA20, and 45-bar horizon remain frozen. The four pre-registered
