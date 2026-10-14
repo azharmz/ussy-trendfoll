@@ -67,13 +67,14 @@ At the start of a session, read this file and execute the first actionable item 
 - Track eligible versus represented positions, expected versus persisted sessions, missing reasons, active versus terminal shadows, exit-path representation, gap/slippage, timing/return differences, MAE/MFE where available, duplicates/replay conflicts, and all frozen invariants.
 - Final governance review stays blocked until every criterion in the frozen sufficiency gate is satisfied. Passing the gate does not itself promote CAND-003 to production.
 
-### 5. Close remaining engineering hygiene debts — **READY / AFTER HIGHER PRIORITIES**
+### 5. Close remaining engineering hygiene debts — **DONE / EVIDENCE RECORDED**
 Use the checklist's Section G and inspect the actual current code/tests before opening changes.
 
-- **Test discovery:** verify whether any tests are undiscovered by the repository's unittest-only CI/workflows; add a reproducible discovery check or document why none exist.
-- **Reporting-only quirk:** investigate legacy-reason reporting in development summary field `stop_touch_timing`; keep separate from production semantics unless evidence proves a production impact.
-- **Checklist accuracy:** remove/resolve stale debt markers only when linked evidence supports closure.
-- Do not bundle unrelated refactors with exit behavior changes.
+- [x] Added repository-wide pytest CI in `.github/workflows/repository-tests.yml`; full suite collects unittest classes and top-level pytest functions. Evidence: [`EVIDENCE_REPOSITORY_TEST_DISCOVERY.md`](EVIDENCE_REPOSITORY_TEST_DISCOVERY.md). PR #18 merged at `68050f7db5e5b7cf393a54249b95e58b9b60b66d`; run `38554600137` passed with 102 tests.
+- [x] Fixed the reporting-only `stop_touch_timing` quirk: CAND-003 `risk_stop_gap` and `risk_stop_touch` are aggregated into stop-timing metrics while preserving detailed exit reasons. PR #19 merged at `22dca70a65d6c4487087df329ca7366a8713d5cb`; run `38554865357` passed with 104 tests.
+- [x] Reconciled the stale test fixtures/contracts discovered by full-suite collection; no production exit or frozen strategy semantics changed.
+- [x] Recorded findings and warnings in [`EVIDENCE_REPOSITORY_TEST_DISCOVERY.md`](EVIDENCE_REPOSITORY_TEST_DISCOVERY.md).
+- No unrelated refactors bundled.
 
 ### 6. Near-Trigger forward validation — **ACTIVE / SEPARATE WORKSTREAM**
 - Protocol: [`NEAR_TRIGGER_RESEARCH.md`](NEAR_TRIGGER_RESEARCH.md)
@@ -103,4 +104,4 @@ When work stops, update the top of the queue or the relevant item with:
 - **Next action:** one concrete action.
 - **Blocker:** exact missing evidence or decision; write “none” if none.
 
-**Current handoff (2026-10-14):** Queue item 1 repository audit/regression is merged and CI-passed; independent live deployment/OKTA verification remains pending. Queue item 2 evidence reconciliation is complete. Queue item 3 confirms gap-aware fill is already present in repository main and focused regression CI passed; independent live verification remains pending. Next actionable queue work is item 5 engineering hygiene (test discovery and reporting-only quirk), while CAND-003 observation continues independently. Do not change production execution semantics without new evidence.
+**Current handoff (2026-10-14):** Queue items 2 and 5 are complete and evidence-linked. Queue item 1's repository audit/regression is merged and CI-passed; independent live deployment/OKTA verification remains pending. Queue item 3 confirms gap-aware fill is already present in repository main and focused regression CI passed; independent live verification remains pending. Next actionable item is independent live verification when production read access is available; in parallel, continue genuine sequential CAND-003 E2–E4 observation. Do not change production execution semantics without new evidence.
