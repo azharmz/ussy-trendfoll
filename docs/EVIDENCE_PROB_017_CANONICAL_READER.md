@@ -1,8 +1,8 @@
 # PROB-017 — Ledger-aware canonical history and integrity preflight
 
-Status: **RPC APPLIED + DATABASE SMOKE TEST PASS / DASHBOARD PATCH IN DRAFT PR / EXTERNAL CONSUMER AUDIT PENDING**
+Status: **RPC APPLIED + CANONICAL DASHBOARD CODE MERGED / DATABASE SMOKE TEST PASS / LIVE DEPLOYMENT CHECK PENDING**
 
-Branch: `diagnostic/prob017-canonical-preflight`  
+Merged PR: [#16](https://github.com/azharmz/ussy-trendfoll/pull/16)  
 Scope: software integrity only. No strategy, entry, exit, or production database rows are changed by this branch.
 
 ## Changes
@@ -21,9 +21,9 @@ Scope: software integrity only. No strategy, entry, exit, or production database
 - GitHub Actions run **PROB-017 Identity Tests #11** completed successfully on 2026-10-14: **7 passed in 0.34s**. This includes five identity-validator tests and two dashboard/RPC source-contract tests.
 - The FSE-007/FSE-013 production regression and gap-aware stop execution regression workflows associated with the earlier PR commit also completed successfully.
 - Production migration `20261014030257_prob017_canonical_position_history_rpc` was applied to Supabase project `USSY Trendfoll` on 2026-10-14.
-- Live SQL smoke checks passed: source table remains at 66 rows; canonical RPC returns 65 rows; ANF `2026-08-26` returns only canonical ID 19; canonical output contains no duplicate `(symbol, entry_date)` groups; `anon` and `authenticated` can execute the RPC.
-- The Supabase security advisor flags the public `SECURITY DEFINER` RPC as a warning because it is callable by `anon` and `authenticated`. This is currently intentional for the public dashboard, and the RPC is read-only with a fixed `search_path`; the existing `positions` table already has public SELECT access. This warning must be reviewed before treating the security review as complete.
-- These checks validate database execution and the Python/source contracts; they do **not** prove the live dashboard is already using the RPC. The dashboard change remains in draft PR #16.
+- Live SQL smoke checks on 2026-10-14: source table has 68 rows; canonical RPC returns 67 rows; ANF `2026-08-26` returns only canonical ID 19; canonical output contains no duplicate `(symbol, entry_date)` groups.
+- Least-privilege follow-up migration `prob017_rpc_least_privilege` was applied on 2026-10-14. Function execution is granted to `anon` for the public dashboard; `authenticated` execution was revoked. The remaining `anon_security_definer_function_executable` advisor warning is expected because the public dashboard needs this read-only RPC; the function has a fixed `search_path` and exposes only the same position rows already public-readable.
+- PR #16 was merged. The `main` branch dashboard source now calls `rpc/get_canonical_position_history` and no longer queries `public.positions` directly. A live browser/deployment check is still required to prove the deployed site has picked up the merge.
 
 ## Expected behavior for the known ANF identity
 
@@ -46,6 +46,6 @@ A targeted read-only audit checked the accessible sibling repositories most like
 - `ussy-pattbreak` builds open-position checkpoints from its own immutable T1 execution artifacts rather than reading TrendFoll's Supabase table.
 - No references to the TrendFoll Supabase project ID were found in the targeted sibling-repository searches. GitHub code search is not a complete proof of absence, and unlisted repos, private external clients, notebooks, exports, and manual downloads cannot be ruled out.
 
-The TrendFoll web dashboard remains the only confirmed direct consumer of this exact project/table in the inspected code. Its branch patch in draft PR #16 uses the canonical RPC, but has not been merged/deployed. Treat the cross-repository audit as **targeted, not exhaustive**. End-to-end closure remains pending dashboard deployment and a final production-consumer check.
+The TrendFoll web dashboard remains the only confirmed direct consumer of this exact project/table in the inspected code. Its canonical-RPC change is merged to `main`; live deployment is not yet independently verified. Treat the cross-repository audit as **targeted, not exhaustive**. End-to-end closure remains pending live dashboard validation and a final production-consumer check.
 
 No unique constraint on `(symbol, entry_date)` is proposed: later re-entry semantics remain distinct from immutable lifecycle identity `positions.id`.
