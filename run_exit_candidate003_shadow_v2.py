@@ -8,8 +8,7 @@ import os
 import sys
 import pandas as pd
 import database
-from r2_ready import load_ready_dataset
-from r2_feature_engine import build_feature_store_from_r2
+from r2_ready import load_ready_dataset, to_feature_contract
 import exit_candidate003_shadow_v2 as shadow
 
 ACK_VALUE = "I_UNDERSTAND_SHADOW_ONLY"
@@ -30,7 +29,15 @@ def main(argv=None):
         raise RuntimeError(f"Live shadow writes require USSY_CAND003_SHADOW_V2_WRITE_ACK={ACK_VALUE}")
 
     ready, manifest = load_ready_dataset()
-    features = build_feature_store_from_r2(ready=ready, manifest=manifest)["features"].copy()
+    # EXIT-CAND-003 only needs raw OHLC and the production EMA20 formula.
+    # Derive it directly from validated R2 READY rows to avoid downloading
+    # unrelated benchmark/sector series during this isolated research pass.
+    features = to_feature_contract(ready)
+    features["date"] = pd.to_datetime(features["date"]).dt.normalize()
+    features = features.sort_values(["symbol", "date"]).reset_index(drop=True)
+    features["ema20"] = features.groupby("symbol", sort=False)["close_raw"].transform(
+        lambda series: series.ewm(span=20, adjust=False).mean()
+    )
     missing = sorted(REQUIRED_COLUMNS - set(features.columns))
     if missing:
         raise RuntimeError(f"R2 feature store missing required v2 columns: {missing}")
