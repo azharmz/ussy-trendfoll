@@ -1,6 +1,6 @@
 # PROB-017 — Ledger-aware canonical history and integrity preflight
 
-Status: **RPC APPLIED + CANONICAL DASHBOARD CODE MERGED / DATABASE SMOKE TEST PASS / LIVE DEPLOYMENT CHECK PENDING**
+Status: **RPC APPLIED + CANONICAL DASHBOARD CODE MERGED / DATABASE SMOKE TEST PASS / USER-OBSERVED DASHBOARD RESULT / INDEPENDENT LIVE CHECK PENDING**
 
 Merged PR: [#16](https://github.com/azharmz/ussy-trendfoll/pull/16)  
 Scope: software integrity only. No strategy, entry, exit, or production database rows are changed by this branch.
@@ -23,7 +23,7 @@ Scope: software integrity only. No strategy, entry, exit, or production database
 - Production migration `20261014030257_prob017_canonical_position_history_rpc` was applied to Supabase project `USSY Trendfoll` on 2026-10-14.
 - Live SQL smoke checks on 2026-10-14: source table has 68 rows; canonical RPC returns 67 rows; ANF `2026-08-26` returns only canonical ID 19; canonical output contains no duplicate `(symbol, entry_date)` groups.
 - Least-privilege follow-up migration `prob017_rpc_least_privilege` was applied on 2026-10-14. Function execution is granted to `anon` for the public dashboard; `authenticated` execution was revoked. The remaining `anon_security_definer_function_executable` advisor warning is expected because the public dashboard needs this read-only RPC; the function has a fixed `search_path` and exposes only the same position rows already public-readable.
-- PR #16 was merged. The `main` branch dashboard source now calls `rpc/get_canonical_position_history` and no longer queries `public.positions` directly. A live browser/deployment check is still required to prove the deployed site has picked up the merge.
+- PR #16 was merged. The `main` branch dashboard source now calls `rpc/get_canonical_position_history` and no longer queries `public.positions` directly. The user subsequently reported that the dashboard shows only one ANF position, matching the canonical result. This is recorded as a user-observed dashboard result, not an independent browser inspection by the maintainer. A separately reproducible live browser/deployment check is still pending to prove which deployed commit is being served.
 
 ## Expected behavior for the known ANF identity
 
@@ -46,6 +46,6 @@ A targeted read-only audit checked the accessible sibling repositories most like
 - `ussy-pattbreak` builds open-position checkpoints from its own immutable T1 execution artifacts rather than reading TrendFoll's Supabase table.
 - No references to the TrendFoll Supabase project ID were found in the targeted sibling-repository searches. GitHub code search is not a complete proof of absence, and unlisted repos, private external clients, notebooks, exports, and manual downloads cannot be ruled out.
 
-The TrendFoll web dashboard remains the only confirmed direct consumer of this exact project/table in the inspected code. Its canonical-RPC change is merged to `main`; live deployment is not yet independently verified. Treat the cross-repository audit as **targeted, not exhaustive**. End-to-end closure remains pending live dashboard validation and a final production-consumer check.
+The TrendFoll web dashboard remains the only confirmed direct consumer of this exact project/table in the inspected code. Its canonical-RPC change is merged to `main`; live deployment is not yet independently verified. Treat the cross-repository audit as **targeted, not exhaustive**. End-to-end closure remains pending independent live dashboard/deployment validation and a final production-consumer check. The user's observation of one ANF row is supportive operational evidence, but is not represented as an independently performed check.
 
 No unique constraint on `(symbol, entry_date)` is proposed: later re-entry semantics remain distinct from immutable lifecycle identity `positions.id`.
