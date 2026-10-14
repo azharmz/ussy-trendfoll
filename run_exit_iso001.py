@@ -37,7 +37,7 @@ def evaluate(g,event,use_stop,use_ema):
  atr=float(g.iloc[i0]["atr14"]) if pd.notna(g.iloc[i0]["atr14"]) else np.nan
  if not np.isfinite(entry_px) or not np.isfinite(atr) or atr<=0:return None
  stop=entry_px-ATR_MULT*atr; fwd=g.iloc[entry_i:entry_i+MAX_HOLD].reset_index(drop=True)
- reason="max_holding"; exit_day=MAX_HOLD; exit_px=float(fwd.iloc[-1]["close_raw"])
+ reason="max_holding"; exit_day=MAX_HOLD; exit_px=float(fwd.iloc[-1]["close_raw"]); stop_triggered=False; stop_gap_through=False; stop_gap_slippage_return=0.0
  for j,r in fwd.iterrows():
   day=j+1
   if use_stop and float(r["low_raw"])<=stop:
@@ -46,7 +46,8 @@ def evaluate(g,event,use_stop,use_ema):
    op=r.get("open_raw")
    if pd.isna(op):
     raise RuntimeError(f"Stop-loss triggered with missing open_raw: {event['symbol']} {r['date']}")
-   reason="stop_loss"; exit_day=day; exit_px=float(op) if float(op)<=stop else stop; break
+   stop_triggered=True; stop_gap_through=bool(float(op)<=stop); stop_gap_slippage_return=max(0.0,(stop-float(op))/entry_px) if stop_gap_through else 0.0
+   reason="stop_loss"; exit_day=day; exit_px=float(op) if stop_gap_through else stop; break
   if day>=MAX_HOLD: break
   if use_ema and pd.notna(r.get("ema20")) and float(r["close_raw"])<float(r["ema20"]):
    reason="trend_exit"; exit_day=day; exit_px=float(r["close_raw"]); break
@@ -54,6 +55,7 @@ def evaluate(g,event,use_stop,use_ema):
  max_close=max(entry_px,float(exp["close_raw"].max()))
  return {"symbol":event["symbol"],"t0_date":str(t0.date()),"entry_price":entry_px,
   "exit_reason":reason,"exit_day":exit_day,"exit_price":exit_px,"realized_return":exit_px/entry_px-1,
+  "stop_triggered":stop_triggered,"stop_gap_through":stop_gap_through,"stop_gap_slippage_return":stop_gap_slippage_return,
   "mfe_to_exit":float(exp["high_raw"].max()/entry_px-1),"mae_to_exit":float(exp["low_raw"].min()/entry_px-1),
   "giveback":exit_px/max_close-1}
 
