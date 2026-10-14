@@ -7,14 +7,6 @@ on:
       - "*.py"
       - "requirements.txt"
       - ".github/workflows/repository-tests.yml"
-  push:
-    branches:
-      - research/verify-r2-history-prefix
-    paths:
-      - ".github/workflows/repository-tests.yml"
-      - "research_history.py"
-      - "tests/test_research_history.py"
-      - "requirements.txt"
   workflow_dispatch:
 
 permissions:
