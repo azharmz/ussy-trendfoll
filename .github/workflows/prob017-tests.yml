@@ -9,6 +9,7 @@ on:
       - "main.py"
       - "tests/test_prob017_position_identity.py"
       - "requirements.txt"
+      - "docs/EVIDENCE_PROB_017_CANONICAL_READER.md"
       - ".github/workflows/prob017-tests.yml"
   workflow_dispatch:
 
