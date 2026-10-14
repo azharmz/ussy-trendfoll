@@ -23,4 +23,6 @@ def test_canonical_rpc_migration_validates_duplicate_and_stale_ledger_groups():
     assert "resolved_count" in sql
     assert "valid_count" in sql
     assert "rejected stale reconciliation" in sql
-    assert "GRANT EXECUTE ON FUNCTION public.get_canonical_position_history() TO anon, authenticated" in sql
+    assert "REVOKE ALL ON FUNCTION public.get_canonical_position_history() FROM authenticated" in sql
+    assert "GRANT EXECUTE ON FUNCTION public.get_canonical_position_history() TO anon" in sql
+    assert "TO anon, authenticated" not in sql
