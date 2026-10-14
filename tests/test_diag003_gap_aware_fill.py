@@ -9,9 +9,9 @@ class TestDiag003GapAwareFill(unittest.TestCase):
         return pd.DataFrame([
             {"date": "2026-10-01", "open_raw": 100.0, "high_raw": 101.0,
              "low_raw": 99.0, "close_raw": 100.0, "atr14": 1.0, "ema20": 95.0},
-            {"date": "2026-10-02", "open_raw": 100.0, "high_raw": 101.0,
+            {"date": pd.Timestamp("2026-10-02"), "open_raw": 100.0, "high_raw": 101.0,
              "low_raw": 99.0, "close_raw": 100.0, "atr14": 1.0, "ema20": 95.0},
-            {"date": "2026-10-05", "open_raw": exit_open, "high_raw": 92.0,
+            {"date": pd.Timestamp("2026-10-05"), "open_raw": exit_open, "high_raw": 92.0,
              "low_raw": exit_low, "close_raw": 91.0, "atr14": 1.0, "ema20": 95.0},
         ])
 
