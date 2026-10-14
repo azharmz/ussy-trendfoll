@@ -211,9 +211,9 @@ Blocked until Section E has sufficient locked operational evidence. Current auth
 
 1. CURRENT repository audit and regression coverage are merged (PR #17, `d5c04e884958befb5c7ab550c4720282a7e354f5`); workflow run `38552916021` passed. Live deployment / OKTA row check remains pending.
 2. Checklist/evidence reconciliation completed in master queue item 2; PROB-017 now distinguishes the user's dashboard observation from independent live verification.
-3. STOP-EXEC-001 current-source compatibility audit complete; gap-aware fill is already in repository main, but live deployment verification remains pending.
+3. STOP-EXEC-001 current-source compatibility audit complete; gap-aware fill is already in repository main and focused regression CI passed. Historical diagnostic/current-code distinction is recorded.
 4. Repository-wide test discovery and CAND-003 reporting-only quirk are fixed; full suite passed 104 tests. See `docs/EVIDENCE_REPOSITORY_TEST_DISCOVERY.md`.
-5. Independently verify live deployment and the long-held OKTA row when production read access is available.
+5. Read-only live DB check confirms OKTA id 22 remains active, but latest daily run #83 (`38507633128`, head `6a29253831474e61e36e2a018965aa276a6fca26`) predates the max-holding removal commit. Verify the next normal production run on updated main, then re-query OKTA; evidence: `docs/EVIDENCE_CURRENT_EXIT_MAX_HOLDING_LIVE_CHECK.md`.
 6. Separately, let the normal daily pipeline continue; do not manufacture or backfill CAND-003 operational evidence. Continue E2–E4 only on genuine sequential sessions.
 
 ## Approximate progress indicator
