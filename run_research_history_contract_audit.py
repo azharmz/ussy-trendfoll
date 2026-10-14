@@ -128,11 +128,11 @@ def main() -> None:
         diff = (overlap[f"{col}_history"] - overlap[f"{col}_ready"]).abs()
         source_abs_diff[col] = float(diff.max()) if len(diff) else None
         source_exact_mismatches[col] = int((diff > 1e-10).sum())
+    research_ema = ema_cmp[[f"ema{period}_research" for period in [20, 50, 150, 200]]].to_numpy()
+    shared_ema = ema_cmp[[f"ema{period}_shared" for period in [20, 50, 150, 200]]].to_numpy()
+    ema_row_mismatch = np.any(np.abs(research_ema - shared_ema) > 1e-10, axis=1)
     failing_ema_symbols = ema_cmp.loc[
-        (price_diff > 1e-10)
-        | ema_cmp[[f"ema{period}_research" for period in [20, 50, 150, 200]]]
-            .sub(ema_cmp[[f"ema{period}_shared" for period in [20, 50, 150, 200]]).to_numpy())
-            .abs().gt(1e-10).any(axis=1),
+        (price_diff > 1e-10) | ema_row_mismatch,
         ["security_id", "symbol", "date", "as_of_date"]
     ]["symbol"].astype(str).tolist()
 
