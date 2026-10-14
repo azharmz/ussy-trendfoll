@@ -1,0 +1,29 @@
+name: PROB-017 Identity Tests
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: prob017-tests
+  cancel-in-progress: false
+
+jobs:
+  position-identity-tests:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+          cache: pip
+          cache-dependency-path: requirements.txt
+      - name: Install test dependencies
+        run: |
+          python -m pip install --upgrade pip
+          python -m pip install -r requirements.txt pytest
+      - name: Run PROB-017 tests
+        run: python -m pytest -q tests/test_prob017_position_identity.py
