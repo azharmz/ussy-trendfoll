@@ -43,10 +43,28 @@ def evaluate(g,event,variant):
     exp=fwd.iloc[:exit_day]; max_close=max(entry,float(exp.close_raw.max()))
     return {"symbol":event["symbol"],"t0_date":str(t0.date()),"variant":variant,"entry_price":entry,"exit_price":exit_price,"realized_return":exit_price/entry-1,"holding_days":exit_day,"exit_reason":reason,"mfe_to_exit":float(exp.high_raw.max()/entry-1),"mae_to_exit":float(exp.low_raw.min()/entry-1),"giveback":exit_price/max_close-1}
 
+def stop_timing_summary(x, variant):
+    # CAND-003 has two mutually exclusive risk-stop execution labels. Aggregate
+    # both into the stop-timing metric while preserving their detail in exit_reasons.
+    if variant == "CURRENT":
+        return base.stop_timing(x, variant)
+    stop_reasons = {"risk_stop_gap", "risk_stop_touch"}
+    stopped = x.loc[x["exit_reason"].isin(stop_reasons), "holding_days"]
+    n = len(x)
+    return {
+        "stop_events": int(len(stopped)),
+        "median_stop_day": float(stopped.median()) if len(stopped) else None,
+        "fraction_all_events_stopped_by_day_1": float((stopped <= 1).sum() / n) if n else 0.0,
+        "fraction_all_events_stopped_by_day_3": float((stopped <= 3).sum() / n) if n else 0.0,
+        "fraction_all_events_stopped_by_day_5": float((stopped <= 5).sum() / n) if n else 0.0,
+        "fraction_all_events_stopped_by_day_10": float((stopped <= 10).sum() / n) if n else 0.0,
+    }
+
+
 def summarize(df):
     out={}
     for v,x in df.groupby("variant"):
-        r=x.realized_return; out[v]={"n":int(len(x)),"median_return":float(r.median()),"positive_rate":float((r>0).mean()),"q25_return":float(r.quantile(.25)),"q75_return":float(r.quantile(.75)),"median_holding":float(x.holding_days.median()),"median_mfe":float(x.mfe_to_exit.median()),"median_mae":float(x.mae_to_exit.median()),"median_giveback":float(x.giveback.median()),"exit_reasons":{str(k):int(n) for k,n in x.exit_reason.value_counts().items()},"stop_touch_timing":base.stop_timing(x,v)}
+        r=x.realized_return; out[v]={"n":int(len(x)),"median_return":float(r.median()),"positive_rate":float((r>0).mean()),"q25_return":float(r.quantile(.25)),"q75_return":float(r.quantile(.75)),"median_holding":float(x.holding_days.median()),"median_mfe":float(x.mfe_to_exit.median()),"median_mae":float(x.mae_to_exit.median()),"median_giveback":float(x.giveback.median()),"exit_reasons":{str(k):int(n) for k,n in x.exit_reason.value_counts().items()},"stop_touch_timing":stop_timing_summary(x,v)}
     cur=df[df.variant=="CURRENT"].set_index(["symbol","t0_date"]).realized_return; cand=df[df.variant=="EXIT-CAND-003"].set_index(["symbol","t0_date"]).realized_return; d=cand-cur
     out["EXIT-CAND-003"].update({"median_return_difference_vs_current":out["EXIT-CAND-003"]["median_return"]-out["CURRENT"]["median_return"],"paired_event_delta_median_vs_current":float(d.median()),"improved_fraction":float((d>TOL).mean()),"worsened_fraction":float((d<-TOL).mean()),"unchanged_fraction":float((d.abs()<=TOL).mean())}); return out
 
