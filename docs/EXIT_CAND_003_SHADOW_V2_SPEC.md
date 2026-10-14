@@ -59,6 +59,11 @@ This is a comparator-contract correction for a new research run only. Do not ret
 5. Accumulate forward-only evidence and report cohort counts, divergence classes, and data-quality exceptions.
 6. Require a separate explicit productionization decision before any production exit change.
 
-## Current limitation
+## Implementation state (2026-10-14)
 
-The attempted source-code write for the isolated v2 module was blocked by the tool safety layer in this execution. This spec is committed as a non-executable research artifact; no claim is made that v2 code or live cohort has been implemented.
+- Isolated module added: `exit_candidate003_shadow_v2.py`.
+- Focused tests added: `tests/test_exit_candidate003_shadow_v2.py`, including no-time-cap behavior at 70 observed sessions, gap/touch/EMA fill priority, monotonic ratchet, and ledger replay invariants.
+- The live database's composite uniqueness constraints are verified as described above.
+- Test execution is **NOT YET VALIDATED**. The existing validation workflow is manual-only, but a complete sibling-workflow trigger-topology audit was not completed; no workflow was triggered without that audit.
+- The row-level SQL query for individual divergence sessions was blocked by the tool safety layer. The four position-level causes remain **NOT YET VALIDATED**.
+- No v2 rows were written, no production file was modified, and no production position/exit/dashboard state was changed.
