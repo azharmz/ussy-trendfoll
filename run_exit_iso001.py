@@ -41,7 +41,12 @@ def evaluate(g,event,use_stop,use_ema):
  for j,r in fwd.iterrows():
   day=j+1
   if use_stop and float(r["low_raw"])<=stop:
-   reason="stop_loss"; exit_day=day; exit_px=stop; break
+   # Match production executable stop-fill contract: gap-through fills at Open;
+   # intraday touch fills at stop. Do not assume an infeasible exact-stop fill.
+   op=r.get("open_raw")
+   if pd.isna(op):
+    raise RuntimeError(f"Stop-loss triggered with missing open_raw: {event['symbol']} {r['date']}")
+   reason="stop_loss"; exit_day=day; exit_px=float(op) if float(op)<=stop else stop; break
   if day>=MAX_HOLD: break
   if use_ema and pd.notna(r.get("ema20")) and float(r["close_raw"])<float(r["ema20"]):
    reason="trend_exit"; exit_day=day; exit_px=float(r["close_raw"]); break
