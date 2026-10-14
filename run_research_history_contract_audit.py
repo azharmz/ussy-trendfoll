@@ -36,6 +36,22 @@ def deterministic_sample(authority: pd.DataFrame) -> pd.DataFrame:
     return ranked.sort_values("_rank").head(SAMPLE_SIZE).drop(columns="_rank")
 
 
+def recursive_ema_snapshot(history: pd.DataFrame) -> pd.DataFrame:
+    """Recompute EMA using the exact scalar recurrence used by ussy-data ema_state."""
+    rows = []
+    for security_id, group in history.sort_values("date").groupby("security_id", sort=True):
+        prices = group["adj_close"].astype(float).tolist()
+        if not prices:
+            continue
+        values = {period: prices[0] for period in [20, 50, 150, 200]}
+        for price in prices[1:]:
+            for period in values:
+                alpha = 2.0 / (period + 1.0)
+                values[period] = alpha * price + (1.0 - alpha) * values[period]
+        rows.append({"security_id": str(security_id), **{f"ema{p}": values[p] for p in values}})
+    return pd.DataFrame(rows)
+
+
 def _latest_stage_from_ready(ready_sample: pd.DataFrame) -> pd.DataFrame:
     raw = ready_to_feature(ready_sample)
     rows = []
@@ -122,6 +138,18 @@ def main() -> None:
     price_failures = int((price_diff > 1e-10).sum())
     ema_numeric_failures += price_failures
 
+    recursive = recursive_ema_snapshot(history)
+    recursive_cmp = recursive.merge(
+        shared[["security_id", "ema20", "ema50", "ema150", "ema200"]],
+        on="security_id", suffixes=("_recursive", "_shared"), how="inner", validate="one_to_one"
+    )
+    recursive_failure_counts = {}
+    recursive_max_abs_error = {}
+    for period in [20, 50, 150, 200]:
+        diff = (recursive_cmp[f"ema{period}_recursive"] - recursive_cmp[f"ema{period}_shared"]).abs()
+        recursive_failure_counts[f"ema{period}"] = int((diff > 1e-10).sum())
+        recursive_max_abs_error[f"ema{period}"] = float(diff.max()) if len(diff) else None
+
     source_abs_diff = {}
     source_exact_mismatches = {}
     for col in ["close", "adj_close"]:
@@ -200,6 +228,11 @@ def main() -> None:
             "failing_symbols": failing_ema_symbols[:25],
             "stack_mismatches": stack_mismatches,
             "max_abs_error": max_abs_error,
+            "recursive_reference": {
+                "shared_rows_compared": int(len(recursive_cmp)),
+                "failure_counts_1e-10": recursive_failure_counts,
+                "max_abs_error": recursive_max_abs_error,
+            },
         },
         "latest_stage": {
             "comparable_symbols": int(len(stage_valid)),
