@@ -55,12 +55,13 @@ class TestExitCandidate003ShadowV2(unittest.TestCase):
 
     def test_60_sessions_does_not_exit_due_to_time(self):
         s = _state(operative=90.0)
-        s["shadow_entry_date"] = str(self.dates[0].date())
+        s["initial_stop"] = 80.0
+        s["shadow_entry_date" = str(self.dates[0].date())
         update, ev = shadow._evaluate_session(s, _row(open_=105, high=110, low=100, close=108, ema20=100, chand=95),
                                               self.today, self.dates)
         self.assertIsNone(ev["hypothetical_exit_reason"])
         self.assertNotIn("status", update)
-        self.assertEqual(update["days_observed"], 61)
+        self.assertEqual(update["days_observed"], 70)
 
     def test_gap_has_priority_and_fills_open(self):
         update, ev = shadow._evaluate_session(_state(102), _row(open_=99, high=106, low=98, close=104),
