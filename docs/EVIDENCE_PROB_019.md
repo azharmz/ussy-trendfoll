@@ -216,3 +216,16 @@ READY/history overlap was exact across 29,976 rows; CCTG latest adjusted close m
 This proves a current full-history versus persisted EMA discrepancy for CCTG, but not its cause. Historical object rewrite/divergent pre-roll lineage remains a hypothesis. Next: read-only inspect `history/manifests/bootstrap/` for CCTG and correlate any force upload with the shared EMA run lineage. Do not change tolerance, signal semantics, or production EMA/pointers. **PROB-019 remains OPEN.**
 
 Temporary dispatch trigger `dispatch/prob019-audit` was removed after the run; no sibling workflow was observed.
+
+
+### CCTG lineage inspection — 2026-10-16
+
+Read-only workflow [38814605959](https://github.com/azharmz/ussy-trendfoll/actions/runs/38814605959) passed all repository tests (**106 passed, 4 warnings**) and completed a scan of all **52** JSON objects under `history/manifests/bootstrap/`. Artifact: `prob-019-cctg-lineage-2`, ID `12010540867`, SHA256 `74fc38615f7f398ebee854bab2b3d4a6fcaa6f9927142280b1f57af15a490fa1`.
+
+Findings:
+- Current `history/ohlcv/KYG1993R1184.parquet`: 688 rows, 2024-01-18 through 2026-10-14; LastModified `2026-10-15T03:19:29Z`; SHA256 `114607d8182240df68954f8eff761046745dcfd3426e39104090033f0e19d842`; no R2 VersionId was exposed.
+- Shared EMA pointer was created `2026-10-15T03:47:23Z`, points to `production/indicators/ema/runs/run-38674582259-1.parquet`, READY cutoff `2026-10-14`. Upstream run [38674582259](https://github.com/azharmz/ussy-data/actions/runs/38674582259) reported 1 bootstrap, 1,221 recursive advances, 12 unchanged, 5 rebuilds; CCTG was not in the recorded bootstrap/rebuild ID lists.
+- The only CCTG bootstrap-manifest record is dated 2026-08-28, `force=false`, and points to legacy `backtest/ohlcv/KYG1993R1184.parquet`. That legacy object is now absent (`NoSuchKey`). No CCTG forced upload was found in the 52 scanned bootstrap manifests.
+- The canonical object was modified before the EMA pointer was published, but there is no prior object hash/version and the legacy object is gone. Therefore we **cannot prove** that an overlapping historical adjusted-close value changed, nor conclusively attribute the EMA discrepancy to a rewrite.
+
+The CCTG EMA discrepancy remains proven; its root cause remains **unproven**. Do not write R2 hints, rebuild the production EMA pointer, or alter production solely from this read-only evidence. A future repair must use an isolated, governed path and account for downstream TrendFoll/Pattern Breakout dispatches. The temporary lineage push trigger has been removed; the diagnostic workflow is manual-only.
