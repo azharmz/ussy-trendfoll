@@ -33,6 +33,13 @@ The branch's `.github/workflows` directory contains **40 workflow files**. All 4
 - **No v2 rows were seeded; no Supabase writes were performed; no production position, stop, exit, dashboard, or alert state was changed.**
 - Write-mode runner and live database permissions have not been exercised. This is intentional until operational review is complete.
 
+## Dry-run result (2026-10-14)
+
+- Runner [dry-run 38555455926](https://github.com/azharmz/ussy-trendfoll/actions/runs/38555455926) completed successfully using R2 READY date **2026-10-13**, and independently confirmed the latest feature date is also **2026-10-13**.
+- Scope reported: **0 existing active v2 shadows; 19 active production positions without a v2 row**. This is a count-only dry-run, not proof that all 19 positions have valid historical bootstrap coverage.
+- Log confirms `mode=DRY-RUN` and `no database writes attempted`. No v2 rows were created; no production state changed.
+- Runner now computes EMA20 directly from validated R2 READY OHLC rows using the production EMA formula, avoiding unrelated benchmark/sector downloads. The standalone runner is not imported by production `main.py`.
+
 ## Remaining blockers before live observation
 
 1. Review the runner and its dry-run output on the actual R2 READY snapshot, confirming the as-of date and eligible cohort before any write.
