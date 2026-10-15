@@ -234,6 +234,48 @@ def main() -> None:
     except Exception as exc:
         earlier_ema_comparison["read_error"] = str(exc)[:300]
 
+    # Compare the last known full-history rebuild checkpoint to current history.
+    # Upstream run 36230442129 was a full rebuild/equivalence pass at READY cutoff 2026-09-24.
+    baseline_ema_key = "production/indicators/ema/runs/run-36230442129-1.parquet"
+    baseline_ema_comparison = {"object_key": baseline_ema_key, "available": False}
+    try:
+        baseline_response = s3.get_object(Bucket=bucket, Key=baseline_ema_key)
+        baseline_bytes = baseline_response["Body"].read()
+        baseline_frame = pd.read_parquet(BytesIO(baseline_bytes), engine="pyarrow")
+        baseline_rows = baseline_frame.loc[baseline_frame["security_id"].astype(str) == SECURITY_ID]
+        if len(baseline_rows) != 1:
+            raise RuntimeError("Expected exactly one CCTG row in baseline full-rebuild EMA run")
+        baseline_row = baseline_rows.iloc[0]
+        baseline_cutoff = pd.Timestamp(baseline_row["as_of_date"]).tz_localize(None).normalize()
+        baseline_history = history.loc[history["date"] <= baseline_cutoff].sort_values("date")
+        baseline_prices = baseline_history["adj_close"].astype(float).tolist()
+        if len(baseline_prices) < 200:
+            raise RuntimeError("Baseline-cutoff history has fewer than 200 bars")
+        baseline_values = {period: baseline_prices[0] for period in (20, 50, 150, 200)}
+        for price in baseline_prices[1:]:
+            for period in baseline_values:
+                alpha = 2.0 / (period + 1.0)
+                baseline_values[period] = alpha * price + (1.0 - alpha) * baseline_values[period]
+        baseline_ema_comparison = {
+            "object_key": baseline_ema_key,
+            "available": True,
+            "last_modified": baseline_response.get("LastModified").isoformat() if baseline_response.get("LastModified") else None,
+            "sha256": hashlib.sha256(baseline_bytes).hexdigest(),
+            "as_of_date": str(baseline_cutoff.date()),
+            "bars_through_cutoff": len(baseline_prices),
+            "current_history_recomputed_vs_full_rebuild": {
+                "ema" + str(period): {
+                    "current_history_value": baseline_values[period],
+                    "persisted_value": float(baseline_row["ema" + str(period)]),
+                    "absolute_error": abs(baseline_values[period] - float(baseline_row["ema" + str(period)])),
+                    "passes_official_tolerance": bool(np.isclose(baseline_values[period], float(baseline_row["ema" + str(period)]), rtol=1e-8, atol=1e-8)),
+                }
+                for period in baseline_values
+            },
+        }
+    except Exception as exc:
+        baseline_ema_comparison["read_error"] = str(exc)[:300]
+
     keys = list_manifest_keys(s3, bucket)
     matches = []
     errors = []
@@ -284,6 +326,7 @@ def main() -> None:
         "ema_comparison_current_history_vs_persisted": ema_comparison,
         "prior_ema_comparison": prior_ema_comparison,
         "earlier_ema_comparison": earlier_ema_comparison,
+        "baseline_ema_comparison": baseline_ema_comparison,
         "bootstrap_manifest_prefix": MANIFEST_PREFIX,
         "bootstrap_manifest_count": len(keys),
         "cctg_manifest_record_count": len(matches),
