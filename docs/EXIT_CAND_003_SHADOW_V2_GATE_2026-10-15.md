@@ -27,11 +27,16 @@ The runner's original client uses `SUPABASE_SERVICE_ROLE_KEY`. Live grants metad
 
 **Important limitation:** this guard is a code-path defense, not credential-level or database-enforced isolation. The underlying service-role key remains privileged if used outside the wrapper. No claim of hard isolation is made. The guard tests have been committed but have not yet been executed in GitHub Actions in this work session.
 
+## Credential-boundary design added
+
+See [`EXIT_CAND_003_SHADOW_V2_SECURITY_BOUNDARY_DESIGN.md`](EXIT_CAND_003_SHADOW_V2_SECURITY_BOUNDARY_DESIGN.md). The chosen target architecture separates a verified read-only production source credential from a dedicated Shadow sink project. The runner must fail closed if source and sink are not distinct. This is a design document only: no project, role, grant, secret, or database has been provisioned or changed.
+
 ## Remaining blockers
 
-1. A genuine restricted credential or architecture that prevents arbitrary production writes is still required before any live v2 write. Do not rely on the wrapper alone for credential-level security.
-2. Run the focused test workflow and verify all guard tests pass.
-3. Re-run a dry-run against the latest R2 READY date and record the exact genuine T+1 candidate. The previous 2026-10-13 snapshot is stale; do not reuse its candidate count.
-4. Separately approve the first write only after the security boundary and prospective cohort both pass.
+1. Establish a verified production read-only credential and a separately provisioned Shadow sink project. Project provisioning can incur cost and requires organization/cost confirmation; do not provision automatically. Until then, the runner stays dry-run-only.
+2. Refactor to separate source and sink adapters and add isolation tests; the current guard is defense-in-depth only.
+3. Run the focused test workflow and verify all tests pass.
+4. Re-run a dry-run against the latest R2 READY date and record the exact genuine T+1 candidate. The previous 2026-10-13 snapshot is stale; do not reuse its candidate count.
+5. Separately approve any first Shadow v2 write only after the security boundary and prospective cohort both pass.
 
 No production rows, schemas, grants, RLS policies, secrets, or production workflow triggers were changed. No v2 rows were seeded.
