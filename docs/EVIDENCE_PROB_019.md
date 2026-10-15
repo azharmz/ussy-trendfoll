@@ -229,3 +229,17 @@ Findings:
 - The canonical object was modified before the EMA pointer was published, but there is no prior object hash/version and the legacy object is gone. Therefore we **cannot prove** that an overlapping historical adjusted-close value changed, nor conclusively attribute the EMA discrepancy to a rewrite.
 
 The CCTG EMA discrepancy remains proven; its root cause remains **unproven**. Do not write R2 hints, rebuild the production EMA pointer, or alter production solely from this read-only evidence. A future repair must use an isolated, governed path and account for downstream TrendFoll/Pattern Breakout dispatches. The temporary lineage push trigger has been removed; the diagnostic workflow is manual-only.
+
+
+### CCTG checkpoint timeline — 2026-10-16
+
+Read-only audit [run 38816346847](https://github.com/azharmz/ussy-trendfoll/actions/runs/38816346847) passed **106 tests** and compared the current canonical CCTG history with three immutable EMA checkpoints using the same scalar EMA recurrence and official `rtol=1e-8`, `atol=1e-8` tolerance. Artifact: `prob-019-cctg-lineage-6` (ID `12010229211`, SHA256 `7880fe92afa9577ac4e9efbb5c033271678b6a46d493df714a5e2db2eb65e43b`).
+
+Current history, truncated to the checkpoints' own as-of dates, does **not** reproduce any of the three persisted checkpoint states:
+- Full-history rebuild checkpoint, READY cutoff **2026-09-24**, run `36230442129`: EMA20 error `3.1184e-5`; EMA50 `1.4480e-5`; EMA150 `5.1585e-6`; EMA200 `3.9012e-6`.
+- Checkpoint, READY cutoff **2026-10-12**, run `38340167911`: EMA20 error `9.3830e-6`; EMA50 `8.9593e-6`; EMA150 `4.3958e-6`; EMA200 `3.4601e-6`.
+- Checkpoint, READY cutoff **2026-10-13**, run `38504578195`: EMA20 error `8.4894e-6`; EMA50 `8.6080e-6`; EMA150 `4.3376e-6`; EMA200 `3.4256e-6`.
+
+The September 24 checkpoint was produced by a full-history rebuild and passed the upstream equivalence gate at the time. The current canonical history therefore no longer reproduces that previously approved state at the same cutoff. This is strong evidence of **historical-input drift after that checkpoint**, assuming the EMA implementation and price basis remained unchanged; it is not proof of which historical rows changed because the prior canonical object version/hash is unavailable and the legacy object has been deleted.
+
+The discrepancy predates the October 13–14 incremental updates. Do not treat this as a simple last-bar update issue, and do not blindly rebuild the production pointer. Next safe step is to establish whether the current historical adjusted-close sequence changed due to Yahoo retroactive adjustment or an internal backfill, and define a targeted repair with an isolated candidate and downstream dispatch disabled. No production writes were made by these audits. The diagnostic workflow has been restored to `workflow_dispatch` only.
