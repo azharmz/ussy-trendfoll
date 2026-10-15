@@ -97,6 +97,57 @@ def main() -> None:
             "passes_official_tolerance": bool(np.isclose(value, persisted, rtol=1e-8, atol=1e-8)),
         }
 
+    # Compare current history with the immutable Sep 24 READY rolling snapshot.
+    # This can identify changed rows in the READY overlap even though full history versioning is absent.
+    baseline_ready_key = "production/ready/runs/2026-09-24.parquet"
+    baseline_ready_comparison = {"object_key": baseline_ready_key, "available": False}
+    try:
+        ready_response = s3.get_object(Bucket=bucket, Key=baseline_ready_key)
+        ready_bytes = ready_response["Body"].read()
+        ready_frame = pd.read_parquet(BytesIO(ready_bytes), engine="pyarrow")
+        ready_frame["date"] = pd.to_datetime(ready_frame["date"], errors="raise").dt.tz_localize(None).dt.normalize()
+        ready_rows = ready_frame.loc[ready_frame["security_id"].astype(str) == SECURITY_ID]
+        overlap_ready = history.merge(
+            ready_rows[["date", "close", "adj_close"]],
+            on="date",
+            how="inner",
+            suffixes=("_current", "_ready"),
+            validate="one_to_one",
+        )
+        ready_diff_report = {}
+        for column in ("close", "adj_close"):
+            diff = (overlap_ready[column + "_current"].astype(float) - overlap_ready[column + "_ready"].astype(float)).abs()
+            ready_diff_report[column] = {
+                "mismatches_over_1e-10": int((diff > 1e-10).sum()),
+                "max_absolute_difference": float(diff.max()) if len(diff) else None,
+            }
+        changed_ready = overlap_ready.loc[
+            (overlap_ready["close_current"].astype(float) - overlap_ready["close_ready"].astype(float)).abs().gt(1e-10)
+            | (overlap_ready["adj_close_current"].astype(float) - overlap_ready["adj_close_ready"].astype(float)).abs().gt(1e-10),
+            ["date", "close_current", "close_ready", "adj_close_current", "adj_close_ready"],
+        ].head(30)
+        baseline_ready_comparison = {
+            "object_key": baseline_ready_key,
+            "available": True,
+            "last_modified": ready_response.get("LastModified").isoformat() if ready_response.get("LastModified") else None,
+            "sha256": hashlib.sha256(ready_bytes).hexdigest(),
+            "rows_in_ready_snapshot": int(len(ready_rows)),
+            "overlap_rows": int(len(overlap_ready)),
+            "price_comparison": ready_diff_report,
+            "changed_overlap_rows_sample": [
+                {
+                    "date": str(pd.Timestamp(row["date"]).date()),
+                    "close_current": float(row["close_current"]),
+                    "close_ready": float(row["close_ready"]),
+                    "adj_close_current": float(row["adj_close_current"]),
+                    "adj_close_ready": float(row["adj_close_ready"]),
+                }
+                for _, row in changed_ready.iterrows()
+            ],
+        }
+    except Exception as exc:
+        baseline_ready_comparison["read_error"] = str(exc)[:300]
+
     # Compare the current canonical object with the legacy object referenced by the only
     # CCTG bootstrap manifest. This is read-only and can establish whether overlapping
     # adjusted-close history changed between the two stored representations.
@@ -310,6 +361,7 @@ def main() -> None:
         "current_history_object": head,
         "current_history_rows": int(len(history)),
         "legacy_history_comparison": legacy_comparison,
+        "baseline_ready_comparison": baseline_ready_comparison,
         "current_history_first_date": str(history["date"].min().date()),
         "current_history_last_date": str(history["date"].max().date()),
         "shared_ema_pointer": {
