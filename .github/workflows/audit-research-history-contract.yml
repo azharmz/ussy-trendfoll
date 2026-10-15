@@ -5,6 +5,7 @@ on:
   push:
     branches:
       - architecture/research-history-contract
+      - dispatch/prob019-audit
     paths:
       - research_history.py
       - run_research_history_contract_audit.py
