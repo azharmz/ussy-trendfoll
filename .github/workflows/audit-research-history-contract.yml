@@ -2,14 +2,13 @@ name: PROB-019 research history contract
 
 on:
   workflow_dispatch: {}
+  # One-shot isolated trigger for the official-tolerance PROB-019 audit.
+  # Cleanup removes this trigger before deleting the marker.
   push:
     branches:
-      - architecture/research-history-contract
+      - architecture/verify-r2-history-prefix
     paths:
-      - research_history.py
-      - run_research_history_contract_audit.py
-      - tests/test_research_history.py
-      - .github/workflows/audit-research-history-contract.yml
+      - .github/dispatch/prob-019-trigger.txt
 
 jobs:
   audit:
