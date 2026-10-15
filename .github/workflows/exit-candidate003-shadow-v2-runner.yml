@@ -7,18 +7,6 @@ on:
         description: "Exact latest R2 READY market date (YYYY-MM-DD)"
         required: true
         type: string
-      mode:
-        description: "Dry-run reports scope only; write persists v2-only shadow evidence"
-        required: true
-        type: choice
-        options:
-          - dry-run
-          - write
-        default: dry-run
-      write_acknowledgement:
-        description: "For write mode only, enter I_UNDERSTAND_SHADOW_ONLY"
-        required: false
-        type: string
 
 permissions:
   contents: read
@@ -40,16 +28,7 @@ jobs:
           python-version: "3.12"
       - name: Install dependencies
         run: python -m pip install --disable-pip-version-check -r requirements.txt boto3 pyarrow
-      - name: Require explicit write acknowledgement
-        if: ${{ inputs.mode == 'write' }}
-        env:
-          ACK: ${{ inputs.write_acknowledgement }}
-        run: |
-          test "$ACK" = "I_UNDERSTAND_SHADOW_ONLY" || {
-            echo "::error::Write mode requires the exact shadow-only acknowledgement."
-            exit 1
-          }
-      - name: Dry-run / research-only shadow pass
+      - name: Read-only dry-run
         env:
           SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
           SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
@@ -57,10 +36,5 @@ jobs:
           R2_ACCESS_KEY_ID: ${{ secrets.R2_ACCESS_KEY_ID }}
           R2_SECRET_ACCESS_KEY: ${{ secrets.R2_SECRET_ACCESS_KEY }}
           R2_BUCKET_NAME: ${{ secrets.R2_BUCKET_NAME }}
-          USSY_CAND003_SHADOW_V2_WRITE_ACK: ${{ inputs.write_acknowledgement }}
         run: |
-          if [ "${{ inputs.mode }}" = "write" ]; then
-            python run_exit_candidate003_shadow_v2.py --as-of-date "${{ inputs.as_of_date }}" --write
-          else
-            python run_exit_candidate003_shadow_v2.py --as-of-date "${{ inputs.as_of_date }}"
-          fi
+          python run_exit_candidate003_shadow_v2.py --as-of-date "${{ inputs.as_of_date }}"
