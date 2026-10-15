@@ -151,6 +151,131 @@ def main() -> None:
     except Exception as exc:
         legacy_comparison["read_error"] = str(exc)[:300]
 
+    # Compare the immediately preceding immutable EMA run with current canonical history
+    # truncated to that run's own as-of date, to bracket when the drift appeared.
+    prior_ema_key = "production/indicators/ema/runs/run-38504578195-1.parquet"
+    prior_ema_comparison = {"object_key": prior_ema_key, "available": False}
+    try:
+        prior_response = s3.get_object(Bucket=bucket, Key=prior_ema_key)
+        prior_bytes = prior_response["Body"].read()
+        prior_frame = pd.read_parquet(BytesIO(prior_bytes), engine="pyarrow")
+        prior_rows = prior_frame.loc[prior_frame["security_id"].astype(str) == SECURITY_ID]
+        if len(prior_rows) != 1:
+            raise RuntimeError("Expected exactly one CCTG row in prior immutable EMA run")
+        prior_row = prior_rows.iloc[0]
+        prior_cutoff = pd.Timestamp(prior_row["as_of_date"]).tz_localize(None).normalize()
+        prior_history = history.loc[history["date"] <= prior_cutoff].sort_values("date")
+        prior_prices = prior_history["adj_close"].astype(float).tolist()
+        if len(prior_prices) < 200:
+            raise RuntimeError("Prior-cutoff history has fewer than 200 bars")
+        prior_values = {period: prior_prices[0] for period in (20, 50, 150, 200)}
+        for price in prior_prices[1:]:
+            for period in prior_values:
+                alpha = 2.0 / (period + 1.0)
+                prior_values[period] = alpha * price + (1.0 - alpha) * prior_values[period]
+        prior_ema_comparison = {
+            "object_key": prior_ema_key,
+            "available": True,
+            "last_modified": prior_response.get("LastModified").isoformat() if prior_response.get("LastModified") else None,
+            "sha256": hashlib.sha256(prior_bytes).hexdigest(),
+            "prior_as_of_date": str(prior_cutoff.date()),
+            "bars_through_prior_cutoff": len(prior_prices),
+            "current_history_recomputed_vs_prior_persisted": {
+                "ema" + str(period): {
+                    "current_history_value": prior_values[period],
+                    "prior_persisted_value": float(prior_row["ema" + str(period)]),
+                    "absolute_error": abs(prior_values[period] - float(prior_row["ema" + str(period)])),
+                    "passes_official_tolerance": bool(np.isclose(prior_values[period], float(prior_row["ema" + str(period)]), rtol=1e-8, atol=1e-8)),
+                }
+                for period in prior_values
+            },
+        }
+    except Exception as exc:
+        prior_ema_comparison["read_error"] = str(exc)[:300]
+
+    # Add an earlier immutable checkpoint to narrow the first observed drift window.
+    earlier_ema_key = "production/indicators/ema/runs/run-38340167911-1.parquet"
+    earlier_ema_comparison = {"object_key": earlier_ema_key, "available": False}
+    try:
+        earlier_response = s3.get_object(Bucket=bucket, Key=earlier_ema_key)
+        earlier_bytes = earlier_response["Body"].read()
+        earlier_frame = pd.read_parquet(BytesIO(earlier_bytes), engine="pyarrow")
+        earlier_rows = earlier_frame.loc[earlier_frame["security_id"].astype(str) == SECURITY_ID]
+        if len(earlier_rows) != 1:
+            raise RuntimeError("Expected exactly one CCTG row in earlier immutable EMA run")
+        earlier_row = earlier_rows.iloc[0]
+        earlier_cutoff = pd.Timestamp(earlier_row["as_of_date"]).tz_localize(None).normalize()
+        earlier_history = history.loc[history["date"] <= earlier_cutoff].sort_values("date")
+        earlier_prices = earlier_history["adj_close"].astype(float).tolist()
+        if len(earlier_prices) < 200:
+            raise RuntimeError("Earlier-cutoff history has fewer than 200 bars")
+        earlier_values = {period: earlier_prices[0] for period in (20, 50, 150, 200)}
+        for price in earlier_prices[1:]:
+            for period in earlier_values:
+                alpha = 2.0 / (period + 1.0)
+                earlier_values[period] = alpha * price + (1.0 - alpha) * earlier_values[period]
+        earlier_ema_comparison = {
+            "object_key": earlier_ema_key,
+            "available": True,
+            "last_modified": earlier_response.get("LastModified").isoformat() if earlier_response.get("LastModified") else None,
+            "sha256": hashlib.sha256(earlier_bytes).hexdigest(),
+            "as_of_date": str(earlier_cutoff.date()),
+            "bars_through_cutoff": len(earlier_prices),
+            "current_history_recomputed_vs_persisted": {
+                "ema" + str(period): {
+                    "current_history_value": earlier_values[period],
+                    "persisted_value": float(earlier_row["ema" + str(period)]),
+                    "absolute_error": abs(earlier_values[period] - float(earlier_row["ema" + str(period)])),
+                    "passes_official_tolerance": bool(np.isclose(earlier_values[period], float(earlier_row["ema" + str(period)]), rtol=1e-8, atol=1e-8)),
+                }
+                for period in earlier_values
+            },
+        }
+    except Exception as exc:
+        earlier_ema_comparison["read_error"] = str(exc)[:300]
+
+    # Compare the last known full-history rebuild checkpoint to current history.
+    # Upstream run 36230442129 was a full rebuild/equivalence pass at READY cutoff 2026-09-24.
+    baseline_ema_key = "production/indicators/ema/runs/run-36230442129-1.parquet"
+    baseline_ema_comparison = {"object_key": baseline_ema_key, "available": False}
+    try:
+        baseline_response = s3.get_object(Bucket=bucket, Key=baseline_ema_key)
+        baseline_bytes = baseline_response["Body"].read()
+        baseline_frame = pd.read_parquet(BytesIO(baseline_bytes), engine="pyarrow")
+        baseline_rows = baseline_frame.loc[baseline_frame["security_id"].astype(str) == SECURITY_ID]
+        if len(baseline_rows) != 1:
+            raise RuntimeError("Expected exactly one CCTG row in baseline full-rebuild EMA run")
+        baseline_row = baseline_rows.iloc[0]
+        baseline_cutoff = pd.Timestamp(baseline_row["as_of_date"]).tz_localize(None).normalize()
+        baseline_history = history.loc[history["date"] <= baseline_cutoff].sort_values("date")
+        baseline_prices = baseline_history["adj_close"].astype(float).tolist()
+        if len(baseline_prices) < 200:
+            raise RuntimeError("Baseline-cutoff history has fewer than 200 bars")
+        baseline_values = {period: baseline_prices[0] for period in (20, 50, 150, 200)}
+        for price in baseline_prices[1:]:
+            for period in baseline_values:
+                alpha = 2.0 / (period + 1.0)
+                baseline_values[period] = alpha * price + (1.0 - alpha) * baseline_values[period]
+        baseline_ema_comparison = {
+            "object_key": baseline_ema_key,
+            "available": True,
+            "last_modified": baseline_response.get("LastModified").isoformat() if baseline_response.get("LastModified") else None,
+            "sha256": hashlib.sha256(baseline_bytes).hexdigest(),
+            "as_of_date": str(baseline_cutoff.date()),
+            "bars_through_cutoff": len(baseline_prices),
+            "current_history_recomputed_vs_full_rebuild": {
+                "ema" + str(period): {
+                    "current_history_value": baseline_values[period],
+                    "persisted_value": float(baseline_row["ema" + str(period)]),
+                    "absolute_error": abs(baseline_values[period] - float(baseline_row["ema" + str(period)])),
+                    "passes_official_tolerance": bool(np.isclose(baseline_values[period], float(baseline_row["ema" + str(period)]), rtol=1e-8, atol=1e-8)),
+                }
+                for period in baseline_values
+            },
+        }
+    except Exception as exc:
+        baseline_ema_comparison["read_error"] = str(exc)[:300]
+
     keys = list_manifest_keys(s3, bucket)
     matches = []
     errors = []
@@ -199,6 +324,9 @@ def main() -> None:
         "shared_ema_as_of_date": str(cutoff.date()),
         "bars_through_shared_cutoff": int(len(through_cutoff)),
         "ema_comparison_current_history_vs_persisted": ema_comparison,
+        "prior_ema_comparison": prior_ema_comparison,
+        "earlier_ema_comparison": earlier_ema_comparison,
+        "baseline_ema_comparison": baseline_ema_comparison,
         "bootstrap_manifest_prefix": MANIFEST_PREFIX,
         "bootstrap_manifest_count": len(keys),
         "cctg_manifest_record_count": len(matches),
