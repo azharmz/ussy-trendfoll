@@ -1,6 +1,6 @@
 # Evidence — PROB-019 Research History / Pre-roll Architecture Gate
 
-Status: **HISTORICAL ARCHITECTURE GATE RESOLVED; CANONICAL-PREFIX SOURCE PARITY PASS; 100-SECURITY OFFICIAL-TOLERANCE RE-AUDIT PENDING**
+Status: **ARCHITECTURE CONTRACT RESOLVED; OFFICIAL-TOLERANCE RE-AUDIT BLOCKED ON CCTG EMA LINEAGE**
 
 Date locked: 2026-09-15 (Asia/Makassar)
 
@@ -205,3 +205,14 @@ Recorded verifier output:
 - Update counts: bootstrap 1, recursive 1,221, unchanged 12, rebuild 5; forced rebuilds 0.
 
 Interpretation: this confirms the current upstream production candidate passed its own governed equivalence gate on its 56-security verification set. It is strong evidence against a broad current production EMA failure, but **does not substitute for** rerunning the TrendFoll deterministic 100-security research-history comparison against the same official tolerance; the sample sets and audit purpose differ. It also does not establish whether a prior forced history replacement occurred. No production changes were made by the TrendFoll audit work.
+
+
+### Official-tolerance re-audit — 2026-10-16
+
+Run [38813082328](https://github.com/azharmz/ussy-trendfoll/actions/runs/38813082328) passed tests and loaded 100/100 sampled securities, but the official EMA gate returned BLOCKED. Diagnostic run [38813885507](https://github.com/azharmz/ussy-trendfoll/actions/runs/38813885507) passed tests and identified the four failing EMA comparisons as one security: CCTG (`KYG1993R1184`), as of 2026-10-14.
+
+READY/history overlap was exact across 29,976 rows; CCTG latest adjusted close matched at 0.3540000021457672. EMA absolute errors were EMA20 7.6809e-6, EMA50 8.2704e-6, EMA150 4.2801e-6, and EMA200 3.3916e-6, each outside `rtol=1e-8, atol=1e-8`. Price, stack, date, and latest Stage mismatches were all zero. Scalar recurrence produced the same failures.
+
+This proves a current full-history versus persisted EMA discrepancy for CCTG, but not its cause. Historical object rewrite/divergent pre-roll lineage remains a hypothesis. Next: read-only inspect `history/manifests/bootstrap/` for CCTG and correlate any force upload with the shared EMA run lineage. Do not change tolerance, signal semantics, or production EMA/pointers. **PROB-019 remains OPEN.**
+
+Temporary dispatch trigger `dispatch/prob019-audit` was removed after the run; no sibling workflow was observed.
