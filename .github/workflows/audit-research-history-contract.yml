@@ -2,6 +2,13 @@ name: PROB-019 research history contract
 
 on:
   workflow_dispatch: {}
+  # TEMPORARY, isolated dispatch path for the PROB-019 official-tolerance audit.
+  # Remove this push trigger immediately after the one intended run.
+  push:
+    branches:
+      - architecture/verify-r2-history-prefix
+    paths:
+      - .github/dispatch/prob-019-trigger.txt
   push:
     branches:
       - architecture/research-history-contract
