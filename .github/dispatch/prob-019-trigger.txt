@@ -1,1 +1,0 @@
-One-shot PROB-019 official-tolerance audit trigger. Remove after run starts; no production writes are permitted by this audit.
