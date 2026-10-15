@@ -25,6 +25,8 @@ from research_history import (
 
 SAMPLE_SIZE = 100
 SOURCE_TOLERANCE = 0.0025  # same 0.25% compatibility guard used in PROB-018
+EMA_RTOL = 1e-8  # governed by ussy-data/src/verify_ema_equivalence.py
+EMA_ATOL = 1e-8
 OUT = Path("research_history_contract_audit.json")
 
 
@@ -112,12 +114,23 @@ def main() -> None:
     ema_cmp["date_match"] = pd.to_datetime(ema_cmp["date"]).dt.normalize().eq(ema_cmp["as_of_date"])
     ema_numeric_failures = 0
     max_abs_error = {}
+    max_rel_error = {}
+    strict_delta_counts = {}
+    ema_failure_counts = {}
     for period in [20, 50, 150, 200]:
-        diff = (ema_cmp[f"ema{period}_research"] - ema_cmp[f"ema{period}_shared"]).abs()
+        research_values = ema_cmp[f"ema{period}_research"].astype(float)
+        shared_values = ema_cmp[f"ema{period}_shared"].astype(float)
+        diff = (research_values - shared_values).abs()
+        rel = diff / shared_values.abs().replace(0, np.nan)
         max_abs_error[f"ema{period}"] = float(diff.max()) if len(diff) else None
-        ema_numeric_failures += int((diff > 1e-10).sum())
+        max_rel_error[f"ema{period}"] = float(rel.max()) if len(rel.dropna()) else None
+        strict_delta_counts[f"ema{period}"] = int((diff > 1e-10).sum())
+        ema_failure_counts[f"ema{period}"] = int((~np.isclose(research_values, shared_values, rtol=EMA_RTOL, atol=EMA_ATOL)).sum())
+        ema_numeric_failures += ema_failure_counts[f"ema{period}"]
     price_diff = (ema_cmp["close_adj"] - ema_cmp["last_price"]).abs()
-    ema_numeric_failures += int((price_diff > 1e-10).sum())
+    price_failures = int((~np.isclose(ema_cmp["close_adj"], ema_cmp["last_price"], rtol=EMA_RTOL, atol=EMA_ATOL)).sum())
+    strict_price_deltas = int((price_diff > 1e-10).sum())
+    ema_numeric_failures += price_failures
 
     e20 = ema_cmp["ema20_shared"]
     e50 = ema_cmp["ema50_shared"]
@@ -175,6 +188,12 @@ def main() -> None:
             "missing_shared_rows": missing_shared,
             "date_mismatches": int((~ema_cmp["date_match"]).sum()),
             "numeric_failures": int(ema_numeric_failures),
+            "tolerance": {"rtol": EMA_RTOL, "atol": EMA_ATOL, "source": "ussy-data/src/verify_ema_equivalence.py"},
+            "ema_failure_counts_governed_tolerance": ema_failure_counts,
+            "ema_strict_delta_counts_1e-10": strict_delta_counts,
+            "max_relative_error": max_rel_error,
+            "price_failures_governed_tolerance": price_failures,
+            "price_strict_deltas_1e-10": strict_price_deltas,
             "stack_mismatches": stack_mismatches,
             "max_abs_error": max_abs_error,
         },
