@@ -190,3 +190,18 @@ The comparison's purpose is to verify that the historical research path is using
 - No EMA formula, production shared state, trading rule, or signal threshold is changed by this decision.
 
 The audit implementation now emits both the governed-tolerance failure counts and strict `1e-10` delta counts, including a separate scalar-recursion comparison. The canonical-prefix audit must be rerun against live R2 before the result can be marked PASS. Until that run completes, the latest observed audit remains historical evidence of strict deltas and **PROB-019 remains unresolved pending governed-tolerance re-audit**. No production R2 objects or pointers were written by this change.
+
+
+### Upstream production EMA gate observed — 2026-10-15
+
+Read-only inspection of upstream GitHub Actions run [38674582259](https://github.com/azharmz/ussy-data/actions/runs/38674582259) found that the normal production pipeline completed the shared EMA candidate validation and promotion on 2026-10-15. This was an existing upstream run, not dispatched as part of this audit.
+
+Recorded verifier output:
+- READY cutoff: `2026-10-14`; candidate contained 1,239 securities.
+- Equivalence gate: **PASS** for 56 securities (6 required rebuild/bootstrap securities plus 50 sample), with upstream `rtol=1e-8` and `atol=1e-8`.
+- Numeric failures: **0**; classification mismatches: **0**.
+- Maximum absolute error: `3.154966066176712e-09`; maximum relative error: `9.894675466442339e-10`.
+- Candidate was promoted to `production/indicators/ema/runs/run-38674582259-1.parquet`; production pointer updated last, after lineage recheck.
+- Update counts: bootstrap 1, recursive 1,221, unchanged 12, rebuild 5; forced rebuilds 0.
+
+Interpretation: this confirms the current upstream production candidate passed its own governed equivalence gate on its 56-security verification set. It is strong evidence against a broad current production EMA failure, but **does not substitute for** rerunning the TrendFoll deterministic 100-security research-history comparison against the same official tolerance; the sample sets and audit purpose differ. It also does not establish whether a prior forced history replacement occurred. No production changes were made by the TrendFoll audit work.
