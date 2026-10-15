@@ -53,12 +53,29 @@ def main(argv=None):
     positions = (client.table("positions").select("id,symbol,entry_date,realistic_entry_price,atr14_at_entry,status,exit_date,exit_price")
                  .execute().data or [])
     known_ids = {int(row["position_id"]) for row in version_rows}
-    eligible = [p for p in positions if p.get("status") == "active" and p.get("exit_date") is None
-                and p.get("realistic_entry_price") is not None and p.get("atr14_at_entry") is not None
-                and int(p["id"]) not in known_ids]
+    active_missing = [p for p in positions if p.get("status") == "active" and p.get("exit_date") is None
+                      and int(p["id"]) not in known_ids]
+    valid_missing = [p for p in active_missing if p.get("realistic_entry_price") is not None
+                     and p.get("atr14_at_entry") is not None and float(p["atr14_at_entry"]) > 0]
+    t1_today, late_bootstrap, no_post_entry_bar, missing_entry_data = [], [], [], 0
+    for position in valid_missing:
+        if not position.get("entry_date"):
+            missing_entry_data += 1
+            continue
+        history = features[(features["symbol"] == position["symbol"])
+                           & (features["date"] > pd.Timestamp(position["entry_date"]).normalize())]
+        if history.empty:
+            no_post_entry_bar.append(position)
+        elif pd.Timestamp(history["date"].min()).normalize() == as_of:
+            t1_today.append(position)
+        else:
+            late_bootstrap.append(position)
     print(f"[shadow-v2] contract={shadow.SHADOW_CONTRACT_VERSION} as_of={as_of.date()} R2_latest={latest.date()}")
     print(f"[shadow-v2] mode={'WRITE' if args.write else 'DRY-RUN'} active_v2={active_count} "
-          f"active_positions_without_v2={len(eligible)}")
+          f"active_missing_v2={len(active_missing)} valid_missing_v2={len(valid_missing)}")
+    print(f"[shadow-v2] cohort_preview genuine_T1_today={len(t1_today)} "
+          f"late_bootstrap_rejected={len(late_bootstrap)} no_post_entry_bar={len(no_post_entry_bar)} "
+          f"missing_entry_date={missing_entry_data}")
     print("[shadow-v2] production positions are read-only inputs; no production exit/stop/alert/dashboard functions are called.")
     if not args.write:
         print("[shadow-v2] dry-run complete; no database writes attempted.")
