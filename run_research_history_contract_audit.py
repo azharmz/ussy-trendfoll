@@ -217,6 +217,35 @@ def main() -> None:
         status = "BLOCKED"
         reasons.append("NO_ELIGIBLE_RESEARCH_ROWS")
 
+    # Emit exact governed-tolerance failures so a BLOCKED result is actionable.
+    governed_failure_rows = []
+    for _, row in ema_cmp.iterrows():
+        failed_periods = []
+        for period in [20, 50, 150, 200]:
+            research_value = float(row[f"ema{period}_research"])
+            shared_value = float(row[f"ema{period}_shared"])
+            if not np.isclose(research_value, shared_value, rtol=EMA_RTOL, atol=EMA_ATOL):
+                absolute_error = abs(research_value - shared_value)
+                tolerance_bound = EMA_ATOL + EMA_RTOL * abs(shared_value)
+                failed_periods.append({
+                    "period": period,
+                    "research_value": research_value,
+                    "shared_value": shared_value,
+                    "absolute_error": absolute_error,
+                    "tolerance_bound": float(tolerance_bound),
+                    "relative_error": float(absolute_error / abs(shared_value)) if shared_value else None,
+                })
+        if failed_periods:
+            governed_failure_rows.append({
+                "symbol": str(row["symbol"]),
+                "security_id": str(row["security_id"]),
+                "research_date": str(pd.Timestamp(row["date"]).date()),
+                "shared_as_of_date": str(pd.Timestamp(row["as_of_date"]).date()),
+                "research_adj_close": float(row["close_adj"]),
+                "shared_last_price": float(row["last_price"]),
+                "failed_periods": failed_periods,
+            })
+
     summary = {
         "status": status,
         "reasons": reasons,
@@ -242,6 +271,7 @@ def main() -> None:
             "numeric_failures": int(ema_numeric_failures),
             "tolerance": {"rtol": EMA_RTOL, "atol": EMA_ATOL, "source": "ussy-data/src/verify_ema_equivalence.py"},
             "ema_failure_counts_governed_tolerance": ema_failure_counts,
+            "governed_failure_rows": governed_failure_rows,
             "ema_strict_delta_counts_1e-10": strict_delta_counts,
             "max_relative_error": max_rel_error,
             "price_failures_governed_tolerance": price_failures,
