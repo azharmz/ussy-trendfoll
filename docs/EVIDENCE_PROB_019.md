@@ -157,3 +157,28 @@ Observed:
 Interpretation boundary: current READY-overlap prices and latest prices are exact, but this does not establish equality of the entire pre-roll lineage used to build the persisted EMA state. The audit does **not** prove the root cause; stale/divergent historical state lineage remains a hypothesis requiring upstream evidence. Do not loosen the 1e-10 gate or alter feature/strategy semantics to force PASS.
 
 Next action: inspect the upstream shared-EMA manifest and rebuild lineage, then compare its recorded source history/version with the current `history/ohlcv/` objects. Any production EMA rebuild must follow `ussy-governance` and the `ussy-data` production workflow contract; this audit made no production writes.
+
+
+## Upstream EMA lineage trace — 2026-10-15
+
+This section records the upstream evidence inspected after the canonical-prefix re-audit. It narrows the next diagnostic step but does not claim a proven root cause.
+
+### Observed workflow lineage
+
+- [2026-09-26 full rebuild](https://github.com/azharmz/ussy-data/actions/runs/36230442129): the workflow consumed 1,229 EMA equivalence rebuild hints and rebuilt all 1,229 securities from canonical history at READY cutoff **2026-09-24**. The equivalence gate verified **1,229/1,229**, with `max_abs_error = 0.0`, `numeric_failures = 0`, and `classification_mismatches = 0`. The promoted manifest recorded candidate SHA-256 `7f5bc94676d7523410563c639342ed4752222a2e5221a5c362849f1d5d20ab59` and READY SHA-256 `553b67a077d172a947f637e0207bd060c2df4a8b0b40d0037d59bbd1920b15b5`.
+- [2026-09-26 subsequent EMA resume](https://github.com/azharmz/ussy-data/actions/runs/36276196127): the run advanced **zero** rows and left 1,230 rows unchanged at READY cutoff **2026-09-25**. Its sample gate verified 50 securities with `max_abs_error ≈ 1.0763e-8`, zero numeric failures, and zero classification mismatches. The gate used the workflow's default `rtol=1e-8`, `atol=1e-8`.
+- [2026-10-13 production update](https://github.com/azharmz/ussy-data/actions/runs/38340167911): EMA state contained 1,237 securities; 1,222 recursive advances, 13 unchanged rows, 1 new bootstrap, and 1 rebuild. Equivalence checked 52 securities (2 required + sample), passed under the configured tolerance, and reported `max_abs_error ≈ 3.5794e-9`.
+- [2026-10-14 production update](https://github.com/azharmz/ussy-data/actions/runs/38504578195): EMA state contained 1,238 securities; 1,223 recursive advances, 9 unchanged rows, 1 new bootstrap, and 5 rebuilds. Equivalence checked 56 securities (6 required + sample), passed with `max_abs_error ≈ 3.2837e-9`, zero numeric failures, and zero classification mismatches. The promoted READY SHA-256 was `015cdb3bc5217f4823d4d0ca7dce1eaf638b27af4286401b8b3437d11605c4fa`; the EMA date range was 2026-09-03 through 2026-10-13.
+
+### What this establishes — and does not establish
+
+1. Upstream EMA promotion is guarded by numeric equivalence and classification checks, but routine runs verify only required rebuild-hint securities plus a deterministic sample, not every security.
+2. The equivalence defaults are `rtol=1e-8` and `atol=1e-8`, materially looser than this TrendFoll audit's exact-parity threshold of `1e-10`.
+3. The persisted EMA manifest records READY lineage (READY Parquet key and SHA-256) and an update-method label, but does not record per-security canonical-history object hashes/versions used for bootstrap. Therefore the manifest alone cannot prove that the historical input lineage behind every persisted EMA value still matches today's canonical history.
+4. The September 26 full rebuild proves exact parity for that run's cutoff and source state; it does **not** prove parity with canonical history as observed on October 14.
+
+These observations make historical source-version drift and tolerance/coverage differences plausible investigation targets, but neither is yet a proven root cause for the 301 EMA comparisons failing TrendFoll's `1e-10` gate. Do not change EMA formulas, production pointers, tolerances, or trading semantics on this evidence alone.
+
+### Next diagnostic step
+
+Obtain a read-only, reproducible comparison of the current canonical history against the exact history state used by the promoted EMA run, including historical per-security/date changes before each EMA bootstrap. If the original input hashes were never recorded, state that limitation explicitly and use commit/workflow/recovery evidence to bound the earliest possible divergence. Any rebuild must remain a separately governed production operation and must not be triggered as part of this read-only diagnosis.
