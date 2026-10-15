@@ -97,6 +97,36 @@ def main() -> None:
             "passes_official_tolerance": bool(np.isclose(value, persisted, rtol=1e-8, atol=1e-8)),
         }
 
+    # Compare against the frozen Stooq recovery input for the Sep 22 repair.
+    stooq_key = "recovery/stooq-2026-09-25/history/ohlcv/" + SECURITY_ID + ".parquet"
+    stooq_comparison = {"object_key": stooq_key, "available": False}
+    try:
+        stooq_response = s3.get_object(Bucket=bucket, Key=stooq_key)
+        stooq_bytes = stooq_response["Body"].read()
+        stooq_frame = pd.read_parquet(BytesIO(stooq_bytes), engine="pyarrow")
+        stooq_frame["date"] = pd.to_datetime(stooq_frame["date"], errors="raise").dt.tz_localize(None).dt.normalize()
+        target_date = pd.Timestamp("2026-09-22")
+        stooq_rows = stooq_frame.loc[stooq_frame["date"] == target_date]
+        current_rows = history.loc[history["date"] == target_date]
+        stooq_comparison = {
+            "object_key": stooq_key,
+            "available": True,
+            "last_modified": stooq_response.get("LastModified").isoformat() if stooq_response.get("LastModified") else None,
+            "sha256": hashlib.sha256(stooq_bytes).hexdigest(),
+            "stooq_target_row_count": int(len(stooq_rows)),
+            "current_target_row_count": int(len(current_rows)),
+            "stooq_target_rows": [
+                {column: (str(row[column]) if column == "date" else (None if pd.isna(row[column]) else float(row[column]) if isinstance(row[column], (int, float, np.number)) else str(row[column]))) for column in stooq_frame.columns}
+                for _, row in stooq_rows.iterrows()
+            ],
+            "current_target_rows": [
+                {column: (str(row[column]) if column == "date" else (None if pd.isna(row[column]) else float(row[column]) if isinstance(row[column], (int, float, np.number)) else str(row[column]))) for column in history.columns}
+                for _, row in current_rows.iterrows()
+            ],
+        }
+    except Exception as exc:
+        stooq_comparison["read_error"] = str(exc)[:300]
+
     # Compare current history with the immutable Sep 24 READY rolling snapshot.
     # This can identify changed rows in the READY overlap even though full history versioning is absent.
     baseline_ready_key = "production/ready/runs/2026-09-24.parquet"
@@ -362,6 +392,7 @@ def main() -> None:
         "current_history_rows": int(len(history)),
         "legacy_history_comparison": legacy_comparison,
         "baseline_ready_comparison": baseline_ready_comparison,
+        "stooq_recovery_comparison": stooq_comparison,
         "current_history_first_date": str(history["date"].min().date()),
         "current_history_last_date": str(history["date"].max().date()),
         "shared_ema_pointer": {
