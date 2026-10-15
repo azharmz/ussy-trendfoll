@@ -2,12 +2,6 @@ name: PROB-019 CCTG history lineage audit
 
 on:
   workflow_dispatch: {}
-  push:
-    branches:
-      - audit/prob019-cctg-drift-timeline
-    paths:
-      - run_prob019_cctg_lineage_audit.py
-      - .github/workflows/audit-prob019-cctg-lineage.yml
 
 permissions:
   contents: read
