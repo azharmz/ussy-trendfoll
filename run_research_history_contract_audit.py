@@ -252,8 +252,10 @@ def main() -> None:
             "max_abs_error": max_abs_error,
             "recursive_reference": {
                 "shared_rows_compared": int(len(recursive_cmp)),
-                "failure_counts_1e-10": recursive_failure_counts,
+                "failure_counts_governed_tolerance": recursive_failure_counts,
+                "strict_delta_counts_1e-10": recursive_strict_delta_counts,
                 "max_abs_error": recursive_max_abs_error,
+                "max_relative_error": recursive_max_rel_error,
             },
         },
         "latest_stage": {
