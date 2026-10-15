@@ -1,6 +1,11 @@
 name: EXIT-CAND-003 Shadow v2 Focused Tests
 on:
   workflow_dispatch:
+  push:
+    branches: [research/exit-cand-003-shadow-v2-no-time-cap]
+    paths:
+      - run_exit_candidate003_shadow_v2.py
+      - .github/workflows/exit-candidate003-shadow-v2-tests.yml
 jobs:
   shadow-v2-tests:
     runs-on: ubuntu-latest
