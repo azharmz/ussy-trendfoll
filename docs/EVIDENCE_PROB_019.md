@@ -243,3 +243,17 @@ Current history, truncated to the checkpoints' own as-of dates, does **not** rep
 The September 24 checkpoint was produced by a full-history rebuild and passed the upstream equivalence gate at the time. The current canonical history therefore no longer reproduces that previously approved state at the same cutoff. This is strong evidence of **historical-input drift after that checkpoint**, assuming the EMA implementation and price basis remained unchanged; it is not proof of which historical rows changed because the prior canonical object version/hash is unavailable and the legacy object has been deleted.
 
 The discrepancy predates the October 13–14 incremental updates. Do not treat this as a simple last-bar update issue, and do not blindly rebuild the production pointer. Next safe step is to establish whether the current historical adjusted-close sequence changed due to Yahoo retroactive adjustment or an internal backfill, and define a targeted repair with an isolated candidate and downstream dispatch disabled. No production writes were made by these audits. The diagnostic workflow has been restored to `workflow_dispatch` only.
+
+
+### Sep-22 CCTG row source comparison — 2026-10-16
+
+Read-only audit [run 38816932292](https://github.com/azharmz/ussy-trendfoll/actions/runs/38816932292) passed **106 tests** and compared the current CCTG canonical row against the frozen Stooq recovery object `recovery/stooq-2026-09-25/history/ohlcv/KYG1993R1184.parquet`.
+
+For **2026-09-22**:
+- Frozen Stooq recovery row: close/adjusted close **0.5184**, high **0.5401**, low **0.5105**, volume **32,475**.
+- Current canonical history row: close/adjusted close **0.5180000067**, high **0.5400000215**, low **0.5109999776**, volume **32,500**.
+- The current row differs from both the frozen Stooq row and the immutable READY snapshot on the same date (0.5184).
+
+This identifies the input discrepancy as a **source-row replacement**, not floating-point noise. The likely regression path is the production OHLCV updater: `merge_downloaded_history()` concatenates the full Yahoo download overlap and, whenever additions/backfills exist, deduplicates by date with `keep="last"`; downloads begin seven calendar days before the previous last date. That means an existing repaired Sep-22 row can be overwritten by Yahoo's overlapping row when the daily update has new additions. The Sep-26 production run [36236873525](https://github.com/azharmz/ussy-data/actions/runs/36236873525) successfully completed OHLCV and READY, then its EMA validation failed; its READY cutoff was Sep-25, so Sep-22 was inside the seven-day overlap. The exact per-security write is not logged in the retained run evidence, so attribution to that specific run is **high-confidence hypothesis, not proven event-level fact**.
+
+The EMA validator's sample/required-ID selection did not force a CCTG rebuild; later incremental states therefore could preserve the stale EMA. This matches the observed long-lived discrepancy. Remediation should be in `ussy-data`: protect already-present historical rows from provider overwrite unless an explicit reviewed repair is being applied, and make any intentional history-revision manifest produce a rebuild hint for every affected security before EMA promotion. Do not patch CCTG alone as a substitute for fixing this ingestion contract. Production R2 was not modified by this investigation.
