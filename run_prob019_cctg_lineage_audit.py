@@ -97,6 +97,87 @@ def main() -> None:
             "passes_official_tolerance": bool(np.isclose(value, persisted, rtol=1e-8, atol=1e-8)),
         }
 
+    # Compare against the frozen Stooq recovery input for the Sep 22 repair.
+    stooq_key = "recovery/stooq-2026-09-25/history/ohlcv/" + SECURITY_ID + ".parquet"
+    stooq_comparison = {"object_key": stooq_key, "available": False}
+    try:
+        stooq_response = s3.get_object(Bucket=bucket, Key=stooq_key)
+        stooq_bytes = stooq_response["Body"].read()
+        stooq_frame = pd.read_parquet(BytesIO(stooq_bytes), engine="pyarrow")
+        stooq_frame["date"] = pd.to_datetime(stooq_frame["date"], errors="raise").dt.tz_localize(None).dt.normalize()
+        target_date = pd.Timestamp("2026-09-22")
+        stooq_rows = stooq_frame.loc[stooq_frame["date"] == target_date]
+        current_rows = history.loc[history["date"] == target_date]
+        stooq_comparison = {
+            "object_key": stooq_key,
+            "available": True,
+            "last_modified": stooq_response.get("LastModified").isoformat() if stooq_response.get("LastModified") else None,
+            "sha256": hashlib.sha256(stooq_bytes).hexdigest(),
+            "stooq_target_row_count": int(len(stooq_rows)),
+            "current_target_row_count": int(len(current_rows)),
+            "stooq_target_rows": [
+                {column: (str(row[column]) if column == "date" else (None if pd.isna(row[column]) else float(row[column]) if isinstance(row[column], (int, float, np.number)) else str(row[column]))) for column in stooq_frame.columns}
+                for _, row in stooq_rows.iterrows()
+            ],
+            "current_target_rows": [
+                {column: (str(row[column]) if column == "date" else (None if pd.isna(row[column]) else float(row[column]) if isinstance(row[column], (int, float, np.number)) else str(row[column]))) for column in history.columns}
+                for _, row in current_rows.iterrows()
+            ],
+        }
+    except Exception as exc:
+        stooq_comparison["read_error"] = str(exc)[:300]
+
+    # Compare current history with the immutable Sep 24 READY rolling snapshot.
+    # This can identify changed rows in the READY overlap even though full history versioning is absent.
+    baseline_ready_key = "production/ready/runs/2026-09-24.parquet"
+    baseline_ready_comparison = {"object_key": baseline_ready_key, "available": False}
+    try:
+        ready_response = s3.get_object(Bucket=bucket, Key=baseline_ready_key)
+        ready_bytes = ready_response["Body"].read()
+        ready_frame = pd.read_parquet(BytesIO(ready_bytes), engine="pyarrow")
+        ready_frame["date"] = pd.to_datetime(ready_frame["date"], errors="raise").dt.tz_localize(None).dt.normalize()
+        ready_rows = ready_frame.loc[ready_frame["security_id"].astype(str) == SECURITY_ID]
+        overlap_ready = history.merge(
+            ready_rows[["date", "close", "adj_close"]],
+            on="date",
+            how="inner",
+            suffixes=("_current", "_ready"),
+            validate="one_to_one",
+        )
+        ready_diff_report = {}
+        for column in ("close", "adj_close"):
+            diff = (overlap_ready[column + "_current"].astype(float) - overlap_ready[column + "_ready"].astype(float)).abs()
+            ready_diff_report[column] = {
+                "mismatches_over_1e-10": int((diff > 1e-10).sum()),
+                "max_absolute_difference": float(diff.max()) if len(diff) else None,
+            }
+        changed_ready = overlap_ready.loc[
+            (overlap_ready["close_current"].astype(float) - overlap_ready["close_ready"].astype(float)).abs().gt(1e-10)
+            | (overlap_ready["adj_close_current"].astype(float) - overlap_ready["adj_close_ready"].astype(float)).abs().gt(1e-10),
+            ["date", "close_current", "close_ready", "adj_close_current", "adj_close_ready"],
+        ].head(30)
+        baseline_ready_comparison = {
+            "object_key": baseline_ready_key,
+            "available": True,
+            "last_modified": ready_response.get("LastModified").isoformat() if ready_response.get("LastModified") else None,
+            "sha256": hashlib.sha256(ready_bytes).hexdigest(),
+            "rows_in_ready_snapshot": int(len(ready_rows)),
+            "overlap_rows": int(len(overlap_ready)),
+            "price_comparison": ready_diff_report,
+            "changed_overlap_rows_sample": [
+                {
+                    "date": str(pd.Timestamp(row["date"]).date()),
+                    "close_current": float(row["close_current"]),
+                    "close_ready": float(row["close_ready"]),
+                    "adj_close_current": float(row["adj_close_current"]),
+                    "adj_close_ready": float(row["adj_close_ready"]),
+                }
+                for _, row in changed_ready.iterrows()
+            ],
+        }
+    except Exception as exc:
+        baseline_ready_comparison["read_error"] = str(exc)[:300]
+
     # Compare the current canonical object with the legacy object referenced by the only
     # CCTG bootstrap manifest. This is read-only and can establish whether overlapping
     # adjusted-close history changed between the two stored representations.
@@ -151,6 +232,131 @@ def main() -> None:
     except Exception as exc:
         legacy_comparison["read_error"] = str(exc)[:300]
 
+    # Compare the immediately preceding immutable EMA run with current canonical history
+    # truncated to that run's own as-of date, to bracket when the drift appeared.
+    prior_ema_key = "production/indicators/ema/runs/run-38504578195-1.parquet"
+    prior_ema_comparison = {"object_key": prior_ema_key, "available": False}
+    try:
+        prior_response = s3.get_object(Bucket=bucket, Key=prior_ema_key)
+        prior_bytes = prior_response["Body"].read()
+        prior_frame = pd.read_parquet(BytesIO(prior_bytes), engine="pyarrow")
+        prior_rows = prior_frame.loc[prior_frame["security_id"].astype(str) == SECURITY_ID]
+        if len(prior_rows) != 1:
+            raise RuntimeError("Expected exactly one CCTG row in prior immutable EMA run")
+        prior_row = prior_rows.iloc[0]
+        prior_cutoff = pd.Timestamp(prior_row["as_of_date"]).tz_localize(None).normalize()
+        prior_history = history.loc[history["date"] <= prior_cutoff].sort_values("date")
+        prior_prices = prior_history["adj_close"].astype(float).tolist()
+        if len(prior_prices) < 200:
+            raise RuntimeError("Prior-cutoff history has fewer than 200 bars")
+        prior_values = {period: prior_prices[0] for period in (20, 50, 150, 200)}
+        for price in prior_prices[1:]:
+            for period in prior_values:
+                alpha = 2.0 / (period + 1.0)
+                prior_values[period] = alpha * price + (1.0 - alpha) * prior_values[period]
+        prior_ema_comparison = {
+            "object_key": prior_ema_key,
+            "available": True,
+            "last_modified": prior_response.get("LastModified").isoformat() if prior_response.get("LastModified") else None,
+            "sha256": hashlib.sha256(prior_bytes).hexdigest(),
+            "prior_as_of_date": str(prior_cutoff.date()),
+            "bars_through_prior_cutoff": len(prior_prices),
+            "current_history_recomputed_vs_prior_persisted": {
+                "ema" + str(period): {
+                    "current_history_value": prior_values[period],
+                    "prior_persisted_value": float(prior_row["ema" + str(period)]),
+                    "absolute_error": abs(prior_values[period] - float(prior_row["ema" + str(period)])),
+                    "passes_official_tolerance": bool(np.isclose(prior_values[period], float(prior_row["ema" + str(period)]), rtol=1e-8, atol=1e-8)),
+                }
+                for period in prior_values
+            },
+        }
+    except Exception as exc:
+        prior_ema_comparison["read_error"] = str(exc)[:300]
+
+    # Add an earlier immutable checkpoint to narrow the first observed drift window.
+    earlier_ema_key = "production/indicators/ema/runs/run-38340167911-1.parquet"
+    earlier_ema_comparison = {"object_key": earlier_ema_key, "available": False}
+    try:
+        earlier_response = s3.get_object(Bucket=bucket, Key=earlier_ema_key)
+        earlier_bytes = earlier_response["Body"].read()
+        earlier_frame = pd.read_parquet(BytesIO(earlier_bytes), engine="pyarrow")
+        earlier_rows = earlier_frame.loc[earlier_frame["security_id"].astype(str) == SECURITY_ID]
+        if len(earlier_rows) != 1:
+            raise RuntimeError("Expected exactly one CCTG row in earlier immutable EMA run")
+        earlier_row = earlier_rows.iloc[0]
+        earlier_cutoff = pd.Timestamp(earlier_row["as_of_date"]).tz_localize(None).normalize()
+        earlier_history = history.loc[history["date"] <= earlier_cutoff].sort_values("date")
+        earlier_prices = earlier_history["adj_close"].astype(float).tolist()
+        if len(earlier_prices) < 200:
+            raise RuntimeError("Earlier-cutoff history has fewer than 200 bars")
+        earlier_values = {period: earlier_prices[0] for period in (20, 50, 150, 200)}
+        for price in earlier_prices[1:]:
+            for period in earlier_values:
+                alpha = 2.0 / (period + 1.0)
+                earlier_values[period] = alpha * price + (1.0 - alpha) * earlier_values[period]
+        earlier_ema_comparison = {
+            "object_key": earlier_ema_key,
+            "available": True,
+            "last_modified": earlier_response.get("LastModified").isoformat() if earlier_response.get("LastModified") else None,
+            "sha256": hashlib.sha256(earlier_bytes).hexdigest(),
+            "as_of_date": str(earlier_cutoff.date()),
+            "bars_through_cutoff": len(earlier_prices),
+            "current_history_recomputed_vs_persisted": {
+                "ema" + str(period): {
+                    "current_history_value": earlier_values[period],
+                    "persisted_value": float(earlier_row["ema" + str(period)]),
+                    "absolute_error": abs(earlier_values[period] - float(earlier_row["ema" + str(period)])),
+                    "passes_official_tolerance": bool(np.isclose(earlier_values[period], float(earlier_row["ema" + str(period)]), rtol=1e-8, atol=1e-8)),
+                }
+                for period in earlier_values
+            },
+        }
+    except Exception as exc:
+        earlier_ema_comparison["read_error"] = str(exc)[:300]
+
+    # Compare the last known full-history rebuild checkpoint to current history.
+    # Upstream run 36230442129 was a full rebuild/equivalence pass at READY cutoff 2026-09-24.
+    baseline_ema_key = "production/indicators/ema/runs/run-36230442129-1.parquet"
+    baseline_ema_comparison = {"object_key": baseline_ema_key, "available": False}
+    try:
+        baseline_response = s3.get_object(Bucket=bucket, Key=baseline_ema_key)
+        baseline_bytes = baseline_response["Body"].read()
+        baseline_frame = pd.read_parquet(BytesIO(baseline_bytes), engine="pyarrow")
+        baseline_rows = baseline_frame.loc[baseline_frame["security_id"].astype(str) == SECURITY_ID]
+        if len(baseline_rows) != 1:
+            raise RuntimeError("Expected exactly one CCTG row in baseline full-rebuild EMA run")
+        baseline_row = baseline_rows.iloc[0]
+        baseline_cutoff = pd.Timestamp(baseline_row["as_of_date"]).tz_localize(None).normalize()
+        baseline_history = history.loc[history["date"] <= baseline_cutoff].sort_values("date")
+        baseline_prices = baseline_history["adj_close"].astype(float).tolist()
+        if len(baseline_prices) < 200:
+            raise RuntimeError("Baseline-cutoff history has fewer than 200 bars")
+        baseline_values = {period: baseline_prices[0] for period in (20, 50, 150, 200)}
+        for price in baseline_prices[1:]:
+            for period in baseline_values:
+                alpha = 2.0 / (period + 1.0)
+                baseline_values[period] = alpha * price + (1.0 - alpha) * baseline_values[period]
+        baseline_ema_comparison = {
+            "object_key": baseline_ema_key,
+            "available": True,
+            "last_modified": baseline_response.get("LastModified").isoformat() if baseline_response.get("LastModified") else None,
+            "sha256": hashlib.sha256(baseline_bytes).hexdigest(),
+            "as_of_date": str(baseline_cutoff.date()),
+            "bars_through_cutoff": len(baseline_prices),
+            "current_history_recomputed_vs_full_rebuild": {
+                "ema" + str(period): {
+                    "current_history_value": baseline_values[period],
+                    "persisted_value": float(baseline_row["ema" + str(period)]),
+                    "absolute_error": abs(baseline_values[period] - float(baseline_row["ema" + str(period)])),
+                    "passes_official_tolerance": bool(np.isclose(baseline_values[period], float(baseline_row["ema" + str(period)]), rtol=1e-8, atol=1e-8)),
+                }
+                for period in baseline_values
+            },
+        }
+    except Exception as exc:
+        baseline_ema_comparison["read_error"] = str(exc)[:300]
+
     keys = list_manifest_keys(s3, bucket)
     matches = []
     errors = []
@@ -185,6 +391,8 @@ def main() -> None:
         "current_history_object": head,
         "current_history_rows": int(len(history)),
         "legacy_history_comparison": legacy_comparison,
+        "baseline_ready_comparison": baseline_ready_comparison,
+        "stooq_recovery_comparison": stooq_comparison,
         "current_history_first_date": str(history["date"].min().date()),
         "current_history_last_date": str(history["date"].max().date()),
         "shared_ema_pointer": {
@@ -199,6 +407,9 @@ def main() -> None:
         "shared_ema_as_of_date": str(cutoff.date()),
         "bars_through_shared_cutoff": int(len(through_cutoff)),
         "ema_comparison_current_history_vs_persisted": ema_comparison,
+        "prior_ema_comparison": prior_ema_comparison,
+        "earlier_ema_comparison": earlier_ema_comparison,
+        "baseline_ema_comparison": baseline_ema_comparison,
         "bootstrap_manifest_prefix": MANIFEST_PREFIX,
         "bootstrap_manifest_count": len(keys),
         "cctg_manifest_record_count": len(matches),
