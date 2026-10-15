@@ -166,3 +166,16 @@ A follow-up source review found that the 2026-10-14 TrendFoll audit counted ever
 A validation-only branch, `architecture/verify-r2-history-prefix`, was updated to report both strict deltas and failures under the exact upstream tolerance. It has not produced a successful fresh audit result yet; no change from this branch has been merged to main. Until the audit is rerun and the per-period governed-tolerance counts are available, PROB-019's current-prefix parity status remains **UNRESOLVED / RE-AUDIT REQUIRED**, not proven to have a stale-history defect.
 
 No production object, EMA pointer, or strategy rule was changed. Next step: run the validation workflow on the branch or apply the tolerance-aligned diagnostic to main through the normal governed review, then inspect the fresh 100-security result before deciding whether any upstream rebuild is warranted.
+
+
+### Upstream history rewrite semantics — 2026-10-15
+
+Source review of `ussy-data/src/bootstrap_ohlcv.py` confirms the canonical history writer stores one complete provider download at `history/ohlcv/{security_id}.parquet`:
+
+- With the default `--force=false`, an existing object is **skipped**; this bootstrap path does not append or merge new rows into it.
+- With explicit `--force`, the download is normalized and uploaded to the same object key, replacing the prior history object. The per-run manifest records the `force` flag, status, row count, and first/last date, but not a prior-object hash or a history-version lineage identifier.
+- The shared EMA candidate path bootstraps from the current canonical object only for new securities, explicit rebuild hints, or state exceptions; otherwise it advances persisted EMA recursively. The promotion verifier compares the candidate with a fresh bootstrap from the **current** canonical history through the READY cutoff, using `rtol=1e-8` and `atol=1e-8`.
+
+This establishes a plausible mechanism for historical lineage drift if a forced history replacement changes old adjusted-close observations while the persisted EMA remains on its prior recursive lineage. It does **not** establish that such a replacement occurred for the sampled securities: the relevant R2 bootstrap manifests and before/after object versions have not yet been inspected. Do not infer root cause or initiate a rebuild from this code-path finding alone.
+
+Next evidence needed: read-only inspect the R2 `history/manifests/bootstrap/` records for force runs and compare their dates/row counts with the affected canonical objects; then rerun the deterministic 100-security comparison using the official upstream tolerance. No production objects or pointers were written during this source review.
