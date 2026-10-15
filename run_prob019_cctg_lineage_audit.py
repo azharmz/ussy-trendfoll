@@ -97,6 +97,60 @@ def main() -> None:
             "passes_official_tolerance": bool(np.isclose(value, persisted, rtol=1e-8, atol=1e-8)),
         }
 
+    # Compare the current canonical object with the legacy object referenced by the only
+    # CCTG bootstrap manifest. This is read-only and can establish whether overlapping
+    # adjusted-close history changed between the two stored representations.
+    legacy_key = "backtest/ohlcv/" + SECURITY_ID + ".parquet"
+    legacy_comparison = {"object_key": legacy_key, "available": False}
+    try:
+        legacy_response = s3.get_object(Bucket=bucket, Key=legacy_key)
+        legacy_bytes = legacy_response["Body"].read()
+        legacy = pd.read_parquet(BytesIO(legacy_bytes), engine="pyarrow")
+        legacy["date"] = pd.to_datetime(legacy["date"], errors="raise").dt.tz_localize(None).dt.normalize()
+        overlap = history.merge(
+            legacy[["date", "close", "adj_close"]],
+            on="date",
+            how="inner",
+            suffixes=("_current", "_legacy"),
+            validate="one_to_one",
+        )
+        price_diff_report = {}
+        for column in ("close", "adj_close"):
+            diff = (overlap[column + "_current"].astype(float) - overlap[column + "_legacy"].astype(float)).abs()
+            price_diff_report[column] = {
+                "mismatches_over_1e-10": int((diff > 1e-10).sum()),
+                "max_absolute_difference": float(diff.max()) if len(diff) else None,
+            }
+        changed = overlap.loc[
+            (overlap["close_current"].astype(float) - overlap["close_legacy"].astype(float)).abs().gt(1e-10)
+            | (overlap["adj_close_current"].astype(float) - overlap["adj_close_legacy"].astype(float)).abs().gt(1e-10),
+            ["date", "close_current", "close_legacy", "adj_close_current", "adj_close_legacy"],
+        ].head(20)
+        legacy_comparison = {
+            "object_key": legacy_key,
+            "available": True,
+            "last_modified": legacy_response.get("LastModified").isoformat() if legacy_response.get("LastModified") else None,
+            "etag": legacy_response.get("ETag"),
+            "sha256_current_legacy_object": hashlib.sha256(legacy_bytes).hexdigest(),
+            "rows": int(len(legacy)),
+            "first_date": str(legacy["date"].min().date()),
+            "last_date": str(legacy["date"].max().date()),
+            "overlap_rows": int(len(overlap)),
+            "price_comparison": price_diff_report,
+            "changed_overlap_rows_sample": [
+                {
+                    "date": str(pd.Timestamp(row["date"]).date()),
+                    "close_current": float(row["close_current"]),
+                    "close_legacy": float(row["close_legacy"]),
+                    "adj_close_current": float(row["adj_close_current"]),
+                    "adj_close_legacy": float(row["adj_close_legacy"]),
+                }
+                for _, row in changed.iterrows()
+            ],
+        }
+    except Exception as exc:
+        legacy_comparison["read_error"] = str(exc)[:300]
+
     keys = list_manifest_keys(s3, bucket)
     matches = []
     errors = []
@@ -130,6 +184,7 @@ def main() -> None:
         "ticker": TICKER,
         "current_history_object": head,
         "current_history_rows": int(len(history)),
+        "legacy_history_comparison": legacy_comparison,
         "current_history_first_date": str(history["date"].min().date()),
         "current_history_last_date": str(history["date"].max().date()),
         "shared_ema_pointer": {
