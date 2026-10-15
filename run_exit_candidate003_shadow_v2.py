@@ -1,5 +1,5 @@
 """Standalone research-only runner for EXIT-CAND-003 shadow v2.
-Dry-run is the default. Live shadow writes require --write and an explicit acknowledgement.
+Dry-run is the default. Write mode remains gated pending a separate security review.
 This file is never imported by the production main.py pipeline.
 """
 from __future__ import annotations
@@ -10,15 +10,18 @@ import pandas as pd
 import database
 from r2_ready import load_ready_dataset, to_feature_contract
 import exit_candidate003_shadow_v2 as shadow
+from shadow_v2_db_guard import guard_shadow_v2_client
 
 ACK_VALUE = "I_UNDERSTAND_SHADOW_ONLY"
 REQUIRED_COLUMNS = {"symbol", "date", "open_raw", "high_raw", "low_raw", "close_raw", "ema20"}
+
 
 def parse_args(argv=None):
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--as-of-date", required=True, help="Expected latest READY market date (YYYY-MM-DD)")
     parser.add_argument("--write", action="store_true", help="Persist versioned v2 shadow evidence; otherwise dry-run")
     return parser.parse_args(argv)
+
 
 def main(argv=None):
     args = parse_args(argv)
@@ -46,7 +49,9 @@ def main(argv=None):
     if pd.isna(latest) or latest != as_of:
         raise RuntimeError(f"as-of mismatch: requested={as_of.date()} latest_R2_feature_date={latest}")
 
-    client = database.get_client()
+    # Keep the broad service-role client behind an explicit table/method allow-list.
+    # This is a code-path guard, NOT credential-level/database-enforced isolation.
+    client = guard_shadow_v2_client(database.get_client())
     version_rows = (client.table("exit_candidate003_shadow").select("id,position_id,status")
                     .eq("contract_version", shadow.SHADOW_CONTRACT_VERSION).execute().data or [])
     active_count = sum(1 for row in version_rows if row.get("status") == "active")
@@ -84,6 +89,7 @@ def main(argv=None):
     shadow.run_shadow(client, features, as_of, features["date"].unique())
     print("[shadow-v2] write pass complete; inspect row counts and evidence before any further run.")
     return 0
+
 
 if __name__ == "__main__":
     try:
