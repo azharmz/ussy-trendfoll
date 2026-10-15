@@ -179,3 +179,14 @@ Source review of `ussy-data/src/bootstrap_ohlcv.py` confirms the canonical histo
 This establishes a plausible mechanism for historical lineage drift if a forced history replacement changes old adjusted-close observations while the persisted EMA remains on its prior recursive lineage. It does **not** establish that such a replacement occurred for the sampled securities: the relevant R2 bootstrap manifests and before/after object versions have not yet been inspected. Do not infer root cause or initiate a rebuild from this code-path finding alone.
 
 Next evidence needed: read-only inspect the R2 `history/manifests/bootstrap/` records for force runs and compare their dates/row counts with the affected canonical objects; then rerun the deterministic 100-security comparison using the official upstream tolerance. No production objects or pointers were written during this source review.
+
+### Audit gate decision — 2026-10-15
+
+The comparison's purpose is to verify that the historical research path is using the governed production EMA contract, not to demand bit-for-bit identity beyond the upstream production contract. Therefore:
+
+- The blocking numeric gate uses the same `rtol=1e-8` and `atol=1e-8` as `ussy-data/src/verify_ema_equivalence.py`.
+- Absolute deltas above `1e-10` remain reported as strict diagnostics; they are not independently a failure.
+- The audit still blocks on any EMA or adjusted-price comparison outside the upstream tolerance, missing shared rows, date mismatches, EMA-stack/classification mismatches, source incompatibility, or Stage mismatch.
+- No EMA formula, production shared state, trading rule, or signal threshold is changed by this decision.
+
+The audit implementation now emits both the governed-tolerance failure counts and strict `1e-10` delta counts, including a separate scalar-recursion comparison. The canonical-prefix audit must be rerun against live R2 before the result can be marked PASS. Until that run completes, the latest observed audit remains historical evidence of strict deltas and **PROB-019 remains unresolved pending governed-tolerance re-audit**. No production R2 objects or pointers were written by this change.
