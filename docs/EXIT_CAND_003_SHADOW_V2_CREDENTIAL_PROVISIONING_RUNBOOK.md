@@ -2,59 +2,63 @@
 
 Status: **PREPARATION ONLY — NOT EXECUTED**
 
-This runbook prepares the next security step. It does not authorize production DDL, grants, secret changes, project creation, or Shadow writes.
+This runbook reflects the read-only audit in [SAME_PROJECT_ACCESS_AUDIT](EXIT_CAND_003_SHADOW_V2_SAME_PROJECT_ACCESS_AUDIT_2026-10-16.md). No production DDL/DML, secrets, or Shadow writes are authorized by this document.
 
-## Target
+## Decision
 
-- Production source project: `rggtylvlrzzesrtumqzj`
-- Shadow sink: a different Supabase project, to be provisioned only after the owner selects the organization and confirms the quoted cost.
-- Production `service_role` must not be used by the Shadow v2 workflow.
+**Preferred: keep one Supabase project and create a dedicated PostgreSQL login with least-privilege grants and RLS policies.** A separate project is not technically required if the database-enforced access boundary is verified.
 
-## Gate A — production read-only login
+- Production project: `rggtylvlrzzesrtumqzj`
+- Never use production `service_role` for the Shadow v2 runner.
+- Connect with a dedicated PostgreSQL connection/pooler URL, not the Supabase service-role API key.
+- Keep `WRITE_MODE_ENABLED = False` until provisioning, negative tests, current dry-run, and separate approval pass.
 
-Preferred approach: a dedicated PostgreSQL login used through the Supabase database connection/pooler, not a service-role API key. Provisioning must be reviewed and executed separately in the production SQL editor by an authorized operator.
+## Gate A — role and grants (proposal only)
 
-Illustrative SQL template (do not run as-is; choose a unique role name and generate/store the password securely outside source control):
+Use a unique role name and generate the password securely outside source control. This SQL is a review template, not an approved or executed migration:
 
 ```sql
-CREATE ROLE ussy_shadow_v2_reader
+CREATE ROLE ussy_shadow_v2_runner
   WITH LOGIN PASSWORD '<GENERATE_AND_INJECT_SECURELY>'
   NOSUPERUSER NOCREATEDB NOCREATEROLE NOINHERIT;
 
-GRANT CONNECT ON DATABASE postgres TO ussy_shadow_v2_reader;
-GRANT USAGE ON SCHEMA public TO ussy_shadow_v2_reader;
-GRANT SELECT ON TABLE public.positions TO ussy_shadow_v2_reader;
+GRANT CONNECT ON DATABASE postgres TO ussy_shadow_v2_runner;
+GRANT USAGE ON SCHEMA public TO ussy_shadow_v2_runner;
+
+GRANT SELECT ON TABLE public.positions TO ussy_shadow_v2_runner;
+
+GRANT SELECT, INSERT, UPDATE
+  ON TABLE public.exit_candidate003_shadow TO ussy_shadow_v2_runner;
+GRANT SELECT, INSERT
+  ON TABLE public.exit_candidate003_shadow_sessions TO ussy_shadow_v2_runner;
 ```
 
-Important:
-- This is a proposal, not an executed migration. Do not commit a real password.
-- Do not grant membership in `service_role`, `postgres`, or any elevated role.
-- RLS is enabled on some tables in the project. Confirm how it applies to `positions`; if the role cannot see the intended rows, stop and review the RLS design rather than broadening privileges casually.
-- If an RLS exception or `BYPASSRLS` is proposed, require explicit review. The invariant is still that the role has SELECT on `positions` and no write, DDL, role-management, or ownership privileges.
-- Test effective privileges and denied mutations in a controlled transaction/session. Verify `has_table_privilege('ussy_shadow_v2_reader','public.positions','SELECT')` is true and INSERT/UPDATE/DELETE/TRUNCATE are false. Also verify no privileged role memberships and no table ownership.
-- Store the connection URL only as a GitHub Actions secret after verifying that the selected connection mode is reachable from GitHub-hosted runners. Do not print it in logs.
+Do not grant role membership in `anon`, `authenticated`, `service_role`, `postgres`, or any elevated role. Do not grant DELETE/TRUNCATE on Shadow tables, or any mutation on `positions`. Do not grant table ownership, sequence ownership, CREATE privileges, or `BYPASSRLS`.
 
-## Gate B — isolated Shadow sink
+## Gate B — explicit RLS policies (proposal only)
 
-Create a separate Supabase project after confirming organization and cost. Use a distinct URL/project ref and service-role secret for that project only. Create the two Shadow v2 tables there from a reviewed schema contract; do not copy production `positions` into the sink or grant the sink credentials access to the production project.
+RLS is enabled on all three tables. Existing policies only cover SELECT for `anon` and `authenticated`, so the dedicated role needs explicit policies to read positions and perform only the approved Shadow operations. Review exact policy definitions before applying them. Minimum intent:
 
-Required workflow secrets (names are proposals):
-- `PROD_READONLY_DATABASE_URL`
-- `SHADOW_SUPABASE_URL`
-- `SHADOW_SUPABASE_SERVICE_ROLE_KEY`
-- Existing R2 secrets needed to read READY data
+- `positions`: SELECT only, `USING (true)`.
+- `exit_candidate003_shadow`: SELECT, INSERT, UPDATE; INSERT/UPDATE checks must constrain `contract_version = 'exit-cand-003-shadow-v2'`.
+- `exit_candidate003_shadow_sessions`: SELECT and INSERT only; INSERT check must constrain `contract_version = 'exit-cand-003-shadow-v2'`.
 
-Do not configure `SUPABASE_SERVICE_ROLE_KEY` in the Shadow v2 workflow. The runner must compare project refs and fail before database access if source and sink are not distinct.
+Do not use `BYPASSRLS` as a shortcut. Keep existing policies unchanged unless a separately reviewed security fix is approved.
 
-## Gate C — verification
+## Gate C — verify before connecting the runner
 
-1. Provision and verify the restricted production login; do not run the Shadow runner yet.
-2. Provision the isolated sink and verify the project ref is different from production.
-3. Add secrets only after both endpoints have been verified.
-4. Refactor the runner to use separate source and sink adapters. Production source client must expose only the required SELECT; sink client must only point to the isolated project.
-5. Add tests for distinct project refs, missing secret fail-closed behavior, read-only source behavior, and sink-only writes.
-6. Run the manual-only test workflow. No push triggers.
-7. Refresh R2 READY and record the exact as-of date and prospective T+1 cohort in a dry-run.
-8. Obtain separate approval before the first Shadow sink write.
+1. Obtain explicit approval for the production role/policy DDL and have an authorized operator apply the reviewed migration.
+2. Verify `rolsuper=false`, `rolbypassrls=false`, no elevated role memberships, and no ownership.
+3. Verify effective privileges: SELECT on `positions`; no INSERT/UPDATE/DELETE/TRUNCATE on `positions`; only SELECT/INSERT/UPDATE on the main Shadow table; only SELECT/INSERT on the sessions table; no access to unrelated tables.
+4. Test in a controlled session that production mutations, Shadow DELETE/TRUNCATE, and writes to unrelated tables are denied. Verify permitted Shadow operations work and RLS returns the required positions.
+5. Add the direct database/pooler URL as GitHub Actions secret `SHADOW_V2_DATABASE_URL`. Never log it. Do not use `SUPABASE_SERVICE_ROLE_KEY` in the Shadow v2 workflow.
+6. Refactor runner to use this single constrained database connection and retain the Python guard as defense-in-depth.
+7. Run tests manually; no push triggers.
+8. Refresh R2 READY and record the exact current as-of date and genuine prospective T+1 cohort in dry-run.
+9. Obtain separate explicit approval before the first Shadow v2 write.
 
-Until all gates pass, keep `WRITE_MODE_ENABLED = False` and do not seed v2 rows.
+## Fallback
+
+Use a separate Supabase project only if a safe same-project role/policy boundary cannot be implemented or verified. Creating another project may incur cost and is not the default.
+
+Until all gates pass, no v2 writes. This document does not itself authorize production DDL or secret changes.
