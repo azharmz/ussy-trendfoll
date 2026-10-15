@@ -157,3 +157,12 @@ Observed:
 Interpretation boundary: current READY-overlap prices and latest prices are exact, but this does not establish equality of the entire pre-roll lineage used to build the persisted EMA state. The audit does **not** prove the root cause; stale/divergent historical state lineage remains a hypothesis requiring upstream evidence. Do not loosen the 1e-10 gate or alter feature/strategy semantics to force PASS.
 
 Next action: inspect the upstream shared-EMA manifest and rebuild lineage, then compare its recorded source history/version with the current `history/ohlcv/` objects. Any production EMA rebuild must follow `ussy-governance` and the `ussy-data` production workflow contract; this audit made no production writes.
+
+
+### Audit tolerance reconciliation — 2026-10-15
+
+A follow-up source review found that the 2026-10-14 TrendFoll audit counted every EMA absolute delta above `1e-10` as a blocking failure. This is stricter than the upstream promotion contract in `ussy-data/src/verify_ema_equivalence.py`, which uses `np.isclose(..., rtol=1e-8, atol=1e-8)` by default. Therefore the earlier count of 301 is a **strict-delta diagnostic**, not yet a valid determination that the production equivalence gate fails. The maximum absolute delta alone cannot decide the upstream gate because the relative tolerance depends on each EMA's magnitude.
+
+A validation-only branch, `architecture/verify-r2-history-prefix`, was updated to report both strict deltas and failures under the exact upstream tolerance. It has not produced a successful fresh audit result yet; no change from this branch has been merged to main. Until the audit is rerun and the per-period governed-tolerance counts are available, PROB-019's current-prefix parity status remains **UNRESOLVED / RE-AUDIT REQUIRED**, not proven to have a stale-history defect.
+
+No production object, EMA pointer, or strategy rule was changed. Next step: run the validation workflow on the branch or apply the tolerance-aligned diagnostic to main through the normal governed review, then inspect the fresh 100-security result before deciding whether any upstream rebuild is warranted.
