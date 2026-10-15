@@ -123,6 +123,30 @@ The audited ready manifest reported `snapshot_date = 2026-08-28`, while the samp
 
 New historical TrendFoll diagnostics and development backtests may proceed only through this governed research-history contract (or an explicitly equivalent governed successor). Existing frozen evidence is not rewritten retroactively; any rerun under the new contract is a new evidence cycle/version.
 
+## Official-tolerance gate correction — 2026-10-15
+
+The earlier 2026-10-14 workflow run `38560571911` evaluated 100 securities and
+matched the canonical R2 history prefix. Source compatibility had 0 mismatches,
+latest Stage had 0 mismatches, and all 100 shared EMA rows and dates were present.
+The run was nevertheless marked BLOCKED because the gate assembled
+`ema_row_mismatch` using an absolute `1e-10` comparison, despite having already
+computed numeric failures with the governed `np.isclose(rtol=1e-8, atol=1e-8)`
+tolerance.
+
+On 2026-10-15, the audit script was corrected so the gate's EMA-stack row mismatch
+diagnostic uses the official `np.isclose` tolerance. The `1e-10` comparisons
+remain only as diagnostic counters and symbol reports; they no longer decide the
+canonical EMA gate. The audited file was committed on
+`architecture/verify-r2-history-prefix` as
+`42d073bde31d4a6e9f5e871b9df974a2e4dc7a8f`.
+
+The audit workflow is manually dispatchable. Its push trigger only watches
+`architecture/research-history-contract`, not this audit branch. The corrected
+script has **not yet been run** against live R2 after this change. Therefore the
+100-security official-tolerance re-audit is still PENDING and PROB-019 must not
+be closed on this correction alone. Production pointers and production workflows
+were not invoked by this correction.
+
 ## Canonical R2 prefix reconciliation — 2026-10-14
 
 The current `ussy-data` full-history contract uses the canonical object key
