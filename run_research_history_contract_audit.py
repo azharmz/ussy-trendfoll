@@ -25,6 +25,8 @@ from research_history import (
 
 SAMPLE_SIZE = 100
 SOURCE_TOLERANCE = 0.0025  # same 0.25% compatibility guard used in PROB-018
+EMA_RTOL = 1e-8  # governed by ussy-data/src/verify_ema_equivalence.py
+EMA_ATOL = 1e-8
 OUT = Path("research_history_contract_audit.json")
 
 
@@ -34,6 +36,22 @@ def deterministic_sample(authority: pd.DataFrame) -> pd.DataFrame:
         lambda r: hashlib.sha256(f"{r['security_id']}|{r['ticker']}".encode()).hexdigest(), axis=1
     )
     return ranked.sort_values("_rank").head(SAMPLE_SIZE).drop(columns="_rank")
+
+
+def recursive_ema_snapshot(history: pd.DataFrame) -> pd.DataFrame:
+    """Recompute EMA using the exact scalar recurrence used by ussy-data ema_state."""
+    rows = []
+    for security_id, group in history.sort_values("date").groupby("security_id", sort=True):
+        prices = group["adj_close"].astype(float).tolist()
+        if not prices:
+            continue
+        values = {period: prices[0] for period in [20, 50, 150, 200]}
+        for price in prices[1:]:
+            for period in values:
+                alpha = 2.0 / (period + 1.0)
+                values[period] = alpha * price + (1.0 - alpha) * values[period]
+        rows.append({"security_id": str(security_id), **{f"ema{p}": values[p] for p in values}})
+    return pd.DataFrame(rows)
 
 
 def _latest_stage_from_ready(ready_sample: pd.DataFrame) -> pd.DataFrame:
@@ -94,7 +112,8 @@ def main() -> None:
     eligible = evaluation_rows(research)
     latest_research = research.groupby("symbol", sort=False).tail(1).copy()
 
-    # Exact canonical EMA equivalence against the governed production state.
+    # Canonical EMA equivalence uses the same numerical tolerance as the upstream
+    # production promotion gate; exact 1e-10 deltas are diagnostic, not a gate.
     shared, shared_manifest = load_shared_ema_state()
     shared = shared.loc[shared["security_id"].astype(str).isin(sample_ids)].copy()
     shared["as_of_date"] = pd.to_datetime(shared["as_of_date"]).dt.tz_localize(None).dt.normalize()
@@ -112,12 +131,56 @@ def main() -> None:
     ema_cmp["date_match"] = pd.to_datetime(ema_cmp["date"]).dt.normalize().eq(ema_cmp["as_of_date"])
     ema_numeric_failures = 0
     max_abs_error = {}
+    ema_failure_counts = {}
+    strict_delta_counts = {}
+    max_rel_error = {}
     for period in [20, 50, 150, 200]:
-        diff = (ema_cmp[f"ema{period}_research"] - ema_cmp[f"ema{period}_shared"]).abs()
+        research_values = ema_cmp[f"ema{period}_research"].astype(float)
+        shared_values = ema_cmp[f"ema{period}_shared"].astype(float)
+        diff = (research_values - shared_values).abs()
+        rel = diff / shared_values.abs().replace(0, np.nan)
         max_abs_error[f"ema{period}"] = float(diff.max()) if len(diff) else None
-        ema_numeric_failures += int((diff > 1e-10).sum())
+        max_rel_error[f"ema{period}"] = float(rel.max()) if len(rel.dropna()) else None
+        strict_delta_counts[f"ema{period}"] = int((diff > 1e-10).sum())
+        ema_failure_counts[f"ema{period}"] = int((~np.isclose(research_values, shared_values, rtol=EMA_RTOL, atol=EMA_ATOL)).sum())
+        ema_numeric_failures += ema_failure_counts[f"ema{period}"]
     price_diff = (ema_cmp["close_adj"] - ema_cmp["last_price"]).abs()
-    ema_numeric_failures += int((price_diff > 1e-10).sum())
+    price_failures = int((~np.isclose(ema_cmp["close_adj"], ema_cmp["last_price"], rtol=EMA_RTOL, atol=EMA_ATOL)).sum())
+    strict_price_deltas = int((price_diff > 1e-10).sum())
+    ema_numeric_failures += price_failures
+
+    recursive = recursive_ema_snapshot(history)
+    recursive_cmp = recursive.merge(
+        shared[["security_id", "ema20", "ema50", "ema150", "ema200"]],
+        on="security_id", suffixes=("_recursive", "_shared"), how="inner", validate="one_to_one"
+    )
+    recursive_failure_counts = {}
+    recursive_strict_delta_counts = {}
+    recursive_max_abs_error = {}
+    recursive_max_rel_error = {}
+    for period in [20, 50, 150, 200]:
+        reference_values = recursive_cmp[f"ema{period}_recursive"].astype(float)
+        shared_values = recursive_cmp[f"ema{period}_shared"].astype(float)
+        diff = (reference_values - shared_values).abs()
+        rel = diff / shared_values.abs().replace(0, np.nan)
+        recursive_failure_counts[f"ema{period}"] = int((~np.isclose(reference_values, shared_values, rtol=EMA_RTOL, atol=EMA_ATOL)).sum())
+        recursive_strict_delta_counts[f"ema{period}"] = int((diff > 1e-10).sum())
+        recursive_max_abs_error[f"ema{period}"] = float(diff.max()) if len(diff) else None
+        recursive_max_rel_error[f"ema{period}"] = float(rel.max()) if len(rel.dropna()) else None
+
+    source_abs_diff = {}
+    source_exact_mismatches = {}
+    for col in ["close", "adj_close"]:
+        diff = (overlap[f"{col}_history"] - overlap[f"{col}_ready"]).abs()
+        source_abs_diff[col] = float(diff.max()) if len(diff) else None
+        source_exact_mismatches[col] = int((diff > 1e-10).sum())
+    research_ema = ema_cmp[[f"ema{period}_research" for period in [20, 50, 150, 200]]].to_numpy()
+    shared_ema = ema_cmp[[f"ema{period}_shared" for period in [20, 50, 150, 200]]].to_numpy()
+    ema_row_mismatch = np.any(np.abs(research_ema - shared_ema) > 1e-10, axis=1)
+    failing_ema_symbols = ema_cmp.loc[
+        (price_diff > 1e-10) | ema_row_mismatch,
+        ["security_id", "symbol", "date", "as_of_date"]
+    ]["symbol"].astype(str).tolist()
 
     e20 = ema_cmp["ema20_shared"]
     e50 = ema_cmp["ema50_shared"]
@@ -165,6 +228,8 @@ def main() -> None:
         "source_overlap_rows": int(len(overlap)),
         "source_compatible_rows": int(overlap["source_compatible"].sum()),
         "source_mismatches": source_mismatches,
+        "source_exact_mismatches_1e-10": source_exact_mismatches,
+        "source_max_abs_diff": source_abs_diff,
         "source_tolerance": SOURCE_TOLERANCE,
         "research_feature_rows": int(len(research)),
         "research_eligible_rows": int(len(eligible)),
@@ -175,8 +240,23 @@ def main() -> None:
             "missing_shared_rows": missing_shared,
             "date_mismatches": int((~ema_cmp["date_match"]).sum()),
             "numeric_failures": int(ema_numeric_failures),
+            "tolerance": {"rtol": EMA_RTOL, "atol": EMA_ATOL, "source": "ussy-data/src/verify_ema_equivalence.py"},
+            "ema_failure_counts_governed_tolerance": ema_failure_counts,
+            "ema_strict_delta_counts_1e-10": strict_delta_counts,
+            "max_relative_error": max_rel_error,
+            "price_failures_governed_tolerance": price_failures,
+            "price_strict_deltas_1e-10": strict_price_deltas,
+            "max_price_abs_error": float(price_diff.max()) if len(price_diff) else None,
+            "failing_symbols": failing_ema_symbols[:25],
             "stack_mismatches": stack_mismatches,
             "max_abs_error": max_abs_error,
+            "recursive_reference": {
+                "shared_rows_compared": int(len(recursive_cmp)),
+                "failure_counts_governed_tolerance": recursive_failure_counts,
+                "strict_delta_counts_1e-10": recursive_strict_delta_counts,
+                "max_abs_error": recursive_max_abs_error,
+                "max_relative_error": recursive_max_rel_error,
+            },
         },
         "latest_stage": {
             "comparable_symbols": int(len(stage_valid)),
