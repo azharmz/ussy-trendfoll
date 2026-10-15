@@ -36,8 +36,11 @@ The branch's `.github/workflows` directory contains **40 workflow files**. All 4
 ## Dry-run result (2026-10-14)
 
 - Runner [dry-run 38555455926](https://github.com/azharmz/ussy-trendfoll/actions/runs/38555455926) completed successfully using R2 READY date **2026-10-13**, and independently confirmed the latest feature date is also **2026-10-13**.
-- Scope reported: **0 existing active v2 shadows; 19 active production positions without a v2 row**. This is a count-only dry-run, not proof that all 19 positions have valid historical bootstrap coverage.
+- Scope reported: **0 existing active v2 shadows; 21 active production positions without a v2 row; 19 have valid entry/ATR fields**.
+- Prospective-cohort preview: **1 genuine T+1 position** and **18 late-bootstrap positions rejected**. The remaining 2 active positions lack valid entry/ATR data. This prevents retrospective shadow initialization from manufacturing skipped exit evidence.
+- The latest R2 READY date was **2026-10-13**, so the snapshot was stale relative to the current date (2026-10-15). **Do not seed/write v2 using this stale snapshot.** Refresh/verify R2 READY freshness first.
 - Log confirms `mode=DRY-RUN` and `no database writes attempted`. No v2 rows were created; no production state changed.
+- After the cohort-preview runner change, regression workflow [run 38672141509](https://github.com/azharmz/ussy-trendfoll/actions/runs/38672141509) passed: runner/module compile plus **11/11 focused tests**.
 - Runner now computes EMA20 directly from validated R2 READY OHLC rows using the production EMA formula, avoiding unrelated benchmark/sector downloads. The standalone runner is not imported by production `main.py`.
 
 ## Remaining blockers before live observation
