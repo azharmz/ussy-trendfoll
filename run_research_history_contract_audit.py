@@ -176,9 +176,12 @@ def main() -> None:
         source_exact_mismatches[col] = int((diff > 1e-10).sum())
     research_ema = ema_cmp[[f"ema{period}_research" for period in [20, 50, 150, 200]]].to_numpy()
     shared_ema = ema_cmp[[f"ema{period}_shared" for period in [20, 50, 150, 200]]].to_numpy()
-    ema_row_mismatch = np.any(np.abs(research_ema - shared_ema) > 1e-10, axis=1)
+    # Strict deltas are diagnostic only. The gate must use official isclose tolerance.
+    ema_row_mismatch = np.any(
+        ~np.isclose(research_ema, shared_ema, rtol=EMA_RTOL, atol=EMA_ATOL), axis=1
+    )
     failing_ema_symbols = ema_cmp.loc[
-        (price_diff > 1e-10) | ema_row_mismatch,
+        (~np.isclose(ema_cmp["close_adj"], ema_cmp["last_price"], rtol=EMA_RTOL, atol=EMA_ATOL)) | ema_row_mismatch,
         ["security_id", "symbol", "date", "as_of_date"]
     ]["symbol"].astype(str).tolist()
 
