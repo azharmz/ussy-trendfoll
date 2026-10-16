@@ -75,10 +75,10 @@ def compare(calculated, shared_row):
 
 
 def main():
-    from bootstrap_ohlcv import make_s3_client
+    from r2_ready import make_r2_client
     from shared_ema_state import load_shared_ema_state
     bucket = os.environ.get("R2_BUCKET_NAME", "ussy-data")
-    s3 = make_s3_client()
+    s3 = make_r2_client()
     current_body = s3.get_object(Bucket=bucket, Key=CURRENT_KEY)["Body"].read()
     recovery_body = s3.get_object(Bucket=bucket, Key=RECOVERY_KEY)["Body"].read()
     current = normalize(pd.read_parquet(io.BytesIO(current_body)), "current")
