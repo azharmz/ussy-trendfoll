@@ -1,6 +1,6 @@
 # EXIT-CAND-003 Shadow v2 — Credential Provisioning Runbook
 
-Status: **FOCUSED TESTS, CREDENTIAL BOUNDARY, AND CURRENT-DATE READ-ONLY DRY-RUN PASSED; OPERATIONAL RESEARCH REVIEW STILL REQUIRED**
+Status: **FOCUSED TESTS, CREDENTIAL BOUNDARY, AND CURRENT-DATE READ-ONLY DRY-RUN PASSED; PROSPECTIVE COHORT IDENTIFIED; NO WRITE AUTHORIZED**
 
 ## Latest verified run (2026-10-16)
 
@@ -25,7 +25,20 @@ GitHub Actions [run 38884771979](https://github.com/azharmz/ussy-trendfoll/actio
 - Python compilation passed for the isolated runner, module, guard, and database boundary probe.
 - Shadow v2 unit tests: **11 passed**.
 - Database guard allow-list tests: **8 passed**.
-- Checkout log confirms tested research commit:  a96b8590e4725aafad0d198b259a6742febae51e.
+- Checkout log confirms tested research commit: a96b8590e4725aafad0d198b259a6742febae51e.
+
+## Prospective T+1 cohort review (read-only)
+
+A read-only query of active production positions missing a v2 shadow, reconciled with the runner's 2026-10-15 dry-run counts, identifies the sole genuine T+1 candidate:
+
+- Position ID 69, symbol CVX.
+- Production entry date: 2026-10-14.
+- Stored realistic entry price: 222.82000732421875.
+- Stored ATR14 at entry: 4.360460976857928.
+- The runner found the first post-entry R2 bar on 2026-10-15, matching the requested as-of date; this is the one genuine_T1_today candidate.
+- The other 12 valid missing-shadow positions are late-bootstrap candidates and were rejected. No missing post-entry bars or missing entry dates were reported.
+
+This confirms the cohort identity and T+1 date, but is not authorization to write. Before any future write, separately verify the frozen CAND-003 input/stop semantics and all write-path invariants. No shadow rows were created by this review.
 
 ## Decision
 
@@ -60,9 +73,9 @@ Do not use BYPASSRLS as a shortcut. Existing policies for other roles must not b
 
 1. Focused tests are complete and green; no push triggers were added.
 2. Latest R2 READY date is verified as 2026-10-15 by the successful daily pipeline run and matching Shadow v2 dry-run.
-3. Review the prospective cohort before any write authorization. The current preview contains one genuine T+1 candidate, 12 late-bootstrap candidates rejected, and no missing post-entry bars or entry dates.
+3. Prospective cohort identified as CVX position 69 on its genuine T+1 session; no database writes occurred.
 4. Keep WRITE_MODE_ENABLED = False. No first Shadow v2 write is authorized by these successful checks. Require separate explicit approval after the operational research review and governance gate.
 
 ## Safety status
 
-No Shadow v2 writes have been made or authorized. Production exit logic and main.py remain unchanged. Focused tests, credential boundary checks, and a dry-run against the latest verified R2 date passed; prospective cohort review and any later write authorization remain pending.
+No Shadow v2 writes have been made or authorized. Production exit logic and main.py remain unchanged. Focused tests, credential boundary checks, latest-date dry-run, and read-only prospective cohort identification passed. A separate explicit governance decision is still required before any write.
