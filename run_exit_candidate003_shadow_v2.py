@@ -90,6 +90,35 @@ def main(argv=None):
             t1_today.append(position)
         else:
             late_bootstrap.append(position)
+    # Diagnostic only: expose exact first-post-entry market inputs for manual review.
+    # This does not register shadows, persist evidence, or change write-mode gating.
+    for candidate in t1_today:
+        symbol = candidate["symbol"]
+        candidate_id = int(candidate["id"])
+        bar = features[(features["symbol"] == symbol) & (features["date"] == as_of)]
+        if len(bar) != 1:
+            raise RuntimeError(
+                f"Expected exactly one as-of feature row for T+1 candidate "
+                f"position_id={candidate_id} symbol={symbol}; found={len(bar)}"
+            )
+        row = bar.iloc[0]
+        entry_price = float(candidate["realistic_entry_price"])
+        atr14 = float(candidate["atr14_at_entry"])
+        initial_stop = entry_price - shadow.INITIAL_ATR_MULT * atr14
+        low = float(row["low_raw"])
+        close = float(row["close_raw"])
+        ema20 = float(row["ema20"])
+        print(
+            f"[shadow-v2] T1_DIAGNOSTIC position_id={candidate_id} symbol={symbol} "
+            f"bar_date={as_of.date()} open={float(row['open_raw']):.6f} "
+            f"high={float(row['high_raw']):.6f} low={low:.6f} "
+            f"close={close:.6f} ema20={ema20:.6f} "
+            f"entry={entry_price:.6f} atr14_at_entry={atr14:.6f} "
+            f"initial_stop={initial_stop:.6f} "
+            f"low_at_or_below_initial_stop={low <= initial_stop} "
+            f"close_below_ema20={close < ema20}"
+        )
+
     print(f"[shadow-v2] contract={shadow.SHADOW_CONTRACT_VERSION} as_of={as_of.date()} R2_latest={latest.date()}")
     print(f"[shadow-v2] mode=DRY-RUN active_v2={active_count} "
           f"active_missing_v2={len(active_missing)} valid_missing_v2={len(valid_missing)}")
