@@ -73,3 +73,10 @@ Bundle manifest evidence:
 - The workflow has been restored to `workflow_dispatch` only after the intentional isolated run. No production repair was applied.
 
 This is a prepared and verified local candidate, not a production correction. Any apply to canonical history remains blocked pending an explicit governed production-write decision and backup/verification plan. PROB-019 remains **OPEN** until the official 100-security audit is rerun after an authorized correction and reports zero EMA failures.
+
+
+## Sample membership traceability — 2026-10-16
+
+The PROB-019 audit now records the exact ordered membership of the deterministic 100-security sample, each row's SHA-256 selection key, and a SHA-256 fingerprint of the ordered membership. It also records READY snapshot identity fields available in the manifest (schema version, immutable Parquet key, checksum, row count, and security count). This makes the sampled cohort reproducible and lets reviewers distinguish a change in sample membership from a change in audit results.
+
+Selection semantics are unchanged: the cohort is ranked by SHA-256 of `security_id|ticker` and the first 100 are selected. The official EMA tolerance remains `rtol=1e-8, atol=1e-8`. This instrumentation does not change R2 or production state. PROB-019 remains OPEN until a fresh official 100-security audit passes with zero EMA failures.

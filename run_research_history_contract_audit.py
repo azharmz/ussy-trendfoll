@@ -31,11 +31,24 @@ OUT = Path("research_history_contract_audit.json")
 
 
 def deterministic_sample(authority: pd.DataFrame) -> pd.DataFrame:
+    """Select a reproducible SHA256-ranked sample and retain its selection key."""
     ranked = authority.copy()
-    ranked["_rank"] = ranked.apply(
+    ranked["_selection_hash"] = ranked.apply(
         lambda r: hashlib.sha256(f"{r['security_id']}|{r['ticker']}".encode()).hexdigest(), axis=1
     )
-    return ranked.sort_values("_rank").head(SAMPLE_SIZE).drop(columns="_rank")
+    return (
+        ranked.sort_values(["_selection_hash", "security_id", "ticker"])
+        .head(SAMPLE_SIZE)
+        .rename(columns={"_selection_hash": "selection_hash"})
+        .reset_index(drop=True)
+    )
+
+
+def sample_fingerprint(sample: pd.DataFrame) -> str:
+    """Stable digest of the exact ordered sample membership."""
+    rows = sample[["security_id", "ticker", "selection_hash"]].to_dict("records")
+    payload = json.dumps(rows, sort_keys=True, separators=(",", ":"), ensure_ascii=False)
+    return hashlib.sha256(payload.encode("utf-8")).hexdigest()
 
 
 def recursive_ema_snapshot(history: pd.DataFrame) -> pd.DataFrame:
@@ -225,8 +238,25 @@ def main() -> None:
         "reasons": reasons,
         "governance": "OBSERVATIONAL_ARCHITECTURE_GATE_NO_STRATEGY_CHANGE",
         "ready_snapshot_date": ready_manifest.get("snapshot_date"),
+        "ready_snapshot_identity": {
+            "schema_version": ready_manifest.get("schema_version"),
+            "parquet_key": ready_manifest.get("parquet_key"),
+            "sha256": ready_manifest.get("sha256"),
+            "rows": ready_manifest.get("rows"),
+            "security_count": ready_manifest.get("as_of_security_count", len(authority)),
+        },
         "sample_method": "SHA256-ranked deterministic security_id|ticker",
         "sample_size": int(len(sample)),
+        "sample_fingerprint_sha256": sample_fingerprint(sample),
+        "sample_membership": [
+            {
+                "rank": int(rank + 1),
+                "security_id": str(row.security_id),
+                "ticker": str(row.ticker),
+                "selection_hash": str(row.selection_hash),
+            }
+            for rank, row in sample.iterrows()
+        ],
         "history_contract": history_report.__dict__,
         "source_overlap_rows": int(len(overlap)),
         "source_compatible_rows": int(overlap["source_compatible"].sum()),
