@@ -269,3 +269,18 @@ This is a preventive code fix only. It does **not** retroactively restore CCTG S
 ### Deterministic 100-security sample traceability — 2026-10-16
 
 The official audit output records the ordered 100-security membership, each security's SHA-256 selection key, a fingerprint of that ordered membership, and available READY snapshot identity fields. This makes a later audit sample reproducible and its evidence attributable to the exact snapshot. The sample remains SHA-256-ranked, not random. This traceability change does not alter the official EMA tolerance (rtol=1e-8, atol=1e-8), production state, or the OPEN status of PROB-019.
+
+### Controlled CCTG repair path — 2026-10-16
+
+The isolated repair runbook is recorded in `ussy-data` at
+[`docs/CCTG_REPAIR_2026-09-22_RUNBOOK.md`](https://github.com/azharmz/ussy-data/blob/main/docs/CCTG_REPAIR_2026-09-22_RUNBOOK.md),
+merged through PR [#16](https://github.com/azharmz/ussy-data/pull/16).
+
+Frozen repair scope:
+- Restore only CCTG `KYG1993R1184` `adj_close` on 2026-09-22 from the verified Stooq recovery value `0.5184`.
+- Back up and hash-verify the canonical history object before its replacement.
+- Recheck READY/EMA lineage and all source/candidate hashes immediately before any write.
+- Keep downstream dispatch disabled; do not publish new READY/EMA/dashboard pointers for this isolated repair.
+- Rebuild and compare CCTG EMA20/50/150/200 under `rtol=1e-8, atol=1e-8`; existing evidence says the corrected EMA row equals persisted state, so no EMA promotion is justified unless fresh verification changes that conclusion.
+
+The current immutable READY snapshot already contains the verified `0.5184` target value. The remaining production action is the isolated canonical-history write, followed by read-back verification and the official deterministic 100-security PROB-019 audit. **No production write has been executed.** PROB-019 remains **OPEN** until that audit passes with zero failures.
