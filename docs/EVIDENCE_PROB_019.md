@@ -36,10 +36,23 @@ Artifact: [prob-019-research-history-16](https://github.com/azharmz/ussy-trendfo
 
 Prior read-only lineage evidence found that the current canonical CCTG history does not reproduce previously approved persisted EMA checkpoints, including the 2026-09-24 full-history rebuild checkpoint. A source-row comparison also found that the current 2026-09-22 CCTG row differs from the frozen Stooq recovery row and immutable READY snapshot. The likely mechanism is an overlapping Yahoo download replacing a repaired historical row during the normal OHLCV merge, but event-level attribution to a specific write remains a high-confidence hypothesis, not proven.
 
-The discrepancy is proven; its complete root cause is not. Do not loosen EMA tolerance, patch only CCTG's persisted EMA, rebuild the production pointer, or modify production R2 from this audit. The next repair belongs in the upstream `ussy-data` ingestion contract: protect existing historical rows from silent provider overwrite, and ensure an explicitly reviewed history revision generates rebuild hints for every affected security. Prepare and validate that change in an isolated path, with downstream dispatch disabled, before any production action.
+The discrepancy is proven. A read-only counterfactual now shows that replacing only CCTG's 2026-09-22 adjusted-close in memory—from the current canonical value `0.5180000066757202` to the frozen recovery value `0.5184`—reproduces all four persisted EMA values exactly at the 2026-10-14 cutoff. This confirms that the row-value difference is sufficient to explain the EMA discrepancy. The historical write event that changed the canonical row remains unproven. Do not loosen EMA tolerance, rebuild the production pointer, or modify production R2 from this diagnostic. The upstream `ussy-data` overlap-protection fix is already merged on `main` in commit `2141f6180a2ac2a4730b1fe4277f8a6a2a4a59fb` and its isolated test workflow passed; that prevents recurrence but does not repair the existing CCTG history or persisted EMA. Any historical correction/rebuild still requires a separately governed repair plan with downstream dispatch disabled.
 
 ## Governance and current disposition
 
 The temporary branch-specific push trigger was used for one intentional run and is now being removed. The workflow returns to manual-only `workflow_dispatch`; no further compute should be triggered by ordinary commits. The audit was read-only against R2 and did not modify production state.
 
 **PROB-019 remains OPEN.** Closure requires an official-tolerance 100-security audit with zero EMA failures, after the lineage/ingestion discrepancy is resolved and validated.
+
+## CCTG in-memory counterfactual — 2026-10-16
+
+Read-only workflow [38827227580](https://github.com/azharmz/ussy-trendfoll/actions/runs/38827227580) passed **107 repository tests** and completed the counterfactual diagnostic. Artifact: [prob-019-research-history-18](https://github.com/azharmz/ussy-trendfoll/actions/runs/38827227580/artifacts/12014429767), artifact ID `12014429767`, ZIP SHA256 `ae3d43cc38ae3f0a5d48713b8c12257a1fb1917254fd1f750c22c7126fc4467`.
+
+The script read, without writing:
+- current canonical history `history/ohlcv/KYG1993R1184.parquet`, SHA256 `114607d8182240df68954f8eff761046745dcfd3426e39104090033f0e19d842`;
+- frozen recovery history `recovery/stooq-2026-09-25/history/ohlcv/KYG1993R1184.parquet`, SHA256 `049dc36a0341fc43229b30229f92d6947d8d308f4bc626c039a22dc2a53e91c9`;
+- current shared EMA state, as-of `2026-10-14`.
+
+Current-history EMA absolute errors versus shared state were EMA20 `7.6809041154e-6`, EMA50 `8.2704097277e-6`, EMA150 `4.2801099882e-6`, EMA200 `3.3915559445e-6`; all four failed the official tolerance. After replacing only the 2026-09-22 adjusted-close **in memory**, all four EMA values matched the shared state exactly (absolute error `0.0` for each; official-tolerance PASS). No R2 object, pointer, READY snapshot, or production state was modified.
+
+This isolates the numerical cause to the CCTG adjusted-close value on 2026-09-22. It does **not** establish which production write introduced the changed value, and it is not authorization to overwrite canonical history or rebuild the shared EMA pointer. **PROB-019 remains OPEN** pending a governed historical repair/rebuild decision and a fresh 100-security official-tolerance audit with zero failures.
