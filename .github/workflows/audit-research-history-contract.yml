@@ -2,15 +2,6 @@ name: PROB-019 research history contract
 
 on:
   workflow_dispatch: {}
-  push:
-    branches:
-      - architecture/research-history-contract
-      - architecture/verify-r2-history-prefix
-    paths:
-      - research_history.py
-      - run_research_history_contract_audit.py
-      - tests/test_research_history.py
-      - .github/workflows/audit-research-history-contract.yml
 
 jobs:
   audit:
