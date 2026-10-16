@@ -40,6 +40,20 @@ A read-only query of active production positions missing a v2 shadow, reconciled
 
 This confirms the cohort identity and T+1 date, but is not authorization to write. Before any future write, separately verify the frozen CAND-003 input/stop semantics and all write-path invariants. No shadow rows were created by this review.
 
+## Exact T+1 market-input diagnostic (2026-10-16)
+
+GitHub Actions [run 38887790848](https://github.com/azharmz/ussy-trendfoll/actions/runs/38887790848) completed successfully with the diagnostic-only runner on the research branch. The decoded job log confirms:
+
+- Candidate: position ID 69, CVX; bar date: 2026-10-15.
+- OHLC: open 222.820007, high 223.460007, low 218.050003, close 219.320007.
+- Runner EMA20: 211.159545.
+- Entry: 222.820007; ATR14 at entry: 4.360461; frozen initial stop: 214.099085.
+- `low_at_or_below_initial_stop=False`; `close_below_ema20=False`.
+- Interpretation limited to the logged checks: neither the initial stop nor the EMA20 close condition would trigger an exit on 2026-10-15. This does not establish whether the Chandelier ratchet would advance the operative stop, because this diagnostic does not emit HH22/ATR22/Chandelier values.
+- Role/grant boundary checks passed again; the run reports dry-run only and no database writes attempted.
+
+This is evidence for the first observed session only, not permission to register or update a Shadow row. Before any writer review, add/inspect the frozen Chandelier inputs and verify the session-evidence/persistence invariants; keep `WRITE_MODE_ENABLED = False`.
+
 ## Decision
 
 Keep one Supabase project and use the dedicated PostgreSQL login ussy_shadow_v2_runner with least-privilege grants and RLS policies. Do not use production service_role for the Shadow v2 runner.
