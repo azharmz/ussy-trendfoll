@@ -1,0 +1,43 @@
+name: EXIT-CAND-003 Shadow v2 Research Runner
+
+on:
+  workflow_dispatch:
+    inputs:
+      as_of_date:
+        description: "Exact latest R2 READY market date (YYYY-MM-DD)"
+        required: true
+        type: string
+
+permissions:
+  contents: read
+
+concurrency:
+  group: exit-cand-003-shadow-v2-research
+  cancel-in-progress: false
+
+jobs:
+  shadow-v2:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: research/exit-cand-003-shadow-v2-no-time-cap
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - name: Install dependencies
+        run: python -m pip install --disable-pip-version-check -r requirements.txt boto3 pyarrow "psycopg[binary]"
+      - name: Verify least-privilege database boundary
+        env:
+          SHADOW_V2_DATABASE_URL: ${{ secrets.SHADOW_V2_DATABASE_URL }}
+        run: python scripts/check_shadow_v2_db_boundary.py
+      - name: Read-only dry-run
+        env:
+          SHADOW_V2_DATABASE_URL: ${{ secrets.SHADOW_V2_DATABASE_URL }}
+          R2_ENDPOINT: ${{ secrets.R2_ENDPOINT }}
+          R2_ACCESS_KEY_ID: ${{ secrets.R2_ACCESS_KEY_ID }}
+          R2_SECRET_ACCESS_KEY: ${{ secrets.R2_SECRET_ACCESS_KEY }}
+          R2_BUCKET_NAME: ${{ secrets.R2_BUCKET_NAME }}
+        run: |
+          python run_exit_candidate003_shadow_v2.py --as-of-date "${{ inputs.as_of_date }}"
