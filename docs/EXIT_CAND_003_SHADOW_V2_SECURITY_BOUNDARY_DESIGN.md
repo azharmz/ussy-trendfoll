@@ -1,16 +1,18 @@
 # EXIT-CAND-003 Shadow v2 — Credential Boundary Design
 
-Status: **DESIGN ONLY — no credentials added, no database changes, no writes approved**
+Status: **HISTORICAL DESIGN PROPOSAL — credential topology superseded by the 2026-10-16 same-project audit; writes remain disabled**
+
+> **Current source of truth:** `docs/EXIT_CAND_003_SHADOW_V2_SAME_PROJECT_ACCESS_AUDIT_2026-10-16.md` and `docs/EXIT_CAND_003_SHADOW_V2_CREDENTIAL_PROVISIONING_RUNBOOK.md`. The dedicated `ussy_shadow_v2_runner` PostgreSQL login is now provisioned and verified through GitHub Actions run `38887143847`. The runner uses `SHADOW_V2_DATABASE_URL` via the Session Pooler, and credential-level negative checks passed. `WRITE_MODE_ENABLED` remains `False`; no Shadow v2 writes have been authorized.
 
 ## Objective
 
 Make it technically impossible for the Shadow v2 runner's persistence credentials to mutate production `public.positions`, even if the Python allow-list guard is bypassed or the runner contains a bug.
 
-The current runner uses `SUPABASE_SERVICE_ROLE_KEY`. That credential is privileged and can bypass RLS; a Python wrapper is not a security boundary. Do not enable `--write` while that remains true.
+The original proposal below was written before the dedicated PostgreSQL login was provisioned. The current read-only runner does **not** use `SUPABASE_SERVICE_ROLE_KEY`; it connects through `SHADOW_V2_DATABASE_URL`. The verified role is constrained by database grants/RLS. The Python wrapper remains defense-in-depth, not the security boundary. This does not authorize writes.
 
-## Required architecture
+## Original proposed architecture (historical; not the current credential topology)
 
-Use two distinct data-plane credentials and keep the source and sink clients separate:
+The original proposal recommended two distinct data-plane credentials and a separate sink project:
 
 1. **Production source (read-only):** a credential whose effective database grants allow SELECT on `public.positions` only (plus the minimum schema usage required). It must not own the table, be a member of a privileged role, or have INSERT/UPDATE/DELETE/TRUNCATE/DDL privileges. Verify effective privileges in the live database before use. Do not use `service_role` as the source credential.
 2. **Shadow sink (isolated):** a separate Supabase project dedicated to research Shadow v2 tables. Its service-role credential may write only inside that separate project. It must not be the production project's URL/key. Create only the two Shadow v2 tables and required indexes/policies there; do not point it at the production project.
@@ -37,6 +39,6 @@ If a restricted production read credential is not available, the runner must rem
 - [ ] Refresh latest R2 READY, run a dry-run, and verify the genuine T+1 cohort from current data.
 - [ ] Obtain explicit approval for any first Shadow v2 write. Production writes remain prohibited.
 
-## Current state
+## Current state (2026-10-16)
 
-As of 2026-10-15, the runner's `--write` path is disabled. `shadow_v2_db_guard.py` is useful defense-in-depth only; it does not satisfy credential isolation. No production data/schema/grants/secrets were changed and no Shadow v2 rows were written as part of this design.
+The same-project credential design was implemented and verified as documented in `docs/EXIT_CAND_003_SHADOW_V2_SAME_PROJECT_ACCESS_AUDIT_2026-10-16.md` and the credential runbook. GitHub Actions run `38887143847` verified the dedicated login, effective grants, expected denied mutations, current R2 date `2026-10-15`, and a read-only cohort preview. Focused tests passed in run `38884771979` (11 Shadow v2 tests + 8 database guard tests). The runner's `--write` path remains disabled; no Shadow v2 rows have been written or authorized. Any future write requires a separate explicit governance decision and review of the write path.
