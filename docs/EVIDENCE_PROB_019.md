@@ -264,3 +264,8 @@ The EMA validator's sample/required-ID selection did not force a CCTG rebuild; l
 The overlap-overwrite defect is now fixed in `azharmz/ussy-data` PR [#15](https://github.com/azharmz/ussy-data/pull/15), merge commit `2141f618`. The daily updater now appends only genuinely new dates and missing internal sessions; existing canonical dates are preserved during the Yahoo overlap. The full upstream test suite passed **196 tests** in [validation run 38817218791](https://github.com/azharmz/ussy-data/actions/runs/38817218791).
 
 This is a preventive code fix only. It does **not** retroactively restore CCTG Sep-22 from 0.5180 to the frozen Stooq value 0.5184, rebuild the CCTG EMA state, or change any production R2 pointer. PROB-019 remains OPEN pending a separately approved, isolated data repair and EMA revalidation with downstream dispatch disabled.
+
+
+### Deterministic 100-security sample traceability — 2026-10-16
+
+The official audit output records the ordered 100-security membership, each security's SHA-256 selection key, a fingerprint of that ordered membership, and available READY snapshot identity fields. This makes a later audit sample reproducible and its evidence attributable to the exact snapshot. The sample remains SHA-256-ranked, not random. This traceability change does not alter the official EMA tolerance (rtol=1e-8, atol=1e-8), production state, or the OPEN status of PROB-019.
