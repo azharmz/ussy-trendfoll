@@ -56,3 +56,20 @@ The script read, without writing:
 Current-history EMA absolute errors versus shared state were EMA20 `7.6809041154e-6`, EMA50 `8.2704097277e-6`, EMA150 `4.2801099882e-6`, EMA200 `3.3915559445e-6`; all four failed the official tolerance. After replacing only the 2026-09-22 adjusted-close **in memory**, all four EMA values matched the shared state exactly (absolute error `0.0` for each; official-tolerance PASS). No R2 object, pointer, READY snapshot, or production state was modified.
 
 This isolates the numerical cause to the CCTG adjusted-close value on 2026-09-22. It does **not** establish which production write introduced the changed value, and it is not authorization to overwrite canonical history or rebuild the shared EMA pointer. **PROB-019 remains OPEN** pending a governed historical repair/rebuild decision and a fresh 100-security official-tolerance audit with zero failures.
+
+
+## Isolated CCTG correction bundle — 2026-10-16
+
+The `ussy-data` branch [repair/cctg-ema-isolated-bundle](https://github.com/azharmz/ussy-data/tree/repair/cctg-ema-isolated-bundle) now contains a local-only bundle builder and manual-only workflow. Verification run [38831611713](https://github.com/azharmz/ussy-data/actions/runs/38831611713) succeeded; all **4 targeted unit tests passed**. Review artifact [cctg-repair-bundle](https://github.com/azharmz/ussy-data/actions/runs/38831611713/artifacts/12016569911), artifact SHA256 `8ed423ef2a33e778fa979fe1c0c16a7a8e45cf8744aa69eaf95d4a4ef112d07c`.
+
+Bundle manifest evidence:
+
+- Canonical CCTG history SHA256 before correction: `114607d8182240df68954f8eff761046745dcfd3426e39104090033f0e19d842`.
+- Candidate corrected history SHA256: `cb7472c950667a99d5408fb64d3d2da0f2923fafb505dcbb3f3a27fe2e8d2c5f`.
+- Only the 2026-09-22 `adj_close` changes, from `0.5180000066757202` to `0.5184`; the rest of the CCTG row is preserved.
+- Uncorrected full-history EMA fails official tolerance for EMA20/50/150/200; corrected full-history EMA passes all four at `rtol=1e-8, atol=1e-8`.
+- Rebuilt CCTG EMA row matches the currently persisted EMA row, and no other security EMA rows change. Therefore **a production EMA rebuild/promotion is not indicated by this evidence**; the isolated result says the historical row correction alone restores canonical-history equivalence.
+- Bundle status is `LOCAL_CANDIDATE_NOT_PUBLISHED`. R2 writes: **0**; production pointer writes: **0**; downstream dispatch: **DISABLED**.
+- The workflow has been restored to `workflow_dispatch` only after the intentional isolated run. No production repair was applied.
+
+This is a prepared and verified local candidate, not a production correction. Any apply to canonical history remains blocked pending an explicit governed production-write decision and backup/verification plan. PROB-019 remains **OPEN** until the official 100-security audit is rerun after an authorized correction and reports zero EMA failures.
