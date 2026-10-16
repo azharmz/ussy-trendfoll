@@ -4,12 +4,13 @@ This file is never imported by the production main.py pipeline.
 """
 from __future__ import annotations
 import argparse
+import os
 import sys
 import pandas as pd
-import database
+import psycopg
+from psycopg.rows import dict_row
 from r2_ready import load_ready_dataset, to_feature_contract
 import exit_candidate003_shadow_v2 as shadow
-from shadow_v2_db_guard import guard_shadow_v2_client
 
 WRITE_MODE_ENABLED = False
 REQUIRED_COLUMNS = {"symbol", "date", "open_raw", "high_raw", "low_raw", "close_raw", "ema20"}
@@ -22,10 +23,33 @@ def parse_args(argv=None):
     return parser.parse_args(argv)
 
 
+def load_database_inputs():
+    """Read through the dedicated PostgreSQL login; never use service_role/PostgREST."""
+    database_url = os.environ.get("SHADOW_V2_DATABASE_URL")
+    if not database_url:
+        raise RuntimeError("Missing SHADOW_V2_DATABASE_URL; refusing fallback to privileged credentials.")
+    with psycopg.connect(database_url, row_factory=dict_row, connect_timeout=15) as conn:
+        with conn.cursor() as cur:
+            cur.execute(
+                """SELECT id, position_id, status
+                   FROM public.exit_candidate003_shadow
+                   WHERE contract_version = %s""",
+                (shadow.SHADOW_CONTRACT_VERSION,),
+            )
+            version_rows = cur.fetchall()
+            cur.execute(
+                """SELECT id, symbol, entry_date, realistic_entry_price, atr14_at_entry,
+                          status, exit_date, exit_price
+                   FROM public.positions"""
+            )
+            positions = cur.fetchall()
+    return version_rows, positions
+
+
 def main(argv=None):
     args = parse_args(argv)
     if args.write and not WRITE_MODE_ENABLED:
-        raise RuntimeError("Shadow v2 write mode is disabled: verify credential-level database isolation first.")
+        raise RuntimeError("Shadow v2 write mode is disabled: credential-level isolation and approval are still required.")
     as_of = pd.Timestamp(args.as_of_date).normalize()
     if str(as_of.date()) != args.as_of_date:
         raise ValueError("--as-of-date must use exact YYYY-MM-DD format")
@@ -45,15 +69,9 @@ def main(argv=None):
     if pd.isna(latest) or latest != as_of:
         raise RuntimeError(f"as-of mismatch: requested={as_of.date()} latest_R2_feature_date={latest}")
 
-    # The guard narrows intended code paths, but is not a replacement for a
-    # least-privilege database credential. Keep write mode disabled until that
-    # separate credential-level boundary is implemented and verified.
-    client = guard_shadow_v2_client(database.get_client())
-    version_rows = (client.table("exit_candidate003_shadow").select("id,position_id,status")
-                    .eq("contract_version", shadow.SHADOW_CONTRACT_VERSION).execute().data or [])
+    # Direct PostgreSQL login uses database-enforced grants/RLS. No service-role fallback.
+    version_rows, positions = load_database_inputs()
     active_count = sum(1 for row in version_rows if row.get("status") == "active")
-    positions = (client.table("positions").select("id,symbol,entry_date,realistic_entry_price,atr14_at_entry,status,exit_date,exit_price")
-                 .execute().data or [])
     known_ids = {int(row["position_id"]) for row in version_rows}
     active_missing = [p for p in positions if p.get("status") == "active" and p.get("exit_date") is None
                       and int(p["id"]) not in known_ids]
@@ -78,7 +96,7 @@ def main(argv=None):
     print(f"[shadow-v2] cohort_preview genuine_T1_today={len(t1_today)} "
           f"late_bootstrap_rejected={len(late_bootstrap)} no_post_entry_bar={len(no_post_entry_bar)} "
           f"missing_entry_date={missing_entry_data}")
-    print("[shadow-v2] production positions are read-only inputs; no production exit/stop/alert/dashboard functions are called.")
+    print("[shadow-v2] positions read through dedicated PostgreSQL login; no production exit/stop/alert/dashboard functions called.")
     print("[shadow-v2] dry-run complete; no database writes attempted.")
     return 0
 
